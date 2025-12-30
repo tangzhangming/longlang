@@ -56,11 +56,18 @@ const (
 	DOUBLE_COLON TokenType = "::" // :: - 静态方法调用运算符
 	DOT          TokenType = "."  // . - 成员访问运算符
 
+	// 自增自减运算符
+	INCREMENT TokenType = "++" // 自增运算符 ++
+	DECREMENT TokenType = "--" // 自减运算符 --
+
 	// ========== 关键字 ==========
 	FUNCTION TokenType = "FUNCTION" // fn - 函数定义关键字
 	VAR      TokenType = "VAR"      // var - 变量声明关键字
 	IF       TokenType = "IF"       // if - 条件语句关键字
 	ELSE     TokenType = "ELSE"     // else - else 分支关键字
+	FOR      TokenType = "FOR"      // for - 循环关键字
+	BREAK    TokenType = "BREAK"    // break - 跳出循环关键字
+	CONTINUE TokenType = "CONTINUE" // continue - 继续循环关键字
 	RETURN   TokenType = "RETURN"   // return - 返回语句关键字
 	ANY      TokenType = "ANY"      // any - 任意类型关键字
 	VOID     TokenType = "VOID"     // void - 无返回值类型关键字
@@ -96,29 +103,32 @@ type Token struct {
 // keywords 关键字映射表
 // 将字符串关键字映射到对应的 TokenType
 var keywords = map[string]TokenType{
-	"fn":       FUNCTION,
-	"function": FUNCTION, // function 也是函数关键字（用于类方法）
-	"var":      VAR,
-	"if":       IF,
-	"else":     ELSE,
-	"return":   RETURN,
-	"any":      ANY,
-	"void":     VOID,
-	"true":     TRUE,
-	"false":    FALSE,
-	"null":     NULL,
-	"string":   STRING_TYPE,
-	"int":      INT_TYPE,
-	"bool":     BOOL_TYPE,
-	"package":  PACKAGE,
-	"import":   IMPORT,
-	"class":    CLASS,
-	"public":   PUBLIC,
-	"private":  PRIVATE,
+	"fn":        FUNCTION,
+	"function":  FUNCTION, // function 也是函数关键字（用于类方法）
+	"var":       VAR,
+	"if":        IF,
+	"else":      ELSE,
+	"for":       FOR,
+	"break":     BREAK,
+	"continue":  CONTINUE,
+	"return":    RETURN,
+	"any":       ANY,
+	"void":      VOID,
+	"true":      TRUE,
+	"false":     FALSE,
+	"null":      NULL,
+	"string":    STRING_TYPE,
+	"int":       INT_TYPE,
+	"bool":      BOOL_TYPE,
+	"package":   PACKAGE,
+	"import":    IMPORT,
+	"class":     CLASS,
+	"public":    PUBLIC,
+	"private":   PRIVATE,
 	"protected": PROTECTED,
-	"static":   STATIC,
-	"this":     THIS,
-	"new":      NEW,
+	"static":    STATIC,
+	"this":      THIS,
+	"new":       NEW,
 }
 
 // LookupIdent 检查标识符是否是关键字

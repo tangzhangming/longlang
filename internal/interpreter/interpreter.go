@@ -59,6 +59,9 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		i.env.Set(node.Name.Value, val)
 		return val
 	case *parser.ReturnStatement:
+		if node.ReturnValue == nil {
+			return &ReturnValue{Value: &Null{}}
+		}
 		val := i.Eval(node.ReturnValue)
 		if isError(val) {
 			return val
@@ -68,6 +71,14 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalBlockStatement(node)
 	case *parser.IfStatement:
 		return i.evalIfStatement(node)
+	case *parser.ForStatement:
+		return i.evalForStatement(node)
+	case *parser.BreakStatement:
+		return &BreakSignal{}
+	case *parser.ContinueStatement:
+		return &ContinueSignal{}
+	case *parser.IncrementStatement:
+		return i.evalIncrementStatement(node)
 	case *parser.IntegerLiteral:
 		return &Integer{Value: node.Value}
 	case *parser.StringLiteral:
@@ -192,7 +203,7 @@ func (i *Interpreter) evalBlockStatement(block *parser.BlockStatement) Object {
 
 		if result != nil {
 			rt := result.Type()
-			if rt == RETURN_VALUE_OBJ || rt == ERROR_OBJ {
+			if rt == RETURN_VALUE_OBJ || rt == ERROR_OBJ || rt == BREAK_SIGNAL_OBJ || rt == CONTINUE_SIGNAL_OBJ {
 				return result
 			}
 		}
@@ -523,13 +534,14 @@ func (i *Interpreter) evalBlockStatementWithEnv(block *parser.BlockStatement, en
 
 // isTruthy 判断值是否为真（用于 if 语句和三目运算符）
 func isTruthy(obj Object) bool {
-	switch obj {
-	case &Null{}:
+	if obj == nil {
 		return false
-	case &Boolean{Value: true}:
-		return true
-	case &Boolean{Value: false}:
+	}
+	switch o := obj.(type) {
+	case *Null:
 		return false
+	case *Boolean:
+		return o.Value
 	default:
 		return true // 非 null 和非 false 的值都视为真
 	}
@@ -908,5 +920,73 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 	// 执行方法体
 	evaluated := i.evalBlockStatementWithEnv(body, env)
 	return unwrapReturnValue(evaluated)
+}
+
+// evalForStatement 执行 for 循环语句
+func (i *Interpreter) evalForStatement(node *parser.ForStatement) Object {
+	// 执行初始化语句
+	if node.Init != nil {
+		i.Eval(node.Init)
+	}
+
+	for {
+		// 检查条件
+		if node.Condition != nil {
+			condition := i.Eval(node.Condition)
+			if isError(condition) {
+				return condition
+			}
+			if !isTruthy(condition) {
+				break
+			}
+		}
+
+		// 执行循环体
+		result := i.Eval(node.Body)
+
+		// 检查是否有控制流信号
+		if result != nil {
+			switch result.Type() {
+			case BREAK_SIGNAL_OBJ:
+				return nil // break 跳出循环
+			case CONTINUE_SIGNAL_OBJ:
+				// continue 跳过本次迭代，执行 post 语句后继续
+			case RETURN_VALUE_OBJ:
+				return result // return 直接返回
+			case ERROR_OBJ:
+				return result
+			}
+		}
+
+		// 执行 post 语句（如 i++）
+		if node.Post != nil {
+			i.Eval(node.Post)
+		}
+	}
+
+	return nil
+}
+
+// evalIncrementStatement 执行自增/自减语句
+func (i *Interpreter) evalIncrementStatement(node *parser.IncrementStatement) Object {
+	val, ok := i.env.Get(node.Name.Value)
+	if !ok {
+		return newError("未定义的变量: %s", node.Name.Value)
+	}
+
+	intVal, ok := val.(*Integer)
+	if !ok {
+		return newError("自增/自减只能用于整数类型")
+	}
+
+	var newVal int64
+	if node.Operator == "++" {
+		newVal = intVal.Value + 1
+	} else {
+		newVal = intVal.Value - 1
+	}
+
+	i.env.Set(node.Name.Value, &Integer{Value: newVal})
+	return &Integer{Value: newVal}
 }
 

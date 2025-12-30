@@ -96,9 +96,23 @@ func (l *Lexer) NextToken() Token {
 			tok = newToken(ASSIGN, l.ch, l.line, l.column)
 		}
 	case '+':
-		tok = newToken(PLUS, l.ch, l.line, l.column)
+		// 可能是 + 或 ++
+		if l.peekChar() == '+' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: INCREMENT, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(PLUS, l.ch, l.line, l.column)
+		}
 	case '-':
-		tok = newToken(MINUS, l.ch, l.line, l.column)
+		// 可能是 - 或 --
+		if l.peekChar() == '-' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: DECREMENT, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(MINUS, l.ch, l.line, l.column)
+		}
 	case '!':
 		// 可能是 ! 或 !=
 		if l.peekChar() == '=' {

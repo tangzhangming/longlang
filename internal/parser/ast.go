@@ -178,6 +178,69 @@ func (is *IfStatement) String() string {
 	return out
 }
 
+// ForStatement for 循环语句
+// 支持三种形式：
+// 1. for condition { ... }         - while 式循环
+// 2. for { ... }                   - 无限循环
+// 3. for init; condition; post { ... } - 传统 for 循环
+type ForStatement struct {
+	Token     lexer.Token     // for 关键字对应的 token
+	Init      Statement       // 初始化语句（可选）
+	Condition Expression      // 条件表达式（可选，nil 表示无限循环）
+	Post      Statement       // 循环后执行的语句（可选，如 i++）
+	Body      *BlockStatement // 循环体
+}
+
+func (fs *ForStatement) statementNode()       {}
+func (fs *ForStatement) TokenLiteral() string { return fs.Token.Literal }
+func (fs *ForStatement) String() string {
+	var out string
+	out += "for "
+	if fs.Init != nil {
+		out += fs.Init.String() + "; "
+	}
+	if fs.Condition != nil {
+		out += fs.Condition.String()
+	}
+	if fs.Post != nil {
+		out += "; " + fs.Post.String()
+	}
+	out += " " + fs.Body.String()
+	return out
+}
+
+// BreakStatement break 语句
+// 用于跳出 for 循环
+type BreakStatement struct {
+	Token lexer.Token // break 关键字对应的 token
+}
+
+func (bs *BreakStatement) statementNode()       {}
+func (bs *BreakStatement) TokenLiteral() string { return bs.Token.Literal }
+func (bs *BreakStatement) String() string       { return "break" }
+
+// ContinueStatement continue 语句
+// 用于跳过当前循环迭代，继续下一次迭代
+type ContinueStatement struct {
+	Token lexer.Token // continue 关键字对应的 token
+}
+
+func (cs *ContinueStatement) statementNode()       {}
+func (cs *ContinueStatement) TokenLiteral() string { return cs.Token.Literal }
+func (cs *ContinueStatement) String() string       { return "continue" }
+
+// IncrementStatement 自增/自减语句
+// 对应语法：i++ 或 i--
+type IncrementStatement struct {
+	Token    lexer.Token // ++ 或 -- 对应的 token
+	Name     *Identifier // 要自增/自减的变量
+	Operator string      // "++" 或 "--"
+}
+
+func (inc *IncrementStatement) statementNode()       {}
+func (inc *IncrementStatement) TokenLiteral() string { return inc.Token.Literal }
+func (inc *IncrementStatement) String() string       { return inc.Name.String() + inc.Operator }
+
 // ========== 表达式节点 ==========
 
 // FunctionLiteral 函数字面量

@@ -12,18 +12,20 @@ import (
 type ObjectType string
 
 const (
-	INTEGER_OBJ      ObjectType = "INTEGER"      // 整数类型
-	STRING_OBJ       ObjectType = "STRING"       // 字符串类型
-	BOOLEAN_OBJ      ObjectType = "BOOLEAN"      // 布尔类型
-	NULL_OBJ         ObjectType = "NULL"         // null 类型
-	RETURN_VALUE_OBJ ObjectType = "RETURN_VALUE" // 返回值类型（用于函数返回）
-	ERROR_OBJ        ObjectType = "ERROR"        // 错误类型
-	FUNCTION_OBJ     ObjectType = "FUNCTION"     // 函数类型
-	BUILTIN_OBJ      ObjectType = "BUILTIN"      // 内置函数类型
-	ANY_OBJ          ObjectType = "ANY"          // 任意类型（未完全实现）
-	CLASS_OBJ        ObjectType = "CLASS"         // 类类型
-	INSTANCE_OBJ     ObjectType = "INSTANCE"     // 类实例类型
-	PACKAGE_OBJ      ObjectType = "PACKAGE"      // 包类型
+	INTEGER_OBJ        ObjectType = "INTEGER"        // 整数类型
+	STRING_OBJ         ObjectType = "STRING"         // 字符串类型
+	BOOLEAN_OBJ        ObjectType = "BOOLEAN"        // 布尔类型
+	NULL_OBJ           ObjectType = "NULL"           // null 类型
+	RETURN_VALUE_OBJ   ObjectType = "RETURN_VALUE"   // 返回值类型（用于函数返回）
+	ERROR_OBJ          ObjectType = "ERROR"          // 错误类型
+	FUNCTION_OBJ       ObjectType = "FUNCTION"       // 函数类型
+	BUILTIN_OBJ        ObjectType = "BUILTIN"        // 内置函数类型
+	ANY_OBJ            ObjectType = "ANY"            // 任意类型（未完全实现）
+	CLASS_OBJ          ObjectType = "CLASS"          // 类类型
+	INSTANCE_OBJ       ObjectType = "INSTANCE"       // 类实例类型
+	PACKAGE_OBJ        ObjectType = "PACKAGE"        // 包类型
+	BREAK_SIGNAL_OBJ   ObjectType = "BREAK_SIGNAL"   // break 信号
+	CONTINUE_SIGNAL_OBJ ObjectType = "CONTINUE_SIGNAL" // continue 信号
 )
 
 // ========== 对象接口 ==========
@@ -84,6 +86,20 @@ type ReturnValue struct {
 
 func (rv *ReturnValue) Type() ObjectType { return RETURN_VALUE_OBJ }
 func (rv *ReturnValue) Inspect() string  { return rv.Value.Inspect() }
+
+// BreakSignal break 信号对象
+// 用于在 for 循环中处理 break 语句
+type BreakSignal struct{}
+
+func (bs *BreakSignal) Type() ObjectType { return BREAK_SIGNAL_OBJ }
+func (bs *BreakSignal) Inspect() string  { return "break" }
+
+// ContinueSignal continue 信号对象
+// 用于在 for 循环中处理 continue 语句
+type ContinueSignal struct{}
+
+func (cs *ContinueSignal) Type() ObjectType { return CONTINUE_SIGNAL_OBJ }
+func (cs *ContinueSignal) Inspect() string  { return "continue" }
 
 // Error 错误对象
 // 表示运行时错误

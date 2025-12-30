@@ -188,6 +188,11 @@ func (p *Parser) ParseProgram() *Program {
 //
 //	解析后的语句节点，如果解析失败返回 nil
 func (p *Parser) parseStatement() Statement {
+	// 跳过分号
+	for p.curTokenIs(lexer.SEMICOLON) {
+		p.nextToken()
+	}
+
 	switch p.curToken.Type {
 	case lexer.PACKAGE:
 		return p.parsePackageStatement()
@@ -201,8 +206,20 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseReturnStatement()
 	case lexer.IF:
 		return p.parseIfStatement()
+	case lexer.FOR:
+		return p.parseForStatement()
+	case lexer.BREAK:
+		return p.parseBreakStatement()
+	case lexer.CONTINUE:
+		return p.parseContinueStatement()
 	case lexer.FUNCTION:
 		return p.parseFunctionStatement()
+	case lexer.RBRACE:
+		// 如果在 parseStatement 中遇到 }，说明 block 可能解析有问题或者有多余的 }
+		// 这里不报错，返回 nil，由调用者处理
+		return nil
+	case lexer.EOF:
+		return nil
 	case lexer.ILLEGAL:
 		// 遇到非法字符，记录错误并跳过
 		msg := fmt.Sprintf("非法字符: %s (行 %d, 列 %d)", p.curToken.Literal, p.curToken.Line, p.curToken.Column)
@@ -257,6 +274,11 @@ func (p *Parser) parseLetStatement() Statement {
 func (p *Parser) parseReturnStatement() *ReturnStatement {
 	stmt := &ReturnStatement{Token: p.curToken}
 
+	// 如果后面紧跟的是 } 或 ;，说明没有返回值
+	if p.peekTokenIs(lexer.RBRACE) || p.peekTokenIs(lexer.SEMICOLON) {
+		return stmt
+	}
+
 	p.nextToken()
 	stmt.ReturnValue = p.parseExpression(LOWEST)
 
@@ -277,6 +299,17 @@ func (p *Parser) parseExpressionStatement() Statement {
 		}
 		assignStmt.Value = p.parseExpression(LOWEST)
 		return assignStmt
+	}
+
+	// 检查是否是自增/自减语句 i++ 或 i--
+	if p.curToken.Type == lexer.IDENT && (p.peekTokenIs(lexer.INCREMENT) || p.peekTokenIs(lexer.DECREMENT)) {
+		name := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		p.nextToken() // 移动到 ++ 或 --
+		return &IncrementStatement{
+			Token:    p.curToken,
+			Name:     name,
+			Operator: p.curToken.Literal,
+		}
 	}
 
 	// 普通表达式语句
@@ -421,6 +454,112 @@ func (p *Parser) parseIfStatement() *IfStatement {
 	return stmt
 }
 
+// parseForStatement 解析 for 循环语句
+// 支持三种形式：
+// 1. for condition { ... }           - while 式循环
+// 2. for { ... }                     - 无限循环
+// 3. for init; condition; post { ... } - 传统 for 循环
+func (p *Parser) parseForStatement() *ForStatement {
+	stmt := &ForStatement{Token: p.curToken}
+
+	p.nextToken() // 跳过 'for'
+
+	// 检查是否是无限循环：for { ... }
+	if p.curTokenIs(lexer.LBRACE) {
+		stmt.Body = p.parseBlockStatement()
+		return stmt
+	}
+
+	// 检查是否是传统 for 循环：for init; condition; post { ... }
+	// 判断方法：看第一个标识符后是否是 :=（初始化语句）
+	if p.curTokenIs(lexer.IDENT) && p.peekTokenIs(lexer.ASSIGN) && p.peekToken.Literal == ":=" {
+		// 传统 for 循环：for j := 0; j < 5; j++ { ... }
+		stmt.Init = p.parseForInit()
+
+		if !p.curTokenIs(lexer.SEMICOLON) {
+			p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第一个分号 (行 %d)", p.curToken.Line))
+			return nil
+		}
+		p.nextToken() // 跳过第一个分号
+
+		// 解析条件
+		if !p.curTokenIs(lexer.SEMICOLON) {
+			stmt.Condition = p.parseExpression(LOWEST)
+			p.nextToken()
+		}
+
+		if !p.curTokenIs(lexer.SEMICOLON) {
+			p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第二个分号 (行 %d)", p.curToken.Line))
+			return nil
+		}
+		p.nextToken() // 跳过第二个分号
+
+		// 解析 post 语句（如 j++）
+		if !p.curTokenIs(lexer.LBRACE) {
+			stmt.Post = p.parseForPost()
+		}
+	} else {
+		// while 式循环：for condition { ... }
+		stmt.Condition = p.parseExpression(LOWEST)
+		p.nextToken()
+	}
+
+	// 解析循环体
+	if !p.curTokenIs(lexer.LBRACE) {
+		p.errors = append(p.errors, fmt.Sprintf("期望 '{{' 但得到 %s (行 %d)", p.curToken.Literal, p.curToken.Line))
+		return nil
+	}
+	stmt.Body = p.parseBlockStatement()
+
+	return stmt
+}
+
+// parseForInit 解析 for 循环的初始化语句（如 j := 0）
+func (p *Parser) parseForInit() Statement {
+	name := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	p.nextToken() // 跳过变量名
+	p.nextToken() // 跳过 :=
+	assignStmt := &AssignStatement{
+		Token: lexer.Token{Type: lexer.ASSIGN, Literal: ":="},
+		Name:  name,
+	}
+	assignStmt.Value = p.parseExpression(LOWEST)
+	p.nextToken() // 移动到分号
+	return assignStmt
+}
+
+// parseForPost 解析 for 循环的 post 语句（如 j++）
+func (p *Parser) parseForPost() Statement {
+	// 检查是否是 i++ 或 i--
+	if p.curTokenIs(lexer.IDENT) && (p.peekTokenIs(lexer.INCREMENT) || p.peekTokenIs(lexer.DECREMENT)) {
+		name := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		p.nextToken() // 移动到 ++ 或 --
+		stmt := &IncrementStatement{
+			Token:    p.curToken,
+			Name:     name,
+			Operator: p.curToken.Literal,
+		}
+		p.nextToken() // 跳过 ++ 或 --，移动到 {
+		return stmt
+	}
+
+	// 普通表达式
+	stmt := &ExpressionStatement{Token: p.curToken}
+	stmt.Expression = p.parseExpression(LOWEST)
+	p.nextToken()
+	return stmt
+}
+
+// parseBreakStatement 解析 break 语句
+func (p *Parser) parseBreakStatement() *BreakStatement {
+	return &BreakStatement{Token: p.curToken}
+}
+
+// parseContinueStatement 解析 continue 语句
+func (p *Parser) parseContinueStatement() *ContinueStatement {
+	return &ContinueStatement{Token: p.curToken}
+}
+
 // parseBlockStatement 解析块语句
 func (p *Parser) parseBlockStatement() *BlockStatement {
 	block := &BlockStatement{Token: p.curToken}
@@ -464,15 +603,20 @@ func (p *Parser) parseFunctionLiteral() Expression {
 	lit.Parameters = p.parseFunctionParameters()
 
 	// 解析返回类型
+	// 支持两种语法：
+	// 1. fn name():type   - 使用冒号
+	// 2. fn name() type   - 不使用冒号（直接跟类型）
+
+	// 检查是否有冒号
 	if p.peekTokenIs(lexer.COLON) {
-		p.nextToken() // 跳过 :
-		p.nextToken()
+		p.nextToken() // 移动到 :
+		p.nextToken() // 移动到返回类型
 		if p.curTokenIs(lexer.LPAREN) {
 			// 多返回值
 			p.nextToken()
 			lit.ReturnType = []*Identifier{}
-			for !p.curTokenIs(lexer.RPAREN) {
-				if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) {
+			for !p.curTokenIs(lexer.RPAREN) && !p.curTokenIs(lexer.EOF) {
+				if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.IDENT) {
 					lit.ReturnType = append(lit.ReturnType, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
 				}
 				p.nextToken()
@@ -482,10 +626,14 @@ func (p *Parser) parseFunctionLiteral() Expression {
 			}
 		} else {
 			// 单返回值
-			if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.VOID) {
+			if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.VOID) || p.curTokenIs(lexer.IDENT) {
 				lit.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
 			}
 		}
+	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
+		// 不使用冒号的语法 fn name() type
+		p.nextToken() // 移动到返回类型
+		lit.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
 	}
 
 	if !p.expectPeek(lexer.LBRACE) {
