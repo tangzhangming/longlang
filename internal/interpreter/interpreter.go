@@ -138,6 +138,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalAssignmentExpression(node)
 	case *parser.ThisExpression:
 		return i.evalThisExpression()
+	case *parser.StaticCallExpression:
+		return i.evalStaticCallExpression(node)
 	}
 
 	return newError("未知节点类型: %T", node)
@@ -670,6 +672,8 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 		// 创建新的环境，绑定 this
 		constructorEnv := NewEnclosedEnvironment(class.Env)
 		constructorEnv.Set("this", instance)
+		// 在类方法中提供 self（指向当前类），便于 self::xxx 形式的调用
+		constructorEnv.Set("self", class)
 
 		// 绑定参数
 		args := i.evalExpressions(node.Arguments)
@@ -737,6 +741,12 @@ func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpres
 			}
 		}
 		return newError("类 %s 没有静态成员: %s", object.Name, memberName)
+	case *BuiltinObject:
+		// 访问内置对象成员（如 fmt.Println）
+		if member, ok := object.GetField(memberName); ok {
+			return member
+		}
+		return newError("命名空间中没有成员: %s", memberName)
 	default:
 		return newError("无法访问 %s 的成员", obj.Type())
 	}
@@ -805,6 +815,65 @@ func (i *Interpreter) evalThisExpression() Object {
 	return newError("this 只能在类方法中使用")
 }
 
+// evalStaticCallExpression 执行静态方法调用
+func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression) Object {
+	// 获取类定义
+	className := node.ClassName.Value
+	classObj, ok := i.env.Get(className)
+	if !ok {
+		return newError("未定义的类: %s", className)
+	}
+
+	class, ok := classObj.(*Class)
+	if !ok {
+		return newError("%s 不是一个类", className)
+	}
+
+	// 获取静态方法
+	methodName := node.Method.Value
+	method, ok := class.StaticMethods[methodName]
+	if !ok {
+		return newError("类 %s 没有静态方法: %s", className, methodName)
+	}
+
+	// 求值参数
+	args := i.evalExpressions(node.Arguments)
+	if len(args) == 1 && isError(args[0]) {
+		return args[0]
+	}
+
+	// 创建函数环境
+	env := NewEnclosedEnvironment(method.Env)
+	// 在静态方法中提供 self（指向当前类），支持 self::xxx
+	env.Set("self", class)
+
+	// 绑定参数
+	for idx, paramInterface := range method.Parameters {
+		param, ok := paramInterface.(*parser.FunctionParameter)
+		if !ok {
+			continue
+		}
+		var val Object
+		if idx < len(args) {
+			val = args[idx]
+		} else if param.DefaultValue != nil {
+			val = i.Eval(param.DefaultValue)
+		} else {
+			val = &Null{}
+		}
+		env.Set(param.Name.Value, val)
+	}
+
+	// 执行方法体
+	body, ok := method.Body.(*parser.BlockStatement)
+	if !ok {
+		return newError("方法体类型错误")
+	}
+
+	evaluated := i.evalBlockStatementWithEnv(body, env)
+	return unwrapReturnValue(evaluated)
+}
+
 // applyBoundMethod 执行绑定方法
 func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs []parser.CallArgument) Object {
 	method := bm.Method
@@ -816,6 +885,8 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 	// 创建新环境，绑定 this
 	env := NewEnclosedEnvironment(method.Env)
 	env.Set("this", bm.Instance)
+	// 在实例方法中也提供 self（指向该实例所属类），便于 self::xxx
+	env.Set("self", bm.Instance.Class)
 
 	// 绑定参数
 	for idx, paramInterface := range method.Parameters {

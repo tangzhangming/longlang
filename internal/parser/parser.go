@@ -425,9 +425,10 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
 		}
-		// 移动到下一个 token
-		// 注意：如果遇到 RBRACE，不要移动，让循环条件检查
-		if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+		// 移动到下一个 token。
+		// 不能在 curToken==RBRACE 时停住：因为嵌套块（如 if {...}）解析完后 curToken 也会是 RBRACE，
+		// 如果这里不推进，会把“内部块的 }”误当成“外层块结束”，导致外层块提前结束。
+		if !p.curTokenIs(lexer.EOF) {
 			p.nextToken()
 		}
 	}
@@ -769,11 +770,19 @@ func (p *Parser) parseClassMembers() []ClassMember {
 			method := p.parseClassMethod(accessModifier, isStatic)
 			if method != nil {
 				members = append(members, method)
-			}
-			// parseClassMethod 解析完成后，curToken 是方法体的 }
-			// 需要移动到下一个 token（可能是下一个成员的访问修饰符或类的 }）
-			if p.curTokenIs(lexer.RBRACE) {
-				p.nextToken()
+				// parseClassMethod 结束时 curToken 在方法体的 }
+				if p.curTokenIs(lexer.RBRACE) {
+					p.nextToken()
+				}
+			} else {
+				// 解析失败，跳过直到下一个访问修饰符或类结束
+				for !p.curTokenIs(lexer.EOF) &&
+					!p.curTokenIs(lexer.RBRACE) &&
+					!p.curTokenIs(lexer.PUBLIC) &&
+					!p.curTokenIs(lexer.PRIVATE) &&
+					!p.curTokenIs(lexer.PROTECTED) {
+					p.nextToken()
+				}
 			}
 		} else if p.curTokenIs(lexer.IDENT) {
 			// 是成员变量（变量名）
@@ -877,11 +886,13 @@ func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMe
 	// 1. method():type   - 使用冒号
 	// 2. method() type   - 不使用冒号（直接跟类型）
 
-	// 检查 peekToken 是否是返回类型（不带冒号的语法）
-	if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
-		p.nextToken() // 移动到返回类型
-		method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
-	} else if p.peekTokenIs(lexer.COLON) {
+	// 解析返回类型
+	// 支持两种语法：
+	// 1. method():type   - 使用冒号
+	// 2. method() type   - 不使用冒号（直接跟类型）
+
+	// 检查是否有冒号
+	if p.peekTokenIs(lexer.COLON) {
 		// 使用冒号的语法 method():type
 		p.nextToken() // 移动到 :
 		p.nextToken() // 移动到返回类型
@@ -905,6 +916,10 @@ func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMe
 				method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
 			}
 		}
+	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
+		// 不使用冒号的语法 method() type
+		p.nextToken() // 移动到返回类型
+		method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
 	}
 
 	// 现在期望下一个 token 是 {

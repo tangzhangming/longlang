@@ -264,21 +264,14 @@ func newToken(tokenType TokenType, ch byte, line, column int) Token {
 	}
 }
 
-// readIdentifier 读取标识符（支持点号用于成员访问，如 fmt.Println）
-// 标识符可以包含字母、数字、下划线和点号
-// 点号后面必须跟着字母或数字
+// readIdentifier 读取标识符
+// 标识符可以包含字母、数字和下划线
+// 点号不再包含在标识符中，而是作为单独的 DOT token 处理
 // 返回:
 //   标识符字符串
 func (l *Lexer) readIdentifier() string {
 	position := l.position
-	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' || l.ch == '.' {
-		// 如果遇到点号，检查下一个字符是否是字母或数字
-		if l.ch == '.' {
-			if !isLetter(l.peekChar()) && !isDigit(l.peekChar()) {
-				// 点号后面不是标识符，停止读取
-				break
-			}
-		}
+	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' {
 		l.readChar()
 	}
 	return l.input[position:l.position]
