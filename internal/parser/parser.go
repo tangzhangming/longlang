@@ -359,7 +359,7 @@ func (p *Parser) parseIntegerLiteral() Expression {
 
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
-		msg := fmt.Sprintf("无法将 %q 解析为整数", p.curToken.Literal)
+		msg := fmt.Sprintf("无法将 %q 解析为整数 (行 %d, 列 %d)", p.curToken.Literal, p.curToken.Line, p.curToken.Column)
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -373,7 +373,7 @@ func (p *Parser) parseFloatLiteral() Expression {
 
 	value, err := strconv.ParseFloat(p.curToken.Literal, 64)
 	if err != nil {
-		msg := fmt.Sprintf("无法将 %q 解析为浮点数", p.curToken.Literal)
+		msg := fmt.Sprintf("无法将 %q 解析为浮点数 (行 %d, 列 %d)", p.curToken.Literal, p.curToken.Line, p.curToken.Column)
 		p.errors = append(p.errors, msg)
 		return nil
 	}
@@ -492,7 +492,7 @@ func (p *Parser) parseForStatement() *ForStatement {
 		stmt.Init = p.parseForInit()
 
 		if !p.curTokenIs(lexer.SEMICOLON) {
-			p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第一个分号 (行 %d)", p.curToken.Line))
+			p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第一个分号 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 			return nil
 		}
 		p.nextToken() // 跳过第一个分号
@@ -504,7 +504,7 @@ func (p *Parser) parseForStatement() *ForStatement {
 		}
 
 		if !p.curTokenIs(lexer.SEMICOLON) {
-			p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第二个分号 (行 %d)", p.curToken.Line))
+			p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第二个分号 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 			return nil
 		}
 		p.nextToken() // 跳过第二个分号
@@ -521,7 +521,7 @@ func (p *Parser) parseForStatement() *ForStatement {
 
 	// 解析循环体
 	if !p.curTokenIs(lexer.LBRACE) {
-		p.errors = append(p.errors, fmt.Sprintf("期望 '{{' 但得到 %s (行 %d)", p.curToken.Literal, p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("期望 '{' 但得到 %s (行 %d, 列 %d)", p.curToken.Literal, p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 	stmt.Body = p.parseBlockStatement()
@@ -605,13 +605,20 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 func (p *Parser) parseFunctionLiteral() Expression {
 	lit := &FunctionLiteral{Token: p.curToken}
 
-	if !p.expectPeek(lexer.IDENT) {
-		return nil
-	}
-	// 保存函数名
-	lit.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	if !p.expectPeek(lexer.LPAREN) {
+	// 检查是否是匿名函数（fn 后直接是 '('）
+	if p.peekTokenIs(lexer.LPAREN) {
+		// 匿名函数，没有函数名
+		lit.Name = nil
+		p.nextToken() // 移动到 (
+	} else if p.peekTokenIs(lexer.IDENT) {
+		// 命名函数
+		p.nextToken()
+		lit.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		if !p.expectPeek(lexer.LPAREN) {
+			return nil
+		}
+	} else {
+		p.errors = append(p.errors, fmt.Sprintf("期望函数名或 '(' (行 %d, 列 %d)", p.peekToken.Line, p.peekToken.Column))
 		return nil
 	}
 
@@ -791,15 +798,15 @@ func (p *Parser) parseTernaryExpression(condition Expression) Expression {
 
 	// 限制：三目运算符不能作为函数/方法/构造调用的参数
 	if !p.allowTernary {
-		p.errors = append(p.errors, fmt.Sprintf("三目运算符不能作为函数/方法参数使用 (行 %d)", p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("三目运算符不能作为函数/方法参数使用 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 	}
 
 	// 格式限制：
 	// - 允许单行：cond ? a : b（? 与 : 与各分支都在同一行）
 	// - 允许多行：cond \n ? a \n : b（? 与 : 必须各自提到新的一行）
 	// - 禁止：cond \n ? a : b（? 提行但 : 没提行）
-	condEndLine := p.prevToken.Line   // ? 之前的 token 所在行（近似 condition 结束行）
-	questionLine := p.curToken.Line   // ? 所在行
+	condEndLine := p.prevToken.Line // ? 之前的 token 所在行（近似 condition 结束行）
+	questionLine := p.curToken.Line // ? 所在行
 
 	p.nextToken()
 	exp.TrueExpr = p.parseExpression(CONDITIONAL)
@@ -808,13 +815,13 @@ func (p *Parser) parseTernaryExpression(condition Expression) Expression {
 		return nil
 	}
 
-	trueEndLine := p.prevToken.Line   // ':' 之前的 token 所在行（近似 trueExpr 结束行）
-	colonLine := p.curToken.Line      // ':' 所在行
+	trueEndLine := p.prevToken.Line // ':' 之前的 token 所在行（近似 trueExpr 结束行）
+	colonLine := p.curToken.Line    // ':' 所在行
 
 	// 单行：? 与 condition 同行，则 : 也必须同行
 	if questionLine == condEndLine {
 		if colonLine != questionLine {
-			p.errors = append(p.errors, fmt.Sprintf("三目运算符单行写法要求 '?' 和 ':' 在同一行 (行 %d)", questionLine))
+			p.errors = append(p.errors, fmt.Sprintf("三目运算符单行写法要求 '?' 和 ':' 在同一行 (行 %d, 列 %d)", questionLine, p.curToken.Column))
 		}
 	} else {
 		// 多行：? 必须提行，且 : 也必须提行（不能与 trueExpr 同行）
@@ -822,7 +829,7 @@ func (p *Parser) parseTernaryExpression(condition Expression) Expression {
 			// 允许 ? true（trueExpr 与 ? 同行）
 		}
 		if colonLine == trueEndLine {
-			p.errors = append(p.errors, fmt.Sprintf("三目运算符多行写法要求 ':' 单独换行，禁止 '? true : false' 这种混写 (行 %d)", colonLine))
+			p.errors = append(p.errors, fmt.Sprintf("三目运算符多行写法要求 ':' 单独换行，禁止 '? true : false' 这种混写 (行 %d, 列 %d)", colonLine, p.curToken.Column))
 		}
 	}
 
@@ -879,12 +886,14 @@ func (p *Parser) Errors() []string {
 }
 
 func (p *Parser) peekError(t lexer.TokenType) {
-	msg := fmt.Sprintf("期望下一个 token 是 %s，但得到 %s", t, p.peekToken.Type)
+	msg := fmt.Sprintf("期望下一个 token 是 %s，但得到 %s (行 %d, 列 %d)",
+		t, p.peekToken.Type, p.peekToken.Line, p.peekToken.Column)
 	p.errors = append(p.errors, msg)
 }
 
 func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
-	msg := fmt.Sprintf("没有找到 %s 的前缀解析函数", t)
+	msg := fmt.Sprintf("没有找到 %s 的前缀解析函数 (行 %d, 列 %d)",
+		t, p.curToken.Line, p.curToken.Column)
 	p.errors = append(p.errors, msg)
 }
 
@@ -1013,7 +1022,7 @@ func (p *Parser) parseClassMembers() []ClassMember {
 			}
 		} else {
 			// 既不是方法也不是变量，可能是语法错误
-			p.errors = append(p.errors, fmt.Sprintf("类成员必须是方法或变量，得到 %s (行 %d)", p.curToken.Type, p.curToken.Line))
+			p.errors = append(p.errors, fmt.Sprintf("类成员必须是方法或变量，得到 %s (行 %d, 列 %d)", p.curToken.Type, p.curToken.Line, p.curToken.Column))
 			p.nextToken()
 		}
 	}
@@ -1029,7 +1038,7 @@ func (p *Parser) parseClassVariable(accessModifier string) *ClassVariable {
 	}
 
 	if !p.curTokenIs(lexer.IDENT) {
-		p.errors = append(p.errors, fmt.Sprintf("期望变量名，得到 %s (行 %d)", p.curToken.Type, p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("期望变量名，得到 %s (行 %d, 列 %d)", p.curToken.Type, p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
@@ -1039,7 +1048,7 @@ func (p *Parser) parseClassVariable(accessModifier string) *ClassVariable {
 
 	// 解析类型
 	if !p.curTokenIs(lexer.STRING_TYPE) && !p.curTokenIs(lexer.INT_TYPE) && !p.curTokenIs(lexer.BOOL_TYPE) && !p.curTokenIs(lexer.FLOAT_TYPE) && !p.curTokenIs(lexer.ANY) {
-		p.errors = append(p.errors, fmt.Sprintf("类成员变量必须声明类型，得到 %s (行 %d)", p.curToken.Type, p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("类成员变量必须声明类型，得到 %s (行 %d, 列 %d)", p.curToken.Type, p.curToken.Line, p.curToken.Column))
 		// 返回 nil，curToken 在类型位置，由调用者处理
 		return nil
 	}
@@ -1067,14 +1076,14 @@ func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMe
 	}
 
 	if !p.curTokenIs(lexer.FUNCTION) {
-		p.errors = append(p.errors, fmt.Sprintf("期望 function 关键字 (行 %d)", p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("期望 function 关键字 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
 	p.nextToken()
 
 	if !p.curTokenIs(lexer.IDENT) {
-		p.errors = append(p.errors, fmt.Sprintf("期望方法名 (行 %d)", p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("期望方法名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
@@ -1171,7 +1180,7 @@ func (p *Parser) parseStaticCallExpression(left Expression) Expression {
 	// left 应该是类名
 	className, ok := left.(*Identifier)
 	if !ok {
-		p.errors = append(p.errors, fmt.Sprintf("静态方法调用左侧必须是类名 (行 %d)", p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("静态方法调用左侧必须是类名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
@@ -1183,7 +1192,7 @@ func (p *Parser) parseStaticCallExpression(left Expression) Expression {
 	p.nextToken()
 
 	if !p.curTokenIs(lexer.IDENT) {
-		p.errors = append(p.errors, fmt.Sprintf("期望方法名 (行 %d)", p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("期望方法名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
@@ -1210,7 +1219,7 @@ func (p *Parser) parseMemberAccessExpression(left Expression) Expression {
 	p.nextToken()
 
 	if !p.curTokenIs(lexer.IDENT) {
-		p.errors = append(p.errors, fmt.Sprintf("期望成员名 (行 %d)", p.curToken.Line))
+		p.errors = append(p.errors, fmt.Sprintf("期望成员名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 

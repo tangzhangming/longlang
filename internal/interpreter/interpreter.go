@@ -484,12 +484,18 @@ func (i *Interpreter) evalFunctionLiteral(node *parser.FunctionLiteral) Object {
 		params = append(params, p)
 	}
 
+	// 提取返回类型
+	returnTypes := []string{}
+	for _, rt := range node.ReturnType {
+		returnTypes = append(returnTypes, rt.Value)
+	}
+
 	// 创建函数对象，保存参数、函数体和当前环境（闭包）
 	return &Function{
 		Parameters: params,
 		Body:       node.Body,
 		Env:        i.env, // 捕获当前环境，实现闭包
-		ReturnType: []string{},
+		ReturnType: returnTypes,
 	}
 }
 
@@ -519,7 +525,17 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 		}
 		extendedEnv := i.extendFunctionEnv(fn, args, callArgs)
 		evaluated := i.evalBlockStatementWithEnv(body, extendedEnv)
-		return unwrapReturnValue(evaluated)
+		result := unwrapReturnValue(evaluated)
+		
+		// 检查返回类型
+		if len(fn.ReturnType) == 0 {
+			// 函数没有声明返回类型，不应该返回非 null 值
+			if result != nil && result.Type() != NULL_OBJ {
+				return newError("函数未声明返回类型，但返回了值")
+			}
+		}
+		
+		return result
 	case *Builtin:
 		return fn.Fn(args...)
 	case *BuiltinObject:

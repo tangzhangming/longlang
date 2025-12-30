@@ -191,6 +191,62 @@ LongLang 提供了一些内置函数：
 | 多返回值 | `fn name() (t1, t2) { }` | `fn div(a, b:int) (int, int) { }` |
 | 默认参数 | `fn name(p:type = val) { }` | `fn greet(s:string = "Hi") { }` |
 
+## 匿名函数（闭包）
+
+LongLang 支持匿名函数，可以将函数作为值赋给变量：
+
+### 基本语法
+
+```longlang
+// 无参数无返回值
+sayHello := fn() {
+    fmt.Println("Hello!")
+}
+sayHello()
+
+// 带参数和返回值
+add := fn(a:int, b:int) int {
+    return a + b
+}
+result := add(3, 5)  // 8
+```
+
+### 闭包捕获变量
+
+匿名函数可以捕获外部作用域的变量：
+
+```longlang
+fn main() {
+    x := 10
+    addX := fn(n:int) int {
+        return n + x  // 捕获外部变量 x
+    }
+    fmt.Println(addX(5))  // 15
+}
+```
+
+### 立即调用的匿名函数 (IIFE)
+
+```longlang
+result := fn(a:int, b:int) int {
+    return a * b
+}(3, 4)  // 立即调用，result = 12
+```
+
+### 作为参数传递
+
+```longlang
+fn apply(f:any, x:int) int {
+    return f(x)
+}
+
+double := fn(n:int) int {
+    return n * 2
+}
+
+result := apply(double, 5)  // 10
+```
+
 ## 综合示例
 
 ```longlang
