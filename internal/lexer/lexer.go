@@ -127,10 +127,15 @@ func (l *Lexer) NextToken() Token {
 	case '*':
 		tok = newToken(ASTERISK, l.ch, l.line, l.column)
 	case '/':
-		// 可能是 / 或注释 //
+		// 可能是 / 或单行注释 // 或块注释 /*
 		if l.peekChar() == '/' {
-			// 是注释，跳过注释内容
-			l.skipComment()
+			// 单行注释，跳过注释内容
+			l.skipLineComment()
+			// 递归调用，返回注释后的下一个 token
+			return l.NextToken()
+		} else if l.peekChar() == '*' {
+			// 块注释 /* */
+			l.skipBlockComment()
 			// 递归调用，返回注释后的下一个 token
 			return l.NextToken()
 		}
@@ -396,11 +401,35 @@ func (l *Lexer) skipWhitespace() {
 // skipComment 跳过注释
 // 支持单行注释，从 // 开始到行尾
 // 注释内容会被完全忽略
-func (l *Lexer) skipComment() {
+// skipLineComment 跳过单行注释
+// 从 // 开始到行尾
+func (l *Lexer) skipLineComment() {
 	for l.ch != '\n' && l.ch != 0 {
 		l.readChar()
 	}
 	if l.ch == '\n' {
+		l.readChar()
+	}
+}
+
+// skipBlockComment 跳过块注释
+// 从 /* 开始到 */ 结束，支持多行
+func (l *Lexer) skipBlockComment() {
+	// 跳过 /*
+	l.readChar() // 跳过 /
+	l.readChar() // 跳过 *
+
+	for {
+		if l.ch == 0 {
+			// 文件结束但没有找到 */，报错或忽略
+			break
+		}
+		if l.ch == '*' && l.peekChar() == '/' {
+			// 找到 */，跳过并退出
+			l.readChar() // 跳过 *
+			l.readChar() // 跳过 /
+			break
+		}
 		l.readChar()
 	}
 }
