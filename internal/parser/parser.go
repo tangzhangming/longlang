@@ -60,8 +60,13 @@ type Parser struct {
 	l      *lexer.Lexer // 词法分析器，用于获取 token
 	errors []string     // 解析过程中收集的错误信息
 
+	// prevToken: 用于在需要时获取“当前 token 的前一个 token”（例如三目运算符格式校验）
+	prevToken lexer.Token
 	curToken  lexer.Token // 当前正在处理的 token
 	peekToken lexer.Token // 下一个 token（用于前瞻）
+
+	// allowTernary: 是否允许解析三目运算符（用于限制其出现在函数/方法参数中）
+	allowTernary bool
 
 	// 前缀解析函数映射表
 	// 用于解析前缀表达式（如 !true, -5）
@@ -99,6 +104,8 @@ func New(l *lexer.Lexer) *Parser {
 		l:      l,
 		errors: []string{},
 	}
+
+	p.allowTernary = true
 
 	p.prefixParseFns = make(map[lexer.TokenType]prefixParseFn)
 	p.registerPrefix(lexer.IDENT, p.parseIdentifier)
@@ -146,6 +153,7 @@ func New(l *lexer.Lexer) *Parser {
 // 将 peekToken 移动到 curToken，然后从词法分析器读取新的 peekToken
 // 这样实现了双 token 前瞻，可以处理需要查看下一个 token 的情况
 func (p *Parser) nextToken() {
+	p.prevToken = p.curToken
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
 }
@@ -573,6 +581,11 @@ func (p *Parser) parseCallArguments() []CallArgument {
 		return args
 	}
 
+	// 限制：调用参数内不允许三目运算符（包含命名参数的 value）
+	oldAllowTernary := p.allowTernary
+	p.allowTernary = false
+	defer func() { p.allowTernary = oldAllowTernary }()
+
 	p.nextToken()
 
 	arg := CallArgument{}
@@ -613,11 +626,41 @@ func (p *Parser) parseTernaryExpression(condition Expression) Expression {
 		Condition: condition,
 	}
 
+	// 限制：三目运算符不能作为函数/方法/构造调用的参数
+	if !p.allowTernary {
+		p.errors = append(p.errors, fmt.Sprintf("三目运算符不能作为函数/方法参数使用 (行 %d)", p.curToken.Line))
+	}
+
+	// 格式限制：
+	// - 允许单行：cond ? a : b（? 与 : 与各分支都在同一行）
+	// - 允许多行：cond \n ? a \n : b（? 与 : 必须各自提到新的一行）
+	// - 禁止：cond \n ? a : b（? 提行但 : 没提行）
+	condEndLine := p.prevToken.Line   // ? 之前的 token 所在行（近似 condition 结束行）
+	questionLine := p.curToken.Line   // ? 所在行
+
 	p.nextToken()
 	exp.TrueExpr = p.parseExpression(CONDITIONAL)
 
 	if !p.expectPeek(lexer.COLON) {
 		return nil
+	}
+
+	trueEndLine := p.prevToken.Line   // ':' 之前的 token 所在行（近似 trueExpr 结束行）
+	colonLine := p.curToken.Line      // ':' 所在行
+
+	// 单行：? 与 condition 同行，则 : 也必须同行
+	if questionLine == condEndLine {
+		if colonLine != questionLine {
+			p.errors = append(p.errors, fmt.Sprintf("三目运算符单行写法要求 '?' 和 ':' 在同一行 (行 %d)", questionLine))
+		}
+	} else {
+		// 多行：? 必须提行，且 : 也必须提行（不能与 trueExpr 同行）
+		if questionLine == trueEndLine {
+			// 允许 ? true（trueExpr 与 ? 同行）
+		}
+		if colonLine == trueEndLine {
+			p.errors = append(p.errors, fmt.Sprintf("三目运算符多行写法要求 ':' 单独换行，禁止 '? true : false' 这种混写 (行 %d)", colonLine))
+		}
 	}
 
 	p.nextToken()
