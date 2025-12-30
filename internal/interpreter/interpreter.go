@@ -434,12 +434,16 @@ func (i *Interpreter) evalBangOperatorExpression(right Object) Object {
 
 // evalMinusPrefixOperatorExpression 执行 - 前缀运算符
 func (i *Interpreter) evalMinusPrefixOperatorExpression(right Object) Object {
-	if right.Type() != INTEGER_OBJ {
+	switch right.Type() {
+	case INTEGER_OBJ:
+		value := right.(*Integer).Value
+		return &Integer{Value: -value}
+	case FLOAT_OBJ:
+		value := right.(*Float).Value
+		return &Float{Value: -value}
+	default:
 		return newError("未知运算符: -%s", right.Type())
 	}
-
-	value := right.(*Integer).Value
-	return &Integer{Value: -value}
 }
 
 // evalTernaryExpression 执行三目运算符

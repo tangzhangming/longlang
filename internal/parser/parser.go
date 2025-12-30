@@ -242,7 +242,7 @@ func (p *Parser) parseLetStatement() Statement {
 	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
 	// 可选类型声明
-	if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.ANY) {
+	if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.FLOAT_TYPE) || p.peekTokenIs(lexer.ANY) {
 		p.nextToken()
 		stmt.Type = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
@@ -631,7 +631,7 @@ func (p *Parser) parseFunctionLiteral() Expression {
 			p.nextToken()
 			lit.ReturnType = []*Identifier{}
 			for !p.curTokenIs(lexer.RPAREN) && !p.curTokenIs(lexer.EOF) {
-				if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.IDENT) {
+				if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.FLOAT_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.IDENT) {
 					lit.ReturnType = append(lit.ReturnType, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
 				}
 				p.nextToken()
@@ -641,11 +641,11 @@ func (p *Parser) parseFunctionLiteral() Expression {
 			}
 		} else {
 			// 单返回值
-			if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.VOID) || p.curTokenIs(lexer.IDENT) {
+			if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.FLOAT_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.VOID) || p.curTokenIs(lexer.IDENT) {
 				lit.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
 			}
 		}
-	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
+	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.FLOAT_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
 		// 不使用冒号的语法 fn name() type
 		p.nextToken() // 移动到返回类型
 		lit.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
@@ -1038,7 +1038,7 @@ func (p *Parser) parseClassVariable(accessModifier string) *ClassVariable {
 	p.nextToken()
 
 	// 解析类型
-	if !p.curTokenIs(lexer.STRING_TYPE) && !p.curTokenIs(lexer.INT_TYPE) && !p.curTokenIs(lexer.BOOL_TYPE) && !p.curTokenIs(lexer.ANY) {
+	if !p.curTokenIs(lexer.STRING_TYPE) && !p.curTokenIs(lexer.INT_TYPE) && !p.curTokenIs(lexer.BOOL_TYPE) && !p.curTokenIs(lexer.FLOAT_TYPE) && !p.curTokenIs(lexer.ANY) {
 		p.errors = append(p.errors, fmt.Sprintf("类成员变量必须声明类型，得到 %s (行 %d)", p.curToken.Type, p.curToken.Line))
 		// 返回 nil，curToken 在类型位置，由调用者处理
 		return nil
@@ -1108,7 +1108,7 @@ func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMe
 			p.nextToken()
 			method.ReturnType = []*Identifier{}
 			for !p.curTokenIs(lexer.RPAREN) && !p.curTokenIs(lexer.EOF) {
-				if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.IDENT) {
+				if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.FLOAT_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.IDENT) {
 					method.ReturnType = append(method.ReturnType, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
 				}
 				p.nextToken()
@@ -1118,11 +1118,11 @@ func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMe
 			}
 		} else {
 			// 单返回值
-			if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.VOID) || p.curTokenIs(lexer.IDENT) {
+			if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.FLOAT_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.VOID) || p.curTokenIs(lexer.IDENT) {
 				method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
 			}
 		}
-	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
+	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.FLOAT_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
 		// 不使用冒号的语法 method() type
 		p.nextToken() // 移动到返回类型
 		method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
