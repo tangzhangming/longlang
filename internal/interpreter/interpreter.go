@@ -23,6 +23,15 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 	switch node := node.(type) {
 	case *parser.Program:
 		return i.evalProgram(node)
+	case *parser.PackageStatement:
+		// 包声明目前只是声明性的，不执行任何操作
+		return nil
+	case *parser.ImportStatement:
+		// 导入语句目前只是声明性的，不执行任何操作
+		return nil
+	case *parser.ClassStatement:
+		// 类定义，注册到环境中
+		return i.evalClassStatement(node)
 	case *parser.ExpressionStatement:
 		// 检查是否是函数定义
 		if fl, ok := node.Expression.(*parser.FunctionLiteral); ok && fl.Name != nil {
@@ -121,6 +130,14 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 			return args[0]
 		}
 		return i.applyFunction(function, args, node.Arguments)
+	case *parser.NewExpression:
+		return i.evalNewExpression(node)
+	case *parser.MemberAccessExpression:
+		return i.evalMemberAccessExpression(node)
+	case *parser.AssignmentExpression:
+		return i.evalAssignmentExpression(node)
+	case *parser.ThisExpression:
+		return i.evalThisExpression()
 	}
 
 	return newError("未知节点类型: %T", node)
@@ -184,11 +201,57 @@ func (i *Interpreter) evalBlockStatement(block *parser.BlockStatement) Object {
 
 // evalIdentifier 执行标识符
 func (i *Interpreter) evalIdentifier(node *parser.Identifier) Object {
+	// 首先尝试直接查找
 	val, ok := i.env.Get(node.Value)
-	if !ok {
-		return newError("未定义的标识符: " + node.Value)
+	if ok {
+		return val
 	}
-	return val
+
+	// 如果标识符包含点号，尝试作为成员访问处理
+	parts := splitIdentifier(node.Value)
+	if len(parts) >= 2 {
+		// 获取第一部分（对象）
+		obj, ok := i.env.Get(parts[0])
+		if !ok {
+			return newError("未定义的标识符: " + parts[0])
+		}
+
+		// 逐层访问成员
+		for idx := 1; idx < len(parts); idx++ {
+			memberName := parts[idx]
+			switch object := obj.(type) {
+			case *Instance:
+				if val, ok := object.Fields[memberName]; ok {
+					obj = val
+				} else if method, ok := object.Class.Methods[memberName]; ok {
+					return &BoundMethod{Instance: object, Method: method}
+				} else {
+					return newError("实例没有成员: %s", memberName)
+				}
+			case *Class:
+				if method, ok := object.StaticMethods[memberName]; ok {
+					return &Function{
+						Parameters: method.Parameters,
+						Body:       method.Body,
+						Env:        method.Env,
+						ReturnType: method.ReturnType,
+					}
+				}
+				return newError("类 %s 没有静态成员: %s", object.Name, memberName)
+			case *BuiltinObject:
+				if member, ok := object.GetField(memberName); ok {
+					obj = member
+				} else {
+					return newError("命名空间 %s 中没有成员 %s", parts[0], memberName)
+				}
+			default:
+				return newError("无法访问 %s 的成员 %s", obj.Type(), memberName)
+			}
+		}
+		return obj
+	}
+
+	return newError("未定义的标识符: " + node.Value)
 }
 
 // evalPrefixExpression 执行前缀表达式
@@ -399,6 +462,9 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 	case *BuiltinObject:
 		// 处理命名空间访问（如 fmt.Println）
 		return newError("不能直接调用命名空间对象")
+	case *BoundMethod:
+		// 处理绑定方法调用
+		return i.applyBoundMethod(fn, args, callArgs)
 	default:
 		return newError("不是函数: %s", fn.Type())
 	}
@@ -507,5 +573,269 @@ func splitIdentifier(ident string) []string {
 		parts = append(parts, current)
 	}
 	return parts
+}
+
+// evalClassStatement 执行类定义语句
+func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
+	class := &Class{
+		Name:          node.Name.Value,
+		Variables:     make(map[string]*ClassVariable),
+		Methods:       make(map[string]*ClassMethod),
+		StaticMethods: make(map[string]*ClassMethod),
+		Env:           i.env,
+	}
+
+	// 遍历类成员，分别处理变量和方法
+	for _, member := range node.Members {
+		switch m := member.(type) {
+		case *parser.ClassVariable:
+			// 处理成员变量
+			var defaultValue Object
+			if m.Value != nil {
+				defaultValue = i.Eval(m.Value)
+			}
+			class.Variables[m.Name.Value] = &ClassVariable{
+				Name:           m.Name.Value,
+				Type:           m.Type.Value,
+				AccessModifier: m.AccessModifier,
+				DefaultValue:   defaultValue,
+			}
+		case *parser.ClassMethod:
+			// 处理方法
+			returnTypes := []string{}
+			for _, rt := range m.ReturnType {
+				returnTypes = append(returnTypes, rt.Value)
+			}
+			method := &ClassMethod{
+				Name:           m.Name.Value,
+				AccessModifier: m.AccessModifier,
+				IsStatic:       m.IsStatic,
+				Parameters:     toInterfaceSlice(m.Parameters),
+				ReturnType:     returnTypes,
+				Body:           m.Body,
+				Env:            i.env,
+			}
+			if m.IsStatic {
+				class.StaticMethods[m.Name.Value] = method
+			} else {
+				class.Methods[m.Name.Value] = method
+			}
+		}
+	}
+
+	i.env.Set(node.Name.Value, class)
+	return class
+}
+
+// toInterfaceSlice 将 []*parser.FunctionParameter 转换为 []interface{}
+func toInterfaceSlice(params []*parser.FunctionParameter) []interface{} {
+	result := make([]interface{}, len(params))
+	for i, p := range params {
+		result[i] = p
+	}
+	return result
+}
+
+// evalNewExpression 执行 new 表达式，创建类实例
+func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
+	// 获取类定义
+	className := node.ClassName.Value
+	classObj, ok := i.env.Get(className)
+	if !ok {
+		return newError("未定义的类: %s", className)
+	}
+
+	class, ok := classObj.(*Class)
+	if !ok {
+		return newError("%s 不是一个类", className)
+	}
+
+	// 创建实例
+	instance := &Instance{
+		Class:  class,
+		Fields: make(map[string]Object),
+	}
+
+	// 初始化成员变量（使用默认值）
+	for name, variable := range class.Variables {
+		if variable.DefaultValue != nil {
+			instance.Fields[name] = variable.DefaultValue
+		} else {
+			instance.Fields[name] = &Null{}
+		}
+	}
+
+	// 调用构造函数（如果存在）
+	if constructor, ok := class.Methods["__construct"]; ok {
+		// 创建新的环境，绑定 this
+		constructorEnv := NewEnclosedEnvironment(class.Env)
+		constructorEnv.Set("this", instance)
+
+		// 绑定参数
+		args := i.evalExpressions(node.Arguments)
+		if len(args) == 1 && isError(args[0]) {
+			return args[0]
+		}
+
+		params := constructor.Parameters
+		for idx, param := range params {
+			if p, ok := param.(*parser.FunctionParameter); ok {
+				if idx < len(args) {
+					constructorEnv.Set(p.Name.Value, args[idx])
+				} else if p.DefaultValue != nil {
+					// 使用默认值
+					defaultVal := i.Eval(p.DefaultValue)
+					constructorEnv.Set(p.Name.Value, defaultVal)
+				}
+			}
+		}
+
+		// 执行构造函数体
+		oldEnv := i.env
+		i.env = constructorEnv
+		if body, ok := constructor.Body.(*parser.BlockStatement); ok {
+			i.evalBlockStatement(body)
+		}
+		i.env = oldEnv
+	}
+
+	return instance
+}
+
+// evalMemberAccessExpression 执行成员访问表达式
+func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpression) Object {
+	obj := i.Eval(node.Object)
+	if isError(obj) {
+		return obj
+	}
+
+	memberName := node.Member.Value
+
+	switch object := obj.(type) {
+	case *Instance:
+		// 访问实例成员
+		if val, ok := object.Fields[memberName]; ok {
+			return val
+		}
+		// 检查是否是方法
+		if method, ok := object.Class.Methods[memberName]; ok {
+			// 返回绑定了 this 的方法
+			return &BoundMethod{
+				Instance: object,
+				Method:   method,
+			}
+		}
+		return newError("实例没有成员: %s", memberName)
+	case *Class:
+		// 访问静态成员
+		if method, ok := object.StaticMethods[memberName]; ok {
+			return &Function{
+				Parameters: method.Parameters,
+				Body:       method.Body,
+				Env:        method.Env,
+				ReturnType: method.ReturnType,
+			}
+		}
+		return newError("类 %s 没有静态成员: %s", object.Name, memberName)
+	default:
+		return newError("无法访问 %s 的成员", obj.Type())
+	}
+}
+
+// evalAssignmentExpression 执行赋值表达式
+func (i *Interpreter) evalAssignmentExpression(node *parser.AssignmentExpression) Object {
+	val := i.Eval(node.Right)
+	if isError(val) {
+		return val
+	}
+
+	switch left := node.Left.(type) {
+	case *parser.Identifier:
+		// 检查标识符是否包含点号（如 this.name）
+		parts := splitIdentifier(left.Value)
+		if len(parts) >= 2 {
+			// 这是成员访问赋值
+			obj, ok := i.env.Get(parts[0])
+			if !ok {
+				return newError("未定义的标识符: %s", parts[0])
+			}
+			// 逐层访问到倒数第二层
+			for idx := 1; idx < len(parts)-1; idx++ {
+				if instance, ok := obj.(*Instance); ok {
+					if field, ok := instance.Fields[parts[idx]]; ok {
+						obj = field
+					} else {
+						return newError("实例没有成员: %s", parts[idx])
+					}
+				} else {
+					return newError("无法访问 %s 的成员", obj.Type())
+				}
+			}
+			// 设置最后一个成员
+			lastMember := parts[len(parts)-1]
+			if instance, ok := obj.(*Instance); ok {
+				instance.Fields[lastMember] = val
+				return val
+			}
+			return newError("无法给 %s 的成员赋值", obj.Type())
+		}
+		// 普通标识符赋值
+		i.env.Set(left.Value, val)
+		return val
+	case *parser.MemberAccessExpression:
+		obj := i.Eval(left.Object)
+		if isError(obj) {
+			return obj
+		}
+		if instance, ok := obj.(*Instance); ok {
+			instance.Fields[left.Member.Value] = val
+			return val
+		}
+		return newError("无法给 %s 的成员赋值", obj.Type())
+	default:
+		return newError("无效的赋值目标")
+	}
+}
+
+// evalThisExpression 执行 this 表达式
+func (i *Interpreter) evalThisExpression() Object {
+	if this, ok := i.env.Get("this"); ok {
+		return this
+	}
+	return newError("this 只能在类方法中使用")
+}
+
+// applyBoundMethod 执行绑定方法
+func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs []parser.CallArgument) Object {
+	method := bm.Method
+	body, ok := method.Body.(*parser.BlockStatement)
+	if !ok {
+		return newError("方法体类型错误")
+	}
+
+	// 创建新环境，绑定 this
+	env := NewEnclosedEnvironment(method.Env)
+	env.Set("this", bm.Instance)
+
+	// 绑定参数
+	for idx, paramInterface := range method.Parameters {
+		param, ok := paramInterface.(*parser.FunctionParameter)
+		if !ok {
+			continue
+		}
+		var val Object
+		if idx < len(args) {
+			val = args[idx]
+		} else if param.DefaultValue != nil {
+			val = i.Eval(param.DefaultValue)
+		} else {
+			val = &Null{}
+		}
+		env.Set(param.Name.Value, val)
+	}
+
+	// 执行方法体
+	evaluated := i.evalBlockStatementWithEnv(body, env)
+	return unwrapReturnValue(evaluated)
 }
 

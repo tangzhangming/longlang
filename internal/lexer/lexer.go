@@ -172,11 +172,16 @@ func (l *Lexer) NextToken() Token {
 		// 三目运算符的 ?
 		tok = newToken(QUESTION, l.ch, l.line, l.column)
 	case ':':
-		// 可能是 : 或 :=
+		// 可能是 : 或 := 或 ::
 		if l.peekChar() == '=' {
 			// 是短变量声明 :=
 			l.readChar()
 			tok = Token{Type: ASSIGN, Literal: ":=", Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == ':' {
+			// 是静态方法调用 ::
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: DOUBLE_COLON, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
 		} else {
 			// 是冒号 :
 			tok = newToken(COLON, l.ch, l.line, l.column)
@@ -198,20 +203,9 @@ func (l *Lexer) NextToken() Token {
 	case ']':
 		tok = newToken(RBRACKET, l.ch, l.line, l.column)
 	case '.':
-		// 点号用于成员访问（如 fmt.Println）
-		// 检查下一个字符是否是字母或数字，如果是，则作为标识符的一部分
-		if isLetter(l.peekChar()) || isDigit(l.peekChar()) {
-			// 将点号和后续标识符一起读取
-			tok.Literal = string(l.ch)
-			l.readChar()
-			tok.Literal += l.readIdentifier()
-			tok.Type = IDENT
-			tok.Line = l.line
-			tok.Column = l.column
-			return tok
-		}
-		// 单独的点号是非法字符
-		tok = newToken(ILLEGAL, l.ch, l.line, l.column)
+		// 点号用于成员访问（如 object.member）
+		// 单独的点号，用于成员访问运算符
+		tok = newToken(DOT, l.ch, l.line, l.column)
 	case '"':
 		// 字符串字面量
 		tok.Type = STRING
@@ -227,17 +221,11 @@ func (l *Lexer) NextToken() Token {
 		tok.Column = l.column
 	default:
 		// 其他字符
-		if isLetter(l.ch) {
-			// 是字母，可能是标识符或关键字
-			// 读取标识符，可能包含点号（如 fmt.Println）
+		if isLetter(l.ch) || l.ch == '_' {
+			// 是字母或下划线，可能是标识符或关键字
+			// 支持以下划线开头的标识符（如 __construct）
 			tok.Literal = l.readIdentifier()
-			// 如果标识符包含点号，则始终作为 IDENT 类型
-			// 否则检查是否是关键字
-			if contains(tok.Literal, '.') {
-				tok.Type = IDENT
-			} else {
-				tok.Type = LookupIdent(tok.Literal)
-			}
+			tok.Type = LookupIdent(tok.Literal)
 			tok.Line = l.line
 			tok.Column = l.column
 			return tok

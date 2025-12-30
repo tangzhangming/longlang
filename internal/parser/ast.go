@@ -406,3 +406,220 @@ func (tae *TypeAssertionExpression) TokenLiteral() string { return tae.Token.Lit
 func (tae *TypeAssertionExpression) String() string {
 	return "(" + tae.Left.String() + ".( " + tae.Type.String() + "))"
 }
+
+// ========== 包和导入 ==========
+
+// PackageStatement 包声明语句
+// 对应语法：package packageName
+// 例如：package main
+type PackageStatement struct {
+	Token lexer.Token // package 关键字对应的 token
+	Name  *Identifier // 包名
+}
+
+func (ps *PackageStatement) statementNode()       {}
+func (ps *PackageStatement) TokenLiteral() string { return ps.Token.Literal }
+func (ps *PackageStatement) String() string {
+	return "package " + ps.Name.String()
+}
+
+// ImportStatement 导入语句
+// 对应语法：import "package/path"
+// 例如：import "util.string"
+type ImportStatement struct {
+	Token lexer.Token // import 关键字对应的 token
+	Path  *StringLiteral // 导入路径
+}
+
+func (is *ImportStatement) statementNode()       {}
+func (is *ImportStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *ImportStatement) String() string {
+	return "import " + is.Path.String()
+}
+
+// ========== 类相关 ==========
+
+// ClassStatement 类声明语句
+// 对应语法：class ClassName { ... }
+type ClassStatement struct {
+	Token    lexer.Token      // class 关键字对应的 token
+	Name     *Identifier      // 类名
+	Members  []ClassMember    // 类成员（变量、方法）
+}
+
+func (cs *ClassStatement) statementNode()       {}
+func (cs *ClassStatement) TokenLiteral() string { return cs.Token.Literal }
+func (cs *ClassStatement) String() string {
+	var out string
+	out += "class " + cs.Name.String() + " { "
+	for _, member := range cs.Members {
+		out += member.String() + " "
+	}
+	out += "}"
+	return out
+}
+
+// ClassMember 类成员接口
+type ClassMember interface {
+	Node
+	classMemberNode()
+}
+
+// ClassVariable 类成员变量
+// 对应语法：访问修饰符 变量名 类型 或 访问修饰符 变量名 类型 = 值
+type ClassVariable struct {
+	Token         lexer.Token // 访问修饰符对应的 token
+	AccessModifier string     // 访问修饰符：public, private, protected
+	Name          *Identifier // 变量名
+	Type          *Identifier // 变量类型
+	Value         Expression  // 初始值（可选）
+}
+
+func (cv *ClassVariable) classMemberNode()      {}
+func (cv *ClassVariable) TokenLiteral() string { return cv.Token.Literal }
+func (cv *ClassVariable) String() string {
+	var out string
+	out += cv.AccessModifier + " " + cv.Name.String() + " " + cv.Type.String()
+	if cv.Value != nil {
+		out += " = " + cv.Value.String()
+	}
+	return out
+}
+
+// ClassMethod 类方法
+// 对应语法：访问修饰符 [static] function 方法名(参数): 返回类型 { ... }
+type ClassMethod struct {
+	Token          lexer.Token          // 访问修饰符对应的 token
+	AccessModifier string               // 访问修饰符：public, private, protected
+	IsStatic       bool                 // 是否是静态方法
+	Name           *Identifier         // 方法名（__construct 表示构造方法）
+	Parameters     []*FunctionParameter // 参数列表
+	ReturnType     []*Identifier       // 返回类型列表
+	Body           *BlockStatement     // 方法体
+}
+
+func (cm *ClassMethod) classMemberNode()      {}
+func (cm *ClassMethod) TokenLiteral() string { return cm.Token.Literal }
+func (cm *ClassMethod) String() string {
+	var out string
+	out += cm.AccessModifier + " "
+	if cm.IsStatic {
+		out += "static "
+	}
+	out += "function " + cm.Name.String() + "("
+	for i, p := range cm.Parameters {
+		if i > 0 {
+			out += ", "
+		}
+		out += p.String()
+	}
+	out += ")"
+	if len(cm.ReturnType) > 0 {
+		out += ": "
+		if len(cm.ReturnType) == 1 {
+			out += cm.ReturnType[0].String()
+		} else {
+			out += "("
+			for i, rt := range cm.ReturnType {
+				if i > 0 {
+					out += ", "
+				}
+				out += rt.String()
+			}
+			out += ")"
+		}
+	}
+	out += " " + cm.Body.String()
+	return out
+}
+
+// ThisExpression this 表达式
+// 对应语法：this
+// 用于访问当前对象的成员
+type ThisExpression struct {
+	Token lexer.Token // this 关键字对应的 token
+}
+
+func (te *ThisExpression) expressionNode()      {}
+func (te *ThisExpression) TokenLiteral() string { return te.Token.Literal }
+func (te *ThisExpression) String() string       { return "this" }
+
+// NewExpression new 表达式
+// 对应语法：new ClassName(参数)
+// 例如：new UserModel("John")
+type NewExpression struct {
+	Token     lexer.Token    // new 关键字对应的 token
+	ClassName *Identifier    // 类名
+	Arguments []CallArgument // 构造参数
+}
+
+func (ne *NewExpression) expressionNode()      {}
+func (ne *NewExpression) TokenLiteral() string { return ne.Token.Literal }
+func (ne *NewExpression) String() string {
+	var out string
+	out += "new " + ne.ClassName.String() + "("
+	for i, arg := range ne.Arguments {
+		if i > 0 {
+			out += ", "
+		}
+		out += arg.String()
+	}
+	out += ")"
+	return out
+}
+
+// StaticCallExpression 静态方法调用表达式
+// 对应语法：ClassName::methodName(参数)
+// 例如：UserModel::getTableName()
+type StaticCallExpression struct {
+	Token     lexer.Token    // :: 对应的 token
+	ClassName *Identifier    // 类名
+	Method    *Identifier    // 方法名
+	Arguments []CallArgument // 参数列表
+}
+
+func (sce *StaticCallExpression) expressionNode()      {}
+func (sce *StaticCallExpression) TokenLiteral() string { return sce.Token.Literal }
+func (sce *StaticCallExpression) String() string {
+	var out string
+	out += sce.ClassName.String() + "::" + sce.Method.String() + "("
+	for i, arg := range sce.Arguments {
+		if i > 0 {
+			out += ", "
+		}
+		out += arg.String()
+	}
+	out += ")"
+	return out
+}
+
+// MemberAccessExpression 成员访问表达式
+// 对应语法：object.member
+// 例如：user.getName()
+type MemberAccessExpression struct {
+	Token  lexer.Token // . 对应的 token
+	Object Expression  // 对象表达式
+	Member *Identifier // 成员名
+}
+
+func (mae *MemberAccessExpression) expressionNode()      {}
+func (mae *MemberAccessExpression) TokenLiteral() string { return mae.Token.Literal }
+func (mae *MemberAccessExpression) String() string {
+	return "(" + mae.Object.String() + "." + mae.Member.String() + ")"
+}
+
+// AssignmentExpression 赋值表达式
+// 对应语法：left = right
+// 例如：this.name = value, x = 10
+type AssignmentExpression struct {
+	Token lexer.Token // = 对应的 token
+	Left  Expression  // 左边的表达式（通常是标识符或成员访问表达式）
+	Right Expression  // 要赋的值
+}
+
+func (ae *AssignmentExpression) expressionNode()      {}
+func (ae *AssignmentExpression) TokenLiteral() string { return ae.Token.Literal }
+func (ae *AssignmentExpression) String() string {
+	return "(" + ae.Left.String() + " = " + ae.Right.String() + ")"
+}
+

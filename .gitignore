@@ -1,4 +1,5 @@
 *.exe
 *.long
 /idea/
+/design/
 /test/

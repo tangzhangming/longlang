@@ -50,7 +50,11 @@ const (
 	LBRACE   TokenType = "{" // 左花括号 {
 	RBRACE   TokenType = "}" // 右花括号 }
 	LBRACKET TokenType = "[" // 左方括号 [
-	RBRACKET TokenType = "]" // 右方括号 ]
+	RBRACKET TokenType = "]" // 右方括号 []
+	
+	// 静态方法调用运算符
+	DOUBLE_COLON TokenType = "::" // :: - 静态方法调用运算符
+	DOT          TokenType = "."  // . - 成员访问运算符
 
 	// ========== 关键字 ==========
 	FUNCTION TokenType = "FUNCTION" // fn - 函数定义关键字
@@ -65,6 +69,19 @@ const (
 	STRING_TYPE TokenType = "STRING_TYPE" // string - 字符串类型
 	INT_TYPE    TokenType = "INT_TYPE"    // int - 整数类型
 	BOOL_TYPE   TokenType = "BOOL_TYPE"   // bool - 布尔类型
+	
+	// ========== 包和导入关键字 ==========
+	PACKAGE TokenType = "PACKAGE" // package - 包声明关键字
+	IMPORT  TokenType = "IMPORT"  // import - 导入关键字
+	
+	// ========== 类相关关键字 ==========
+	CLASS     TokenType = "CLASS"     // class - 类定义关键字
+	PUBLIC    TokenType = "PUBLIC"    // public - 公开访问修饰符
+	PRIVATE   TokenType = "PRIVATE"   // private - 私有访问修饰符
+	PROTECTED TokenType = "PROTECTED" // protected - 受保护访问修饰符
+	STATIC    TokenType = "STATIC"    // static - 静态关键字
+	THIS      TokenType = "THIS"      // this - 当前对象关键字
+	NEW       TokenType = "NEW"       // new - 创建对象关键字
 )
 
 // Token 表示一个词法单元
@@ -79,19 +96,29 @@ type Token struct {
 // keywords 关键字映射表
 // 将字符串关键字映射到对应的 TokenType
 var keywords = map[string]TokenType{
-	"fn":     FUNCTION,
-	"var":    VAR,
-	"if":     IF,
-	"else":   ELSE,
-	"return": RETURN,
-	"any":    ANY,
-	"void":   VOID,
-	"true":   TRUE,
-	"false":  FALSE,
-	"null":   NULL,
-	"string": STRING_TYPE,
-	"int":    INT_TYPE,
-	"bool":   BOOL_TYPE,
+	"fn":       FUNCTION,
+	"function": FUNCTION, // function 也是函数关键字（用于类方法）
+	"var":      VAR,
+	"if":       IF,
+	"else":     ELSE,
+	"return":   RETURN,
+	"any":      ANY,
+	"void":     VOID,
+	"true":     TRUE,
+	"false":    FALSE,
+	"null":     NULL,
+	"string":   STRING_TYPE,
+	"int":      INT_TYPE,
+	"bool":     BOOL_TYPE,
+	"package":  PACKAGE,
+	"import":   IMPORT,
+	"class":    CLASS,
+	"public":   PUBLIC,
+	"private":  PRIVATE,
+	"protected": PROTECTED,
+	"static":   STATIC,
+	"this":     THIS,
+	"new":      NEW,
 }
 
 // LookupIdent 检查标识符是否是关键字

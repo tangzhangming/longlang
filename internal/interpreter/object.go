@@ -21,6 +21,9 @@ const (
 	FUNCTION_OBJ     ObjectType = "FUNCTION"     // 函数类型
 	BUILTIN_OBJ      ObjectType = "BUILTIN"      // 内置函数类型
 	ANY_OBJ          ObjectType = "ANY"          // 任意类型（未完全实现）
+	CLASS_OBJ        ObjectType = "CLASS"         // 类类型
+	INSTANCE_OBJ     ObjectType = "INSTANCE"     // 类实例类型
+	PACKAGE_OBJ      ObjectType = "PACKAGE"      // 包类型
 )
 
 // ========== 对象接口 ==========
@@ -138,3 +141,80 @@ type Any struct {
 
 func (a *Any) Type() ObjectType { return ANY_OBJ }
 func (a *Any) Inspect() string  { return a.Value.Inspect() }
+
+// ========== 类和实例对象 ==========
+
+// Class 类对象
+// 表示一个类定义，包含类的方法和成员变量定义
+type Class struct {
+	Name          string                    // 类名
+	Variables     map[string]*ClassVariable // 成员变量定义
+	Methods       map[string]*ClassMethod   // 实例方法
+	StaticMethods map[string]*ClassMethod   // 静态方法
+	Env           *Environment              // 类定义时的环境（用于闭包）
+}
+
+func (c *Class) Type() ObjectType { return CLASS_OBJ }
+func (c *Class) Inspect() string  { return "class " + c.Name }
+
+// ClassVariable 类成员变量定义
+type ClassVariable struct {
+	Name           string      // 变量名
+	Type           string      // 变量类型
+	AccessModifier string      // 访问修饰符：public, private, protected
+	DefaultValue   Object       // 默认值（可选）
+}
+
+// ClassMethod 类方法定义
+type ClassMethod struct {
+	Name           string                    // 方法名
+	AccessModifier string                    // 访问修饰符
+	IsStatic       bool                      // 是否是静态方法
+	Parameters     []interface{}             // 参数列表（*parser.FunctionParameter）
+	ReturnType     []string                  // 返回类型
+	Body           interface{}               // 方法体（*parser.BlockStatement）
+	Env            *Environment              // 方法定义时的环境
+}
+
+// Instance 类实例对象
+// 表示一个类的实例，包含实例的成员变量值
+type Instance struct {
+	Class  *Class              // 所属的类
+	Fields map[string]Object   // 实例的成员变量值
+}
+
+func (i *Instance) Type() ObjectType { return INSTANCE_OBJ }
+func (i *Instance) Inspect() string  { return "instance of " + i.Class.Name }
+
+// GetField 获取实例字段
+func (i *Instance) GetField(name string) (Object, bool) {
+	obj, ok := i.Fields[name]
+	return obj, ok
+}
+
+// SetField 设置实例字段
+func (i *Instance) SetField(name string, val Object) Object {
+	i.Fields[name] = val
+	return val
+}
+
+// Package 包对象
+// 表示一个已加载的包
+type Package struct {
+	Name    string            // 包名
+	Path    string            // 包路径
+	Exports map[string]Object // 导出的符号
+}
+
+func (p *Package) Type() ObjectType { return PACKAGE_OBJ }
+func (p *Package) Inspect() string  { return "package " + p.Name }
+
+// BoundMethod 绑定方法对象
+// 表示一个绑定了实例的方法（用于 this 访问）
+type BoundMethod struct {
+	Instance *Instance    // 绑定的实例
+	Method   *ClassMethod // 方法定义
+}
+
+func (bm *BoundMethod) Type() ObjectType { return FUNCTION_OBJ }
+func (bm *BoundMethod) Inspect() string  { return "bound method " + bm.Method.Name }

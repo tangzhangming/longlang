@@ -11,42 +11,44 @@ import (
 // 优先级从低到高，数值越大优先级越高
 // 用于确定表达式的解析顺序（如 1 + 2 * 3 应该解析为 1 + (2 * 3)）
 const (
-	_ int = iota
-	LOWEST      // 最低优先级（用于初始化）
-	ASSIGNMENT  // 赋值运算符优先级：:=, =
-	CONDITIONAL // 三目运算符优先级：? :
-	OR          // 逻辑或优先级：||
-	AND         // 逻辑与优先级：&&
-	EQUALS      // 相等比较优先级：==, !=
-	LESSGREATER // 大小比较优先级：<, >, <=, >=
-	SUM         // 加减法优先级：+, -
-	PRODUCT     // 乘除法优先级：*, /, %
-	PREFIX      // 前缀运算符优先级：!, -（负号）
-	CALL        // 函数调用优先级：()
-	INDEX       // 索引访问优先级：[]（未实现）
-	TYPEASSERT  // 类型断言优先级：.(type)（未实现）
+	_           int = iota
+	LOWEST          // 最低优先级（用于初始化）
+	ASSIGNMENT      // 赋值运算符优先级：:=, =
+	CONDITIONAL     // 三目运算符优先级：? :
+	OR              // 逻辑或优先级：||
+	AND             // 逻辑与优先级：&&
+	EQUALS          // 相等比较优先级：==, !=
+	LESSGREATER     // 大小比较优先级：<, >, <=, >=
+	SUM             // 加减法优先级：+, -
+	PRODUCT         // 乘除法优先级：*, /, %
+	PREFIX          // 前缀运算符优先级：!, -（负号）
+	CALL            // 函数调用优先级：()
+	INDEX           // 索引访问优先级：[]（未实现）
+	TYPEASSERT      // 类型断言优先级：.(type)（未实现）
 )
 
 // precedences 运算符优先级映射表
 // 将 token 类型映射到对应的优先级
 // 用于在解析表达式时确定运算符的优先级
 var precedences = map[lexer.TokenType]int{
-	lexer.OR:          OR,
-	lexer.AND:         AND,
-	lexer.EQ:          EQUALS,
-	lexer.NOT_EQ:      EQUALS,
-	lexer.LT:          LESSGREATER,
-	lexer.GT:          LESSGREATER,
-	lexer.LE:          LESSGREATER,
-	lexer.GE:          LESSGREATER,
-	lexer.PLUS:        SUM,
-	lexer.MINUS:       SUM,
-	lexer.SLASH:       PRODUCT,
-	lexer.ASTERISK:    PRODUCT,
-	lexer.MOD:         PRODUCT,
-	lexer.LPAREN:      CALL,      // 左括号用于函数调用
-	lexer.QUESTION:    CONDITIONAL, // 问号用于三目运算符
-	lexer.ASSIGN:      ASSIGNMENT,  // 赋值运算符
+	lexer.OR:           OR,
+	lexer.AND:          AND,
+	lexer.EQ:           EQUALS,
+	lexer.NOT_EQ:       EQUALS,
+	lexer.LT:           LESSGREATER,
+	lexer.GT:           LESSGREATER,
+	lexer.LE:           LESSGREATER,
+	lexer.GE:           LESSGREATER,
+	lexer.PLUS:         SUM,
+	lexer.MINUS:        SUM,
+	lexer.SLASH:        PRODUCT,
+	lexer.ASTERISK:     PRODUCT,
+	lexer.MOD:          PRODUCT,
+	lexer.LPAREN:       CALL,        // 左括号用于函数调用
+	lexer.QUESTION:     CONDITIONAL, // 问号用于三目运算符
+	lexer.ASSIGN:       ASSIGNMENT,  // 赋值运算符
+	lexer.DOT:          CALL,        // 点号用于成员访问（优先级与函数调用相同）
+	lexer.DOUBLE_COLON: CALL,        // :: 用于静态方法调用（优先级与函数调用相同）
 }
 
 // ========== 语法分析器结构 ==========
@@ -82,12 +84,16 @@ type infixParseFn func(Expression) Expression
 
 // New 创建新的语法分析器
 // 参数:
-//   l: 词法分析器实例
+//
+//	l: 词法分析器实例
+//
 // 返回:
-//   初始化好的 Parser 实例
+//
+//	初始化好的 Parser 实例
+//
 // 功能:
-//   1. 注册所有前缀和中缀解析函数
-//   2. 初始化 curToken 和 peekToken
+//  1. 注册所有前缀和中缀解析函数
+//  2. 初始化 curToken 和 peekToken
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{
 		l:      l,
@@ -105,6 +111,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.MINUS, p.parsePrefixExpression)
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
+	p.registerPrefix(lexer.THIS, p.parseThisExpression)
+	p.registerPrefix(lexer.NEW, p.parseNewExpression)
 
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
 	p.registerInfix(lexer.PLUS, p.parseInfixExpression)
@@ -122,6 +130,9 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.OR, p.parseInfixExpression)
 	p.registerInfix(lexer.LPAREN, p.parseCallExpression)
 	p.registerInfix(lexer.QUESTION, p.parseTernaryExpression)
+	p.registerInfix(lexer.DOT, p.parseMemberAccessExpression)        // 成员访问 object.member
+	p.registerInfix(lexer.ASSIGN, p.parseAssignmentExpression)       // 赋值 a = b
+	p.registerInfix(lexer.DOUBLE_COLON, p.parseStaticCallExpression) // 静态调用 Class::method
 
 	// 读取两个 token，初始化 curToken 和 peekToken
 	// 这样我们就可以使用前瞻（lookahead）来辅助解析
@@ -142,9 +153,12 @@ func (p *Parser) nextToken() {
 // ParseProgram 解析整个程序
 // 这是语法分析的入口函数
 // 返回:
-//   解析后的程序 AST 根节点
+//
+//	解析后的程序 AST 根节点
+//
 // 功能:
-//   遍历所有 token，解析为语句，直到遇到 EOF
+//
+//	遍历所有 token，解析为语句，直到遇到 EOF
 func (p *Parser) ParseProgram() *Program {
 	program := &Program{}
 	program.Statements = []Statement{}
@@ -163,9 +177,16 @@ func (p *Parser) ParseProgram() *Program {
 // parseStatement 解析语句
 // 根据当前 token 的类型，调用相应的语句解析函数
 // 返回:
-//   解析后的语句节点，如果解析失败返回 nil
+//
+//	解析后的语句节点，如果解析失败返回 nil
 func (p *Parser) parseStatement() Statement {
 	switch p.curToken.Type {
+	case lexer.PACKAGE:
+		return p.parsePackageStatement()
+	case lexer.IMPORT:
+		return p.parseImportStatement()
+	case lexer.CLASS:
+		return p.parseClassStatement()
 	case lexer.VAR:
 		return p.parseLetStatement()
 	case lexer.RETURN:
@@ -264,7 +285,7 @@ func (p *Parser) parseExpression(precedence int) Expression {
 		p.errors = append(p.errors, msg)
 		return nil
 	}
-	
+
 	prefix := p.prefixParseFns[p.curToken.Type]
 	if prefix == nil {
 		p.noPrefixParseFnError(p.curToken.Type)
@@ -404,8 +425,15 @@ func (p *Parser) parseBlockStatement() *BlockStatement {
 		if stmt != nil {
 			block.Statements = append(block.Statements, stmt)
 		}
-		p.nextToken()
+		// 移动到下一个 token
+		// 注意：如果遇到 RBRACE，不要移动，让循环条件检查
+		if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+			p.nextToken()
+		}
 	}
+
+	// 解析完成后，curToken 是 RBRACE，需要移动到 RBRACE 之后
+	// 但这里不移动，由调用者决定是否移动
 
 	return block
 }
@@ -491,6 +519,8 @@ func (p *Parser) parseFunctionParameters() []*FunctionParameter {
 		p.nextToken()
 		p.nextToken()
 		param.DefaultValue = p.parseExpression(LOWEST)
+		// parseExpression 解析完成后，curToken 在表达式之后
+		// 如果表达式后面是 , 或 )，parseExpression 已经停止在正确位置
 	}
 
 	parameters = append(parameters, param)
@@ -512,6 +542,8 @@ func (p *Parser) parseFunctionParameters() []*FunctionParameter {
 			p.nextToken()
 			p.nextToken()
 			param.DefaultValue = p.parseExpression(LOWEST)
+			// parseExpression 解析完成后，curToken 在表达式之后
+			// 如果表达式后面是 , 或 )，parseExpression 已经停止在正确位置
 		}
 
 		parameters = append(parameters, param)
@@ -649,3 +681,357 @@ func (p *Parser) noPrefixParseFnError(t lexer.TokenType) {
 	p.errors = append(p.errors, msg)
 }
 
+// ========== 包和导入解析 ==========
+
+// parsePackageStatement 解析包声明语句
+// 对应语法：package packageName
+func (p *Parser) parsePackageStatement() *PackageStatement {
+	stmt := &PackageStatement{Token: p.curToken}
+
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	return stmt
+}
+
+// parseImportStatement 解析导入语句
+// 对应语法：import "package/path"
+func (p *Parser) parseImportStatement() *ImportStatement {
+	stmt := &ImportStatement{Token: p.curToken}
+
+	if !p.expectPeek(lexer.STRING) {
+		return nil
+	}
+
+	stmt.Path = &StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
+
+	return stmt
+}
+
+// ========== 类解析 ==========
+
+// parseClassStatement 解析类声明语句
+// 对应语法：class ClassName { ... }
+func (p *Parser) parseClassStatement() *ClassStatement {
+	stmt := &ClassStatement{Token: p.curToken}
+
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	// 解析类成员
+	stmt.Members = p.parseClassMembers()
+
+	return stmt
+}
+
+// parseClassMembers 解析类成员
+func (p *Parser) parseClassMembers() []ClassMember {
+	members := []ClassMember{}
+
+	p.nextToken()
+
+	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+		// 跳过空白字符、注释等
+		if p.curTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+			continue
+		}
+
+		// 解析访问修饰符
+		if !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) {
+			// 如果不是访问修饰符，可能是注释、空行等，跳过
+			p.nextToken()
+			continue
+		}
+
+		accessModifier := p.curToken.Literal
+		p.nextToken()
+
+		// 检查是否是静态方法
+		isStatic := false
+		if p.curTokenIs(lexer.STATIC) {
+			isStatic = true
+			p.nextToken()
+		}
+
+		// 检查是否是方法
+		if p.curTokenIs(lexer.FUNCTION) {
+			method := p.parseClassMethod(accessModifier, isStatic)
+			if method != nil {
+				members = append(members, method)
+			}
+			// parseClassMethod 解析完成后，curToken 是方法体的 }
+			// 需要移动到下一个 token（可能是下一个成员的访问修饰符或类的 }）
+			if p.curTokenIs(lexer.RBRACE) {
+				p.nextToken()
+			}
+		} else if p.curTokenIs(lexer.IDENT) {
+			// 是成员变量（变量名）
+			variable := p.parseClassVariable(accessModifier)
+			if variable != nil {
+				members = append(members, variable)
+				// 变量解析完成后，移动到下一个 token
+				// parseClassVariable 解析完成后，curToken 已经在变量声明之后
+				// 如果变量有初始值，parseExpression 已经移动了 token
+				// 如果没有初始值，curToken 已经在类型之后，需要移动到下一个 token
+				// 但需要检查是否已经是 RBRACE 或下一个访问修饰符
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.EOF) {
+					p.nextToken()
+				}
+			} else {
+				// parseClassVariable 返回 nil，说明解析失败
+				// 不要继续移动 token，让循环继续处理下一个成员
+				// 但需要跳过当前错误的 token，避免无限循环
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.EOF) {
+					p.nextToken()
+				}
+			}
+		} else {
+			// 既不是方法也不是变量，可能是语法错误
+			p.errors = append(p.errors, fmt.Sprintf("类成员必须是方法或变量，得到 %s (行 %d)", p.curToken.Type, p.curToken.Line))
+			p.nextToken()
+		}
+	}
+
+	return members
+}
+
+// parseClassVariable 解析类成员变量
+func (p *Parser) parseClassVariable(accessModifier string) *ClassVariable {
+	variable := &ClassVariable{
+		Token:          p.curToken,
+		AccessModifier: accessModifier,
+	}
+
+	if !p.curTokenIs(lexer.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("期望变量名，得到 %s (行 %d)", p.curToken.Type, p.curToken.Line))
+		return nil
+	}
+
+	variable.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	p.nextToken()
+
+	// 解析类型
+	if !p.curTokenIs(lexer.STRING_TYPE) && !p.curTokenIs(lexer.INT_TYPE) && !p.curTokenIs(lexer.BOOL_TYPE) && !p.curTokenIs(lexer.ANY) {
+		p.errors = append(p.errors, fmt.Sprintf("类成员变量必须声明类型，得到 %s (行 %d)", p.curToken.Type, p.curToken.Line))
+		// 返回 nil，curToken 在类型位置，由调用者处理
+		return nil
+	}
+
+	variable.Type = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	p.nextToken()
+
+	// 检查是否有初始值
+	if p.curTokenIs(lexer.ASSIGN) {
+		p.nextToken()
+		variable.Value = p.parseExpression(LOWEST)
+		// parseExpression 解析完成后，curToken 已经在表达式之后
+	}
+
+	return variable
+}
+
+// parseClassMethod 解析类方法
+func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMethod {
+	method := &ClassMethod{
+		Token:          p.curToken,
+		AccessModifier: accessModifier,
+		IsStatic:       isStatic,
+	}
+
+	if !p.curTokenIs(lexer.FUNCTION) {
+		p.errors = append(p.errors, fmt.Sprintf("期望 function 关键字 (行 %d)", p.curToken.Line))
+		return nil
+	}
+
+	p.nextToken()
+
+	if !p.curTokenIs(lexer.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("期望方法名 (行 %d)", p.curToken.Line))
+		return nil
+	}
+
+	method.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	method.Parameters = p.parseFunctionParameters()
+	// parseFunctionParameters 解析完成后，curToken 在 )
+
+	// 解析返回类型
+	// 支持两种语法：
+	// 1. method():type   - 使用冒号
+	// 2. method() type   - 不使用冒号（直接跟类型）
+
+	// 检查 peekToken 是否是返回类型（不带冒号的语法）
+	if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
+		p.nextToken() // 移动到返回类型
+		method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
+	} else if p.peekTokenIs(lexer.COLON) {
+		// 使用冒号的语法 method():type
+		p.nextToken() // 移动到 :
+		p.nextToken() // 移动到返回类型
+
+		if p.curTokenIs(lexer.LPAREN) {
+			// 多返回值 (type1, type2)
+			p.nextToken()
+			method.ReturnType = []*Identifier{}
+			for !p.curTokenIs(lexer.RPAREN) && !p.curTokenIs(lexer.EOF) {
+				if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.IDENT) {
+					method.ReturnType = append(method.ReturnType, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+				}
+				p.nextToken()
+				if p.curTokenIs(lexer.COMMA) {
+					p.nextToken()
+				}
+			}
+		} else {
+			// 单返回值
+			if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.VOID) || p.curTokenIs(lexer.IDENT) {
+				method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
+			}
+		}
+	}
+
+	// 现在期望下一个 token 是 {
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	method.Body = p.parseBlockStatement()
+	// parseBlockStatement 解析完成后，curToken 是 RBRACE
+	// 不在这里移动 token，让调用者 parseClassMembers 来处理
+
+	return method
+}
+
+// parseThisExpression 解析 this 表达式
+func (p *Parser) parseThisExpression() Expression {
+	return &ThisExpression{Token: p.curToken}
+}
+
+// parseNewExpression 解析 new 表达式
+// 对应语法：new ClassName(参数)
+func (p *Parser) parseNewExpression() Expression {
+	exp := &NewExpression{Token: p.curToken}
+
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	exp.ClassName = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	exp.Arguments = p.parseCallArguments()
+
+	return exp
+}
+
+// parseStaticCallExpression 解析静态方法调用表达式
+// 对应语法：ClassName::methodName(参数)
+func (p *Parser) parseStaticCallExpression(left Expression) Expression {
+	// left 应该是类名
+	className, ok := left.(*Identifier)
+	if !ok {
+		p.errors = append(p.errors, fmt.Sprintf("静态方法调用左侧必须是类名 (行 %d)", p.curToken.Line))
+		return nil
+	}
+
+	exp := &StaticCallExpression{
+		Token:     p.curToken,
+		ClassName: className,
+	}
+
+	p.nextToken()
+
+	if !p.curTokenIs(lexer.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("期望方法名 (行 %d)", p.curToken.Line))
+		return nil
+	}
+
+	exp.Method = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	exp.Arguments = p.parseCallArguments()
+
+	return exp
+}
+
+// parseMemberAccessExpression 解析成员访问表达式
+// 对应语法：object.member
+func (p *Parser) parseMemberAccessExpression(left Expression) Expression {
+	exp := &MemberAccessExpression{
+		Token:  p.curToken,
+		Object: left,
+	}
+
+	precedence := p.curPrecedence()
+	p.nextToken()
+
+	if !p.curTokenIs(lexer.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("期望成员名 (行 %d)", p.curToken.Line))
+		return nil
+	}
+
+	exp.Member = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// 检查是否是方法调用 object.method()
+	if p.peekTokenIs(lexer.LPAREN) {
+		p.nextToken() // 移动到 (
+		call := &CallExpression{
+			Token:    p.curToken,
+			Function: exp,
+		}
+		call.Arguments = p.parseCallArguments()
+		return call
+	}
+
+	// 检查是否是链式成员访问 object.member.member2
+	if p.peekTokenIs(lexer.DOT) {
+		p.nextToken() // 移动到 .
+		return p.parseMemberAccessExpression(exp)
+	}
+
+	// 检查是否是赋值 object.member = value
+	if p.peekTokenIs(lexer.ASSIGN) {
+		p.nextToken() // 移动到 =
+		return p.parseAssignmentExpression(exp)
+	}
+
+	_ = precedence // 保留变量以供将来使用
+	return exp
+}
+
+// parseAssignmentExpression 解析赋值表达式
+// 对应语法：left = right
+func (p *Parser) parseAssignmentExpression(left Expression) Expression {
+	exp := &AssignmentExpression{
+		Token: p.curToken,
+		Left:  left,
+	}
+
+	p.nextToken() // 移动到赋值运算符之后
+	exp.Right = p.parseExpression(LOWEST)
+
+	return exp
+}
