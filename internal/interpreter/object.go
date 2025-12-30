@@ -12,19 +12,20 @@ import (
 type ObjectType string
 
 const (
-	INTEGER_OBJ        ObjectType = "INTEGER"        // 整数类型
-	STRING_OBJ         ObjectType = "STRING"         // 字符串类型
-	BOOLEAN_OBJ        ObjectType = "BOOLEAN"        // 布尔类型
-	NULL_OBJ           ObjectType = "NULL"           // null 类型
-	RETURN_VALUE_OBJ   ObjectType = "RETURN_VALUE"   // 返回值类型（用于函数返回）
-	ERROR_OBJ          ObjectType = "ERROR"          // 错误类型
-	FUNCTION_OBJ       ObjectType = "FUNCTION"       // 函数类型
-	BUILTIN_OBJ        ObjectType = "BUILTIN"        // 内置函数类型
-	ANY_OBJ            ObjectType = "ANY"            // 任意类型（未完全实现）
-	CLASS_OBJ          ObjectType = "CLASS"          // 类类型
-	INSTANCE_OBJ       ObjectType = "INSTANCE"       // 类实例类型
-	PACKAGE_OBJ        ObjectType = "PACKAGE"        // 包类型
-	BREAK_SIGNAL_OBJ   ObjectType = "BREAK_SIGNAL"   // break 信号
+	INTEGER_OBJ         ObjectType = "INTEGER"         // 整数类型
+	FLOAT_OBJ           ObjectType = "FLOAT"           // 浮点数类型
+	STRING_OBJ          ObjectType = "STRING"          // 字符串类型
+	BOOLEAN_OBJ         ObjectType = "BOOLEAN"         // 布尔类型
+	NULL_OBJ            ObjectType = "NULL"            // null 类型
+	RETURN_VALUE_OBJ    ObjectType = "RETURN_VALUE"    // 返回值类型（用于函数返回）
+	ERROR_OBJ           ObjectType = "ERROR"           // 错误类型
+	FUNCTION_OBJ        ObjectType = "FUNCTION"        // 函数类型
+	BUILTIN_OBJ         ObjectType = "BUILTIN"         // 内置函数类型
+	ANY_OBJ             ObjectType = "ANY"             // 任意类型（未完全实现）
+	CLASS_OBJ           ObjectType = "CLASS"           // 类类型
+	INSTANCE_OBJ        ObjectType = "INSTANCE"        // 类实例类型
+	PACKAGE_OBJ         ObjectType = "PACKAGE"         // 包类型
+	BREAK_SIGNAL_OBJ    ObjectType = "BREAK_SIGNAL"    // break 信号
 	CONTINUE_SIGNAL_OBJ ObjectType = "CONTINUE_SIGNAL" // continue 信号
 )
 
@@ -48,6 +49,15 @@ type Integer struct {
 
 func (i *Integer) Type() ObjectType { return INTEGER_OBJ }
 func (i *Integer) Inspect() string  { return fmt.Sprintf("%d", i.Value) }
+
+// Float 浮点数对象
+// 表示一个浮点数值
+type Float struct {
+	Value float64 // 浮点数值
+}
+
+func (f *Float) Type() ObjectType { return FLOAT_OBJ }
+func (f *Float) Inspect() string  { return fmt.Sprintf("%g", f.Value) }
 
 // String 字符串对象
 // 表示一个字符串值

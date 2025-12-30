@@ -81,6 +81,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalIncrementStatement(node)
 	case *parser.IntegerLiteral:
 		return &Integer{Value: node.Value}
+	case *parser.FloatLiteral:
+		return &Float{Value: node.Value}
 	case *parser.StringLiteral:
 		return &String{Value: node.Value}
 	case *parser.BooleanLiteral:
@@ -290,6 +292,16 @@ func (i *Interpreter) evalInfixExpression(operator string, left, right Object) O
 		return &Boolean{Value: left == right}
 	case operator == "!=":
 		return &Boolean{Value: left != right}
+	case left.Type() == FLOAT_OBJ && right.Type() == FLOAT_OBJ:
+		return i.evalFloatInfixExpression(operator, left, right)
+	case left.Type() == FLOAT_OBJ && right.Type() == INTEGER_OBJ:
+		// 浮点数 + 整数 -> 浮点数
+		rightFloat := &Float{Value: float64(right.(*Integer).Value)}
+		return i.evalFloatInfixExpression(operator, left, rightFloat)
+	case left.Type() == INTEGER_OBJ && right.Type() == FLOAT_OBJ:
+		// 整数 + 浮点数 -> 浮点数
+		leftFloat := &Float{Value: float64(left.(*Integer).Value)}
+		return i.evalFloatInfixExpression(operator, leftFloat, right)
 	case left.Type() == BOOLEAN_OBJ && right.Type() == BOOLEAN_OBJ:
 		return i.evalBooleanInfixExpression(operator, left, right)
 	default:
@@ -319,6 +331,40 @@ func (i *Interpreter) evalIntegerInfixExpression(operator string, left, right Ob
 			return newError("模零")
 		}
 		return &Integer{Value: leftVal % rightVal}
+	case "<":
+		return &Boolean{Value: leftVal < rightVal}
+	case ">":
+		return &Boolean{Value: leftVal > rightVal}
+	case "<=":
+		return &Boolean{Value: leftVal <= rightVal}
+	case ">=":
+		return &Boolean{Value: leftVal >= rightVal}
+	case "==":
+		return &Boolean{Value: leftVal == rightVal}
+	case "!=":
+		return &Boolean{Value: leftVal != rightVal}
+	default:
+		return newError("未知运算符: %s %s %s", left.Type(), operator, right.Type())
+	}
+}
+
+// evalFloatInfixExpression 执行浮点数中缀表达式
+func (i *Interpreter) evalFloatInfixExpression(operator string, left, right Object) Object {
+	leftVal := left.(*Float).Value
+	rightVal := right.(*Float).Value
+
+	switch operator {
+	case "+":
+		return &Float{Value: leftVal + rightVal}
+	case "-":
+		return &Float{Value: leftVal - rightVal}
+	case "*":
+		return &Float{Value: leftVal * rightVal}
+	case "/":
+		if rightVal == 0 {
+			return newError("除以零")
+		}
+		return &Float{Value: leftVal / rightVal}
 	case "<":
 		return &Boolean{Value: leftVal < rightVal}
 	case ">":

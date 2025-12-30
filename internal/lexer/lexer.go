@@ -221,9 +221,23 @@ func (l *Lexer) NextToken() Token {
 		// 单独的点号，用于成员访问运算符
 		tok = newToken(DOT, l.ch, l.line, l.column)
 	case '"':
-		// 字符串字面量
+		// 双引号字符串字面量
 		tok.Type = STRING
-		tok.Literal = l.readString()
+		tok.Literal = l.readString('"')
+		tok.Line = l.line
+		tok.Column = l.column
+		return tok
+	case '\'':
+		// 单引号字符串字面量
+		tok.Type = STRING
+		tok.Literal = l.readString('\'')
+		tok.Line = l.line
+		tok.Column = l.column
+		return tok
+	case '`':
+		// 反引号原始字符串字面量
+		tok.Type = STRING
+		tok.Literal = l.readRawString()
 		tok.Line = l.line
 		tok.Column = l.column
 		return tok
@@ -244,9 +258,14 @@ func (l *Lexer) NextToken() Token {
 			tok.Column = l.column
 			return tok
 		} else if isDigit(l.ch) {
-			// 是数字，读取整数
-			tok.Type = INT
-			tok.Literal = l.readNumber()
+			// 是数字，读取整数或浮点数
+			literal, isFloat := l.readNumber()
+			if isFloat {
+				tok.Type = FLOAT
+			} else {
+				tok.Type = INT
+			}
+			tok.Literal = literal
 			tok.Line = l.line
 			tok.Column = l.column
 			return tok
@@ -291,36 +310,78 @@ func (l *Lexer) readIdentifier() string {
 	return l.input[position:l.position]
 }
 
-// readNumber 读取数字
-// 目前只支持整数，不支持小数
+// readNumber 读取数字（整数或浮点数）
 // 返回:
-//   数字字符串
-func (l *Lexer) readNumber() string {
+//   数字字符串和是否是浮点数
+func (l *Lexer) readNumber() (string, bool) {
 	position := l.position
+	isFloat := false
+
+	// 读取整数部分
 	for isDigit(l.ch) {
 		l.readChar()
 	}
-	return l.input[position:l.position]
+
+	// 检查是否有小数点
+	if l.ch == '.' && isDigit(l.peekChar()) {
+		isFloat = true
+		l.readChar() // 跳过小数点
+
+		// 读取小数部分
+		for isDigit(l.ch) {
+			l.readChar()
+		}
+	}
+
+	return l.input[position:l.position], isFloat
 }
 
 // readString 读取字符串字面量
-// 从 " 开始，到 " 结束
+// 支持双引号 " 和单引号 '
+// 参数:
+//   quote: 引号字符（" 或 '）
 // 返回:
 //   字符串内容（不包含引号）
-func (l *Lexer) readString() string {
+func (l *Lexer) readString(quote byte) string {
 	position := l.position + 1 // 跳过开始的引号
 	for {
 		l.readChar()
-		if l.ch == '"' || l.ch == 0 {
+		if l.ch == quote || l.ch == 0 {
 			// 遇到结束引号或文件结束
 			break
 		}
+		// 处理转义字符
+		if l.ch == '\\' {
+			l.readChar() // 跳过转义字符
+		}
 	}
-	if l.ch == '"' {
+	result := l.input[position : l.position]
+	if l.ch == quote {
 		// 跳过结束引号
 		l.readChar()
 	}
-	return l.input[position : l.position-1]
+	return result
+}
+
+// readRawString 读取原始字符串字面量
+// 使用反引号 ` 包围，不处理转义字符
+// 返回:
+//   字符串内容（不包含引号）
+func (l *Lexer) readRawString() string {
+	position := l.position + 1 // 跳过开始的反引号
+	for {
+		l.readChar()
+		if l.ch == '`' || l.ch == 0 {
+			// 遇到结束反引号或文件结束
+			break
+		}
+	}
+	result := l.input[position:l.position]
+	if l.ch == '`' {
+		// 跳过结束反引号
+		l.readChar()
+	}
+	return result
 }
 
 // skipWhitespace 跳过空白字符
@@ -378,3 +439,4 @@ func contains(s string, ch byte) bool {
 	}
 	return false
 }
+

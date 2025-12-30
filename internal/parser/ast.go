@@ -371,10 +371,21 @@ type IntegerLiteral struct {
 
 func (il *IntegerLiteral) expressionNode()      {}
 func (il *IntegerLiteral) TokenLiteral() string { return il.Token.Literal }
-func (il *IntegerLiteral) String() string      { return il.Token.Literal }
+func (il *IntegerLiteral) String() string       { return il.Token.Literal }
+
+// FloatLiteral 浮点数字面量
+// 对应语法：3.14, 2.5 等
+type FloatLiteral struct {
+	Token lexer.Token // 浮点数对应的 token
+	Value float64     // 浮点数值
+}
+
+func (fl *FloatLiteral) expressionNode()      {}
+func (fl *FloatLiteral) TokenLiteral() string { return fl.Token.Literal }
+func (fl *FloatLiteral) String() string       { return fl.Token.Literal }
 
 // StringLiteral 字符串字面量
-// 对应语法："字符串"
+// 对应语法："字符串", '字符串', `原始字符串`
 // 例如："hello", "world"
 type StringLiteral struct {
 	Token lexer.Token // 字符串对应的 token

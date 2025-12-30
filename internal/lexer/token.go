@@ -11,11 +11,12 @@ const (
 
 	// ========== 标识符和字面量 ==========
 	IDENT  TokenType = "IDENT"  // 标识符：变量名、函数名等（如 name, add）
-	INT    TokenType = "INT"     // 整数字面量（如 123, 456）
-	STRING TokenType = "STRING"   // 字符串字面量（如 "hello"）
-	TRUE   TokenType = "TRUE"    // 布尔值 true
-	FALSE  TokenType = "FALSE"    // 布尔值 false
-	NULL   TokenType = "NULL"     // null 值
+	INT    TokenType = "INT"    // 整数字面量（如 123, 456）
+	FLOAT  TokenType = "FLOAT"  // 浮点数字面量（如 3.14, 2.5）
+	STRING TokenType = "STRING" // 字符串字面量（如 "hello", 'world', `raw`）
+	TRUE   TokenType = "TRUE"   // 布尔值 true
+	FALSE  TokenType = "FALSE"  // 布尔值 false
+	NULL   TokenType = "NULL"   // null 值
 
 	// ========== 运算符 ==========
 	ASSIGN   TokenType = "="  // 赋值运算符 =
@@ -74,8 +75,26 @@ const (
 
 	// ========== 类型关键字 ==========
 	STRING_TYPE TokenType = "STRING_TYPE" // string - 字符串类型
-	INT_TYPE    TokenType = "INT_TYPE"    // int - 整数类型
 	BOOL_TYPE   TokenType = "BOOL_TYPE"   // bool - 布尔类型
+
+	// 有符号整型
+	INT_TYPE TokenType = "INT_TYPE" // int - 平台相关有符号整型
+	I8_TYPE  TokenType = "I8_TYPE"  // i8 - 8位有符号整型
+	I16_TYPE TokenType = "I16_TYPE" // i16 - 16位有符号整型
+	I32_TYPE TokenType = "I32_TYPE" // i32 - 32位有符号整型
+	I64_TYPE TokenType = "I64_TYPE" // i64 - 64位有符号整型
+
+	// 无符号整型
+	UINT_TYPE TokenType = "UINT_TYPE" // uint - 平台相关无符号整型
+	U8_TYPE   TokenType = "U8_TYPE"   // u8 - 8位无符号整型
+	U16_TYPE  TokenType = "U16_TYPE"  // u16 - 16位无符号整型
+	U32_TYPE  TokenType = "U32_TYPE"  // u32 - 32位无符号整型
+	U64_TYPE  TokenType = "U64_TYPE"  // u64 - 64位无符号整型
+
+	// 浮点数类型
+	FLOAT_TYPE TokenType = "FLOAT_TYPE" // float - 平台相关浮点数
+	F32_TYPE   TokenType = "F32_TYPE"   // f32 - 32位浮点数
+	F64_TYPE   TokenType = "F64_TYPE"   // f64 - 64位浮点数
 	
 	// ========== 包和导入关键字 ==========
 	PACKAGE TokenType = "PACKAGE" // package - 包声明关键字
@@ -117,9 +136,26 @@ var keywords = map[string]TokenType{
 	"true":      TRUE,
 	"false":     FALSE,
 	"null":      NULL,
-	"string":    STRING_TYPE,
-	"int":       INT_TYPE,
-	"bool":      BOOL_TYPE,
+	// 字符串和布尔类型
+	"string": STRING_TYPE,
+	"bool":   BOOL_TYPE,
+	// 有符号整型
+	"int": INT_TYPE,
+	"i8":  I8_TYPE,
+	"i16": I16_TYPE,
+	"i32": I32_TYPE,
+	"i64": I64_TYPE,
+	// 无符号整型
+	"uint": UINT_TYPE,
+	"u8":   U8_TYPE,
+	"u16":  U16_TYPE,
+	"u32":  U32_TYPE,
+	"u64":  U64_TYPE,
+	// 浮点数类型
+	"float": FLOAT_TYPE,
+	"f32":   F32_TYPE,
+	"f64":   F64_TYPE,
+	// 包和类相关
 	"package":   PACKAGE,
 	"import":    IMPORT,
 	"class":     CLASS,

@@ -1,13 +1,14 @@
-# longlang
+# LongLang
 
 一个用 Go 语言实现的解释型编程语言。
 
 ## 特性
 
-- ✅ 基本表达式（算术、逻辑、比较）
+- ✅ 完整的类型系统（int, float, string, bool, any）
 - ✅ 变量声明（var、短变量声明 :=）
-- ✅ 控制流（if/else if/else）
-- ✅ 函数定义和调用
+- ✅ 控制流（if/else if/else、for 循环）
+- ✅ 函数定义和调用（支持默认参数、命名参数）
+- ✅ 面向对象（class、继承、静态方法）
 - ✅ 三目运算符
 - ✅ 内置函数（fmt.Println、fmt.Print、fmt.Printf）
 
@@ -29,141 +30,131 @@ longlang.exe run main.long
 longlang.exe run test/test1_basic.long
 ```
 
-## 语法示例
+## 📖 文档
 
-### 变量声明
+详细文档请参阅 `docs/` 目录：
 
-```long
-// 带类型声明
-var name string = "xiaoming"
-var age int = 18
+| 文档 | 说明 |
+|------|------|
+| [变量](docs/variables.md) | 变量声明、作用域、赋值 |
+| [控制结构](docs/control-structures.md) | if/else、for 循环、break/continue |
+| [函数](docs/functions.md) | 函数定义、参数、返回值 |
+| [注释](docs/comments.md) | 单行注释用法 |
+| [类型系统](docs/types.md) | 整数、浮点数、字符串、布尔类型 |
+| [运算符](docs/operators.md) | 算术、比较、逻辑运算符 |
+| [模块与包](docs/packages.md) | package、import、包管理 |
+| [关键字](docs/keywords.md) | 语言保留关键字列表 |
 
-// 自动类型推导
-var score = 95
+### 进阶文档
 
-// 短变量声明（只能在函数内使用）
-count := 10
+| 文档 | 说明 |
+|------|------|
+| [类系统](docs/class-system-design.md) | 类定义、成员、方法 |
+| [三目运算符](docs/ternary.md) | 三目运算符使用规范 |
 
-// 注意：未初始化的变量值为 null
-var uninitialized int
+## 快速入门
+
+### Hello World
+
+```longlang
+package main
+
+fn main() {
+    fmt.Println("Hello, World!")
+}
 ```
 
-### 基本运算
+### 变量和运算
 
-```long
-var a = 10
-var b = 3
+```longlang
+package main
 
-var sum = a + b        // 加法
-var diff = a - b      // 减法
-var product = a * b   // 乘法
-var quotient = a / b  // 除法
-var remainder = a % b // 取模
-```
-
-### 比较和逻辑运算
-
-```long
-var a = 10
-var b = 20
-
-var isGreater = a > b      // 大于
-var isLess = a < b         // 小于
-var isEqual = a == b       // 等于
-var isNotEqual = a != b    // 不等于
-var and = a > 5 && b > 10  // 逻辑与
-var or = a > 5 || b > 30  // 逻辑或
+fn main() {
+    // 变量声明
+    name := "LongLang"
+    version := 1.0
+    
+    // 算术运算
+    a := 10
+    b := 3
+    fmt.Println("a + b =", a + b)
+    fmt.Println("a * b =", a * b)
+    
+    // 字符串拼接
+    greeting := "Hello, " + name
+    fmt.Println(greeting)
+}
 ```
 
 ### 控制流
 
-```long
-var score = 85
+```longlang
+package main
 
-if score >= 90 {
-    fmt.Println("优秀")
-} else if score >= 80 {
-    fmt.Println("良好")
-} else if score >= 60 {
-    fmt.Println("及格")
-} else {
-    fmt.Println("不及格")
+fn main() {
+    score := 85
+    
+    // if-else
+    if score >= 90 {
+        fmt.Println("优秀")
+    } else if score >= 60 {
+        fmt.Println("及格")
+    } else {
+        fmt.Println("不及格")
+    }
+    
+    // for 循环
+    for i := 0; i < 5; i++ {
+        fmt.Println("i =", i)
+    }
 }
 ```
 
-### 三目运算符
+### 函数
 
-```long
-var a = 10
-var b = 20
+```longlang
+package main
 
-var max = a > b ? a : b
-var result = a > 5 ? "大于5" : "小于等于5"
-```
-
-### 函数定义
-
-```long
-// 无返回值
-fn greet(name:string) {
-    fmt.Println("Hello,", name)
-}
-
-// 有返回值（单返回值）
-fn add(a:int, b:int): int {
+fn add(a:int, b:int) int {
     return a + b
 }
 
-// 多返回值
-fn divide(a:int, b:int): (int, int) {
-    var quotient = a / b
-    var remainder = a % b
-    return quotient, remainder
-}
-
-// 带默认参数
 fn greet(name:string = "World") {
     fmt.Println("Hello,", name)
 }
-```
 
-### 函数调用
-
-```long
 fn main() {
-    greet("longlang")
+    result := add(10, 20)
+    fmt.Println("10 + 20 =", result)
     
-    var sum = add(10, 20)
-    fmt.Println("和:", sum)
-    
-    var q, r = divide(10, 3)
-    fmt.Println("商:", q, "余数:", r)
+    greet()
+    greet("Alice")
 }
 ```
 
-### 内置函数
+### 类和对象
 
-```long
-fn main() {
-    // 打印并换行
-    fmt.Println("Hello", "World")
+```longlang
+package main
+
+class Person {
+    public name string
+    public age int
     
-    // 打印不换行
-    fmt.Print("Hello")
-    fmt.Print("World")
+    public function __construct(name:string, age:int) {
+        this.name = name
+        this.age = age
+    }
     
-    // 格式化打印
-    fmt.Printf("数字: %d, 字符串: %s", 123, "test")
+    public function greet() string {
+        return "Hello, I am " + this.name
+    }
 }
-```
 
-## 程序入口
-
-所有程序必须有一个 `main` 函数作为入口点：
-
-```long
 fn main() {
-    // 你的代码
+    person := new Person("Alice", 25)
+    fmt.Println(person.greet())
+    fmt.Println("Age:", person.age)
 }
 ```
 
@@ -171,42 +162,37 @@ fn main() {
 
 在 `test` 目录下提供了多个测试用例：
 
-- `test1_basic.long` - 基本变量和打印
-- `test2_arithmetic.long` - 算术运算
-- `test3_if.long` - if 语句
-- `test4_function.long` - 函数定义和调用
-- `test5_ternary.long` - 三目运算符
-- `test6_string.long` - 字符串操作
-- `test7_short_declare.long` - 短变量声明
-- `test8_complex.long` - 复杂示例
-
-运行测试用例：
-
 ```bash
+# 运行基础测试
 longlang.exe run test/test1_basic.long
+
+# 运行类型测试
+longlang.exe run test/test_types_integer.long
+longlang.exe run test/test_types_float.long
+longlang.exe run test/test_types_string.long
+
+# 运行类测试
+longlang.exe run test/test_class_basic.long
 ```
-
-## 注意事项
-
-1. 所有程序必须有一个 `main` 函数
-2. 短变量声明 `:=` 只能在函数内使用
-3. 函数调用时参数数量必须匹配
-4. 变量使用前必须先声明
-5. 字符串使用双引号 `"` 包裹
 
 ## 开发状态
 
-当前版本实现了基本的解释器功能，支持：
+### 已实现
+
 - ✅ 词法分析（Lexer）
 - ✅ 语法分析（Parser）
 - ✅ 解释执行（Interpreter）
+- ✅ 类型系统
+- ✅ 面向对象
+- ✅ 控制流语句
+- ✅ 函数定义和调用
 
-未来计划：
-- ⏳ 类型断言
-- ⏳ 多返回值支持
-- ⏳ 命名参数调用
-- ⏳ 更多内置函数
-- ⏳ 数组和对象支持
+### 计划中
+
+- ⏳ 数组和 Map 支持
+- ⏳ 错误处理（try/catch）
+- ⏳ 模块导入系统
+- ⏳ 标准库扩展
 
 ## 许可证
 
