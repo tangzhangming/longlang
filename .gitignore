@@ -1,0 +1,4 @@
+*.exe
+*.long
+/idea/
+/test/
