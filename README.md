@@ -52,6 +52,12 @@ longlang.exe run test/test1_basic.long
 | [类系统](docs/class-system-design.md) | 类定义、成员、方法 |
 | [三目运算符](docs/ternary.md) | 三目运算符使用规范 |
 
+### 开发者文档
+
+| 文档 | 说明 |
+|------|------|
+| [开发者指南](docs/developer-guide.md) | 架构、调试、添加新特性 |
+
 ## 快速入门
 
 ### Hello World
