@@ -49,7 +49,7 @@ longlang.exe run test/test1_basic.long
 
 | 文档 | 说明 |
 |------|------|
-| [类系统](docs/class-system-design.md) | 类定义、成员、方法 |
+| [类与继承](docs/classes.md) | 类定义、继承、静态方法 |
 | [三目运算符](docs/ternary.md) | 三目运算符使用规范 |
 
 ### 开发者文档

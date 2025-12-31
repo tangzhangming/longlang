@@ -18,11 +18,13 @@
 | `package` | 包声明 | `package main` |
 | `import` | 导入包 | `import "fmt"` |
 | `class` | 类定义 | `class Person { }` |
+| `extends` | 类继承 | `class Dog extends Animal { }` |
 | `public` | 公开访问修饰符 | `public name string` |
 | `private` | 私有访问修饰符 | `private age int` |
 | `protected` | 受保护访问修饰符 | `protected data string` |
 | `static` | 静态成员 | `public static function create() { }` |
 | `this` | 当前对象引用 | `this.name` |
+| `super` | 父类引用 | `super::method()` |
 | `new` | 创建对象实例 | `new Person("Alice")` |
 | `true` | 布尔真值 | `isActive := true` |
 | `false` | 布尔假值 | `isActive := false` |
@@ -208,7 +210,7 @@ fn doSomething() void {
 | 变量 | `var` |
 | 控制流 | `if`, `else`, `for`, `break`, `continue` |
 | 包管理 | `package`, `import` |
-| 面向对象 | `class`, `public`, `private`, `protected`, `static`, `this`, `new` |
+| 面向对象 | `class`, `extends`, `public`, `private`, `protected`, `static`, `this`, `super`, `new` |
 | 值 | `true`, `false`, `null` |
 | 类型 | `int`, `i8`, `i16`, `i32`, `i64`, `uint`, `u8`, `u16`, `u32`, `u64`, `float`, `f32`, `f64`, `bool`, `string`, `any`, `void` |
 

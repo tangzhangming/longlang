@@ -102,11 +102,13 @@ const (
 	
 	// ========== 类相关关键字 ==========
 	CLASS     TokenType = "CLASS"     // class - 类定义关键字
+	EXTENDS   TokenType = "EXTENDS"   // extends - 继承关键字
 	PUBLIC    TokenType = "PUBLIC"    // public - 公开访问修饰符
 	PRIVATE   TokenType = "PRIVATE"   // private - 私有访问修饰符
 	PROTECTED TokenType = "PROTECTED" // protected - 受保护访问修饰符
 	STATIC    TokenType = "STATIC"    // static - 静态关键字
 	THIS      TokenType = "THIS"      // this - 当前对象关键字
+	SUPER     TokenType = "SUPER"     // super - 父类关键字
 	NEW       TokenType = "NEW"       // new - 创建对象关键字
 )
 
@@ -159,11 +161,13 @@ var keywords = map[string]TokenType{
 	"package":   PACKAGE,
 	"import":    IMPORT,
 	"class":     CLASS,
+	"extends":   EXTENDS,
 	"public":    PUBLIC,
 	"private":   PRIVATE,
 	"protected": PROTECTED,
 	"static":    STATIC,
 	"this":      THIS,
+	"super":     SUPER,
 	"new":       NEW,
 }
 

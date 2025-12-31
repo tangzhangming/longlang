@@ -174,6 +174,7 @@ func (a *Any) Inspect() string  { return a.Value.Inspect() }
 // 表示一个类定义，包含类的方法和成员变量定义
 type Class struct {
 	Name          string                    // 类名
+	Parent        *Class                    // 父类（用于继承）
 	Variables     map[string]*ClassVariable // 成员变量定义
 	Methods       map[string]*ClassMethod   // 实例方法
 	StaticMethods map[string]*ClassMethod   // 静态方法
@@ -181,7 +182,48 @@ type Class struct {
 }
 
 func (c *Class) Type() ObjectType { return CLASS_OBJ }
-func (c *Class) Inspect() string  { return "class " + c.Name }
+func (c *Class) Inspect() string {
+	if c.Parent != nil {
+		return "class " + c.Name + " extends " + c.Parent.Name
+	}
+	return "class " + c.Name
+}
+
+// GetMethod 获取方法（包括继承的方法）
+func (c *Class) GetMethod(name string) (*ClassMethod, bool) {
+	if method, ok := c.Methods[name]; ok {
+		return method, true
+	}
+	// 从父类查找
+	if c.Parent != nil {
+		return c.Parent.GetMethod(name)
+	}
+	return nil, false
+}
+
+// GetStaticMethod 获取静态方法（包括继承的方法）
+func (c *Class) GetStaticMethod(name string) (*ClassMethod, bool) {
+	if method, ok := c.StaticMethods[name]; ok {
+		return method, true
+	}
+	// 从父类查找
+	if c.Parent != nil {
+		return c.Parent.GetStaticMethod(name)
+	}
+	return nil, false
+}
+
+// GetVariable 获取成员变量定义（包括继承的变量）
+func (c *Class) GetVariable(name string) (*ClassVariable, bool) {
+	if variable, ok := c.Variables[name]; ok {
+		return variable, true
+	}
+	// 从父类查找
+	if c.Parent != nil {
+		return c.Parent.GetVariable(name)
+	}
+	return nil, false
+}
 
 // ClassVariable 类成员变量定义
 type ClassVariable struct {

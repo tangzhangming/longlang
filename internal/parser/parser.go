@@ -91,6 +91,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.LPAREN, p.parseGroupedExpression)
 	p.registerPrefix(lexer.FUNCTION, p.parseFunctionLiteral)
 	p.registerPrefix(lexer.THIS, p.parseThisExpression)
+	p.registerPrefix(lexer.SUPER, p.parseSuperExpression)
 	p.registerPrefix(lexer.NEW, p.parseNewExpression)
 
 	// 注册中缀解析函数

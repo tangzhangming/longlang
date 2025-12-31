@@ -516,16 +516,21 @@ func (is *ImportStatement) String() string {
 // ClassStatement 类声明语句
 // 对应语法：class ClassName { ... }
 type ClassStatement struct {
-	Token    lexer.Token      // class 关键字对应的 token
-	Name     *Identifier      // 类名
-	Members  []ClassMember    // 类成员（变量、方法）
+	Token   lexer.Token   // class 关键字对应的 token
+	Name    *Identifier   // 类名
+	Parent  *Identifier   // 父类名（可选，用于继承）
+	Members []ClassMember // 类成员（变量、方法）
 }
 
 func (cs *ClassStatement) statementNode()       {}
 func (cs *ClassStatement) TokenLiteral() string { return cs.Token.Literal }
 func (cs *ClassStatement) String() string {
 	var out string
-	out += "class " + cs.Name.String() + " { "
+	out += "class " + cs.Name.String()
+	if cs.Parent != nil {
+		out += " extends " + cs.Parent.String()
+	}
+	out += " { "
 	for _, member := range cs.Members {
 		out += member.String() + " "
 	}
@@ -617,6 +622,16 @@ type ThisExpression struct {
 func (te *ThisExpression) expressionNode()      {}
 func (te *ThisExpression) TokenLiteral() string { return te.Token.Literal }
 func (te *ThisExpression) String() string       { return "this" }
+
+// SuperExpression super 表达式
+// 用于在子类中访问父类的方法
+type SuperExpression struct {
+	Token lexer.Token // super 关键字对应的 token
+}
+
+func (se *SuperExpression) expressionNode()      {}
+func (se *SuperExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SuperExpression) String() string       { return "super" }
 
 // NewExpression new 表达式
 // 对应语法：new ClassName(参数)

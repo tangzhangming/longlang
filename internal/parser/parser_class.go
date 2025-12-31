@@ -9,6 +9,7 @@ import (
 // ========== 类解析 ==========
 
 // parseClassStatement 解析类声明语句
+// 语法: class ClassName extends ParentClass { ... }
 func (p *Parser) parseClassStatement() *ClassStatement {
 	stmt := &ClassStatement{Token: p.curToken}
 
@@ -18,7 +19,15 @@ func (p *Parser) parseClassStatement() *ClassStatement {
 
 	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	// TODO: 解析继承 extends
+	// 解析继承 extends
+	if p.peekTokenIs(lexer.EXTENDS) {
+		p.nextToken() // 跳过 extends
+		if !p.expectPeek(lexer.IDENT) {
+			return nil
+		}
+		stmt.Parent = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	}
+
 	// TODO: 解析实现 implements
 
 	if !p.expectPeek(lexer.LBRACE) {
@@ -202,6 +211,11 @@ func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMe
 // parseThisExpression 解析 this 表达式
 func (p *Parser) parseThisExpression() Expression {
 	return &ThisExpression{Token: p.curToken}
+}
+
+// parseSuperExpression 解析 super 表达式
+func (p *Parser) parseSuperExpression() Expression {
+	return &SuperExpression{Token: p.curToken}
 }
 
 // parseNewExpression 解析 new 表达式

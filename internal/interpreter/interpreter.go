@@ -151,6 +151,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalAssignmentExpression(node)
 	case *parser.ThisExpression:
 		return i.evalThisExpression()
+	case *parser.SuperExpression:
+		return i.evalSuperExpression()
 	case *parser.StaticCallExpression:
 		return i.evalStaticCallExpression(node)
 	}
@@ -288,6 +290,11 @@ func (i *Interpreter) evalInfixExpression(operator string, left, right Object) O
 		return i.evalIntegerInfixExpression(operator, left, right)
 	case left.Type() == STRING_OBJ && right.Type() == STRING_OBJ:
 		return i.evalStringInfixExpression(operator, left, right)
+	// 字符串 + 其他类型 -> 字符串拼接（自动转换）
+	case left.Type() == STRING_OBJ && operator == "+":
+		return i.evalStringConcatExpression(left, right)
+	case right.Type() == STRING_OBJ && operator == "+":
+		return i.evalStringConcatExpression(left, right)
 	case operator == "==":
 		return &Boolean{Value: left == right}
 	case operator == "!=":
@@ -306,6 +313,34 @@ func (i *Interpreter) evalInfixExpression(operator string, left, right Object) O
 		return i.evalBooleanInfixExpression(operator, left, right)
 	default:
 		return newError("类型不匹配: %s %s %s", left.Type(), operator, right.Type())
+	}
+}
+
+// evalStringConcatExpression 字符串拼接（自动将其他类型转换为字符串）
+func (i *Interpreter) evalStringConcatExpression(left, right Object) Object {
+	leftStr := objectToString(left)
+	rightStr := objectToString(right)
+	return &String{Value: leftStr + rightStr}
+}
+
+// objectToString 将对象转换为字符串
+func objectToString(obj Object) string {
+	switch o := obj.(type) {
+	case *String:
+		return o.Value
+	case *Integer:
+		return fmt.Sprintf("%d", o.Value)
+	case *Float:
+		return fmt.Sprintf("%g", o.Value)
+	case *Boolean:
+		if o.Value {
+			return "true"
+		}
+		return "false"
+	case *Null:
+		return "null"
+	default:
+		return obj.Inspect()
 	}
 }
 
@@ -665,6 +700,19 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 		Env:           i.env,
 	}
 
+	// 处理继承
+	if node.Parent != nil {
+		parentObj, ok := i.env.Get(node.Parent.Value)
+		if !ok {
+			return newError("未定义的父类: %s", node.Parent.Value)
+		}
+		parentClass, ok := parentObj.(*Class)
+		if !ok {
+			return newError("%s 不是一个类", node.Parent.Value)
+		}
+		class.Parent = parentClass
+	}
+
 	// 遍历类成员，分别处理变量和方法
 	for _, member := range node.Members {
 		switch m := member.(type) {
@@ -736,22 +784,20 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 		Fields: make(map[string]Object),
 	}
 
-	// 初始化成员变量（使用默认值）
-	for name, variable := range class.Variables {
-		if variable.DefaultValue != nil {
-			instance.Fields[name] = variable.DefaultValue
-		} else {
-			instance.Fields[name] = &Null{}
-		}
-	}
+	// 初始化成员变量（包括从父类继承的变量）
+	i.initInstanceFields(instance, class)
 
-	// 调用构造函数（如果存在）
-	if constructor, ok := class.Methods["__construct"]; ok {
+	// 调用构造函数（如果存在，包括继承的构造函数）
+	if constructor, ok := class.GetMethod("__construct"); ok {
 		// 创建新的环境，绑定 this
 		constructorEnv := NewEnclosedEnvironment(class.Env)
 		constructorEnv.Set("this", instance)
 		// 在类方法中提供 self（指向当前类），便于 self::xxx 形式的调用
 		constructorEnv.Set("self", class)
+		// 提供 super（指向父类）
+		if class.Parent != nil {
+			constructorEnv.Set("super", class.Parent)
+		}
 
 		// 绑定参数
 		args := i.evalExpressions(node.Arguments)
@@ -784,6 +830,23 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 	return instance
 }
 
+// initInstanceFields 初始化实例的所有字段（包括继承的字段）
+func (i *Interpreter) initInstanceFields(instance *Instance, class *Class) {
+	// 先初始化父类字段
+	if class.Parent != nil {
+		i.initInstanceFields(instance, class.Parent)
+	}
+
+	// 初始化当前类的字段
+	for name, variable := range class.Variables {
+		if variable.DefaultValue != nil {
+			instance.Fields[name] = variable.DefaultValue
+		} else {
+			instance.Fields[name] = &Null{}
+		}
+	}
+}
+
 // evalMemberAccessExpression 执行成员访问表达式
 func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpression) Object {
 	obj := i.Eval(node.Object)
@@ -799,8 +862,8 @@ func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpres
 		if val, ok := object.Fields[memberName]; ok {
 			return val
 		}
-		// 检查是否是方法
-		if method, ok := object.Class.Methods[memberName]; ok {
+		// 检查是否是方法（包括继承的方法）
+		if method, ok := object.Class.GetMethod(memberName); ok {
 			// 返回绑定了 this 的方法
 			return &BoundMethod{
 				Instance: object,
@@ -809,8 +872,8 @@ func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpres
 		}
 		return newError("实例没有成员: %s", memberName)
 	case *Class:
-		// 访问静态成员
-		if method, ok := object.StaticMethods[memberName]; ok {
+		// 访问静态成员（包括继承的静态方法）
+		if method, ok := object.GetStaticMethod(memberName); ok {
 			return &Function{
 				Parameters: method.Parameters,
 				Body:       method.Body,
@@ -893,6 +956,14 @@ func (i *Interpreter) evalThisExpression() Object {
 	return newError("this 只能在类方法中使用")
 }
 
+// evalSuperExpression 执行 super 表达式
+func (i *Interpreter) evalSuperExpression() Object {
+	if super, ok := i.env.Get("super"); ok {
+		return super
+	}
+	return newError("super 只能在子类方法中使用")
+}
+
 // evalStaticCallExpression 执行静态方法调用
 func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression) Object {
 	// 获取类定义
@@ -965,6 +1036,10 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 	env.Set("this", bm.Instance)
 	// 在实例方法中也提供 self（指向该实例所属类），便于 self::xxx
 	env.Set("self", bm.Instance.Class)
+	// 提供 super（指向父类）
+	if bm.Instance.Class.Parent != nil {
+		env.Set("super", bm.Instance.Class.Parent)
+	}
 
 	// 绑定参数
 	for idx, paramInterface := range method.Parameters {
