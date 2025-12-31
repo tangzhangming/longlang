@@ -1,7 +1,7 @@
-*.md
 *.txt
 *.exe
 *.long
 /idea/
 /design/
 /test/
+/tools/
