@@ -22,6 +22,8 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseImportStatement()
 	case lexer.CLASS:
 		return p.parseClassStatement()
+	case lexer.INTERFACE:
+		return p.parseInterfaceStatement()
 	case lexer.VAR:
 		return p.parseLetStatement()
 	case lexer.RETURN:

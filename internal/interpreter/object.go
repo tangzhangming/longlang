@@ -23,6 +23,7 @@ const (
 	BUILTIN_OBJ         ObjectType = "BUILTIN"         // 内置函数类型
 	ANY_OBJ             ObjectType = "ANY"             // 任意类型（未完全实现）
 	CLASS_OBJ           ObjectType = "CLASS"           // 类类型
+	INTERFACE_OBJ       ObjectType = "INTERFACE"       // 接口类型
 	INSTANCE_OBJ        ObjectType = "INSTANCE"        // 类实例类型
 	PACKAGE_OBJ         ObjectType = "PACKAGE"         // 包类型
 	BREAK_SIGNAL_OBJ    ObjectType = "BREAK_SIGNAL"    // break 信号
@@ -170,11 +171,29 @@ func (a *Any) Inspect() string  { return a.Value.Inspect() }
 
 // ========== 类和实例对象 ==========
 
+// Interface 接口对象
+// 表示一个接口定义，包含接口的方法签名
+type Interface struct {
+	Name    string                      // 接口名
+	Methods map[string]*InterfaceMethod // 方法签名
+}
+
+func (i *Interface) Type() ObjectType { return INTERFACE_OBJ }
+func (i *Interface) Inspect() string  { return "interface " + i.Name }
+
+// InterfaceMethod 接口方法签名
+type InterfaceMethod struct {
+	Name       string   // 方法名
+	Parameters []string // 参数类型列表
+	ReturnType []string // 返回类型
+}
+
 // Class 类对象
 // 表示一个类定义，包含类的方法和成员变量定义
 type Class struct {
 	Name          string                    // 类名
 	Parent        *Class                    // 父类（用于继承）
+	Interfaces    []*Interface              // 实现的接口列表
 	Variables     map[string]*ClassVariable // 成员变量定义
 	Methods       map[string]*ClassMethod   // 实例方法
 	StaticMethods map[string]*ClassMethod   // 静态方法
@@ -183,10 +202,40 @@ type Class struct {
 
 func (c *Class) Type() ObjectType { return CLASS_OBJ }
 func (c *Class) Inspect() string {
+	result := "class " + c.Name
 	if c.Parent != nil {
-		return "class " + c.Name + " extends " + c.Parent.Name
+		result += " extends " + c.Parent.Name
 	}
-	return "class " + c.Name
+	if len(c.Interfaces) > 0 {
+		result += " implements "
+		for i, iface := range c.Interfaces {
+			if i > 0 {
+				result += ", "
+			}
+			result += iface.Name
+		}
+	}
+	return result
+}
+
+// Implements 检查类是否实现了指定接口
+func (c *Class) Implements(iface *Interface) bool {
+	for methodName, ifaceMethod := range iface.Methods {
+		classMethod, ok := c.GetMethod(methodName)
+		if !ok {
+			return false
+		}
+		// 检查返回类型
+		if len(classMethod.ReturnType) != len(ifaceMethod.ReturnType) {
+			return false
+		}
+		for i, rt := range ifaceMethod.ReturnType {
+			if classMethod.ReturnType[i] != rt {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // GetMethod 获取方法（包括继承的方法）

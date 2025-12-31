@@ -101,15 +101,17 @@ const (
 	IMPORT  TokenType = "IMPORT"  // import - 导入关键字
 	
 	// ========== 类相关关键字 ==========
-	CLASS     TokenType = "CLASS"     // class - 类定义关键字
-	EXTENDS   TokenType = "EXTENDS"   // extends - 继承关键字
-	PUBLIC    TokenType = "PUBLIC"    // public - 公开访问修饰符
-	PRIVATE   TokenType = "PRIVATE"   // private - 私有访问修饰符
-	PROTECTED TokenType = "PROTECTED" // protected - 受保护访问修饰符
-	STATIC    TokenType = "STATIC"    // static - 静态关键字
-	THIS      TokenType = "THIS"      // this - 当前对象关键字
-	SUPER     TokenType = "SUPER"     // super - 父类关键字
-	NEW       TokenType = "NEW"       // new - 创建对象关键字
+	CLASS      TokenType = "CLASS"      // class - 类定义关键字
+	INTERFACE  TokenType = "INTERFACE"  // interface - 接口定义关键字
+	EXTENDS    TokenType = "EXTENDS"    // extends - 继承关键字
+	IMPLEMENTS TokenType = "IMPLEMENTS" // implements - 实现接口关键字
+	PUBLIC     TokenType = "PUBLIC"     // public - 公开访问修饰符
+	PRIVATE    TokenType = "PRIVATE"    // private - 私有访问修饰符
+	PROTECTED  TokenType = "PROTECTED"  // protected - 受保护访问修饰符
+	STATIC     TokenType = "STATIC"     // static - 静态关键字
+	THIS       TokenType = "THIS"       // this - 当前对象关键字
+	SUPER      TokenType = "SUPER"      // super - 父类关键字
+	NEW        TokenType = "NEW"        // new - 创建对象关键字
 )
 
 // Token 表示一个词法单元
@@ -158,17 +160,19 @@ var keywords = map[string]TokenType{
 	"f32":   F32_TYPE,
 	"f64":   F64_TYPE,
 	// 包和类相关
-	"package":   PACKAGE,
-	"import":    IMPORT,
-	"class":     CLASS,
-	"extends":   EXTENDS,
-	"public":    PUBLIC,
-	"private":   PRIVATE,
-	"protected": PROTECTED,
-	"static":    STATIC,
-	"this":      THIS,
-	"super":     SUPER,
-	"new":       NEW,
+	"package":    PACKAGE,
+	"import":     IMPORT,
+	"class":      CLASS,
+	"interface":  INTERFACE,
+	"extends":    EXTENDS,
+	"implements": IMPLEMENTS,
+	"public":     PUBLIC,
+	"private":    PRIVATE,
+	"protected":  PROTECTED,
+	"static":     STATIC,
+	"this":       THIS,
+	"super":      SUPER,
+	"new":        NEW,
 }
 
 // LookupIdent 检查标识符是否是关键字

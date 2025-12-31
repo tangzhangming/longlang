@@ -32,6 +32,9 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 	case *parser.ClassStatement:
 		// 类定义，注册到环境中
 		return i.evalClassStatement(node)
+	case *parser.InterfaceStatement:
+		// 接口定义，注册到环境中
+		return i.evalInterfaceStatement(node)
 	case *parser.ExpressionStatement:
 		// 检查是否是函数定义
 		if fl, ok := node.Expression.(*parser.FunctionLiteral); ok && fl.Name != nil {
@@ -690,6 +693,36 @@ func splitIdentifier(ident string) []string {
 	return parts
 }
 
+// evalInterfaceStatement 执行接口定义语句
+func (i *Interpreter) evalInterfaceStatement(node *parser.InterfaceStatement) Object {
+	iface := &Interface{
+		Name:    node.Name.Value,
+		Methods: make(map[string]*InterfaceMethod),
+	}
+
+	// 处理接口方法
+	for _, m := range node.Methods {
+		returnTypes := []string{}
+		for _, rt := range m.ReturnType {
+			returnTypes = append(returnTypes, rt.Value)
+		}
+		paramTypes := []string{}
+		for _, p := range m.Parameters {
+			if p.Type != nil {
+				paramTypes = append(paramTypes, p.Type.Value)
+			}
+		}
+		iface.Methods[m.Name.Value] = &InterfaceMethod{
+			Name:       m.Name.Value,
+			Parameters: paramTypes,
+			ReturnType: returnTypes,
+		}
+	}
+
+	i.env.Set(node.Name.Value, iface)
+	return iface
+}
+
 // evalClassStatement 执行类定义语句
 func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 	class := &Class{
@@ -711,6 +744,22 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 			return newError("%s 不是一个类", node.Parent.Value)
 		}
 		class.Parent = parentClass
+	}
+
+	// 处理接口实现
+	if len(node.Interfaces) > 0 {
+		class.Interfaces = make([]*Interface, 0, len(node.Interfaces))
+		for _, ifaceName := range node.Interfaces {
+			ifaceObj, ok := i.env.Get(ifaceName.Value)
+			if !ok {
+				return newError("未定义的接口: %s", ifaceName.Value)
+			}
+			iface, ok := ifaceObj.(*Interface)
+			if !ok {
+				return newError("%s 不是一个接口", ifaceName.Value)
+			}
+			class.Interfaces = append(class.Interfaces, iface)
+		}
 	}
 
 	// 遍历类成员，分别处理变量和方法
@@ -748,6 +797,13 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 			} else {
 				class.Methods[m.Name.Value] = method
 			}
+		}
+	}
+
+	// 检查是否实现了所有接口方法
+	for _, iface := range class.Interfaces {
+		if !class.Implements(iface) {
+			return newError("类 %s 没有完全实现接口 %s", class.Name, iface.Name)
 		}
 	}
 

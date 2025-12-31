@@ -8,7 +8,7 @@
 - ✅ 变量声明（var、短变量声明 :=）
 - ✅ 控制流（if/else if/else、for 循环）
 - ✅ 函数定义和调用（支持默认参数、命名参数）
-- ✅ 面向对象（class、继承、静态方法）
+- ✅ 面向对象（class、继承、接口、静态方法）
 - ✅ 三目运算符
 - ✅ 内置函数（fmt.Println、fmt.Print、fmt.Printf）
 
@@ -45,11 +45,18 @@ longlang.exe run test/test1_basic.long
 | [模块与包](docs/packages.md) | package、import、包管理 |
 | [关键字](docs/keywords.md) | 语言保留关键字列表 |
 
+### 面向对象
+
+| 文档 | 说明 |
+|------|------|
+| [类基础](docs/class-basics.md) | 类定义、实例化、this、静态方法 |
+| [类继承](docs/class-inheritance.md) | extends、方法重写、super |
+| [接口](docs/class-interface.md) | interface、implements、多接口 |
+
 ### 进阶文档
 
 | 文档 | 说明 |
 |------|------|
-| [类与继承](docs/classes.md) | 类定义、继承、静态方法 |
 | [三目运算符](docs/ternary.md) | 三目运算符使用规范 |
 
 ### 开发者文档

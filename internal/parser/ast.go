@@ -511,15 +511,69 @@ func (is *ImportStatement) String() string {
 	return "import " + is.Path.String()
 }
 
+// ========== 接口相关 ==========
+
+// InterfaceStatement 接口声明语句
+// 对应语法：interface InterfaceName { ... }
+type InterfaceStatement struct {
+	Token   lexer.Token         // interface 关键字对应的 token
+	Name    *Identifier         // 接口名
+	Methods []*InterfaceMethod  // 接口方法签名
+}
+
+func (is *InterfaceStatement) statementNode()       {}
+func (is *InterfaceStatement) TokenLiteral() string { return is.Token.Literal }
+func (is *InterfaceStatement) String() string {
+	var out string
+	out += "interface " + is.Name.String() + " { "
+	for _, method := range is.Methods {
+		out += method.String() + " "
+	}
+	out += "}"
+	return out
+}
+
+// InterfaceMethod 接口方法签名
+type InterfaceMethod struct {
+	Token      lexer.Token            // function 关键字对应的 token
+	Name       *Identifier            // 方法名
+	Parameters []*FunctionParameter   // 参数列表
+	ReturnType []*Identifier          // 返回类型
+}
+
+func (im *InterfaceMethod) TokenLiteral() string { return im.Token.Literal }
+func (im *InterfaceMethod) String() string {
+	var out string
+	out += "function " + im.Name.String() + "("
+	for i, p := range im.Parameters {
+		if i > 0 {
+			out += ", "
+		}
+		out += p.String()
+	}
+	out += ")"
+	if len(im.ReturnType) > 0 {
+		out += ":"
+		for i, rt := range im.ReturnType {
+			if i > 0 {
+				out += ", "
+			}
+			out += rt.String()
+		}
+	}
+	return out
+}
+
 // ========== 类相关 ==========
 
 // ClassStatement 类声明语句
-// 对应语法：class ClassName { ... }
+// 对应语法：class ClassName extends Parent implements Interface1, Interface2 { ... }
 type ClassStatement struct {
-	Token   lexer.Token   // class 关键字对应的 token
-	Name    *Identifier   // 类名
-	Parent  *Identifier   // 父类名（可选，用于继承）
-	Members []ClassMember // 类成员（变量、方法）
+	Token      lexer.Token     // class 关键字对应的 token
+	Name       *Identifier     // 类名
+	Parent     *Identifier     // 父类名（可选，用于继承）
+	Interfaces []*Identifier   // 实现的接口列表
+	Members    []ClassMember   // 类成员（变量、方法）
 }
 
 func (cs *ClassStatement) statementNode()       {}
@@ -529,6 +583,15 @@ func (cs *ClassStatement) String() string {
 	out += "class " + cs.Name.String()
 	if cs.Parent != nil {
 		out += " extends " + cs.Parent.String()
+	}
+	if len(cs.Interfaces) > 0 {
+		out += " implements "
+		for i, iface := range cs.Interfaces {
+			if i > 0 {
+				out += ", "
+			}
+			out += iface.String()
+		}
 	}
 	out += " { "
 	for _, member := range cs.Members {

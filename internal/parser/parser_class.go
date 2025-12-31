@@ -9,7 +9,7 @@ import (
 // ========== 类解析 ==========
 
 // parseClassStatement 解析类声明语句
-// 语法: class ClassName extends ParentClass { ... }
+// 语法: class ClassName extends ParentClass implements Interface1, Interface2 { ... }
 func (p *Parser) parseClassStatement() *ClassStatement {
 	stmt := &ClassStatement{Token: p.curToken}
 
@@ -28,7 +28,11 @@ func (p *Parser) parseClassStatement() *ClassStatement {
 		stmt.Parent = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}
 
-	// TODO: 解析实现 implements
+	// 解析实现 implements
+	if p.peekTokenIs(lexer.IMPLEMENTS) {
+		p.nextToken() // 跳过 implements
+		stmt.Interfaces = p.parseInterfaceList()
+	}
 
 	if !p.expectPeek(lexer.LBRACE) {
 		return nil
@@ -37,6 +41,117 @@ func (p *Parser) parseClassStatement() *ClassStatement {
 	stmt.Members = p.parseClassMembers()
 
 	return stmt
+}
+
+// parseInterfaceList 解析接口列表（用于 implements）
+func (p *Parser) parseInterfaceList() []*Identifier {
+	interfaces := []*Identifier{}
+
+	if !p.expectPeek(lexer.IDENT) {
+		return interfaces
+	}
+	interfaces = append(interfaces, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+
+	for p.peekTokenIs(lexer.COMMA) {
+		p.nextToken() // 跳过逗号
+		if !p.expectPeek(lexer.IDENT) {
+			return interfaces
+		}
+		interfaces = append(interfaces, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+	}
+
+	return interfaces
+}
+
+// parseInterfaceStatement 解析接口声明语句
+// 语法: interface InterfaceName { function method1(); function method2():type; }
+func (p *Parser) parseInterfaceStatement() *InterfaceStatement {
+	stmt := &InterfaceStatement{Token: p.curToken}
+
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	stmt.Methods = p.parseInterfaceMethods()
+
+	return stmt
+}
+
+// parseInterfaceMethods 解析接口方法列表
+func (p *Parser) parseInterfaceMethods() []*InterfaceMethod {
+	methods := []*InterfaceMethod{}
+
+	p.nextToken()
+
+	for !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.EOF) {
+		if p.curTokenIs(lexer.SEMICOLON) {
+			p.nextToken()
+			continue
+		}
+
+		if p.curTokenIs(lexer.FUNCTION) {
+			method := p.parseInterfaceMethod()
+			if method != nil {
+				methods = append(methods, method)
+			}
+		}
+		p.nextToken()
+	}
+
+	return methods
+}
+
+// parseInterfaceMethod 解析接口方法签名
+func (p *Parser) parseInterfaceMethod() *InterfaceMethod {
+	method := &InterfaceMethod{Token: p.curToken}
+
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	method.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	method.Parameters = p.parseFunctionParameters()
+
+	// 解析返回类型
+	if p.peekTokenIs(lexer.COLON) {
+		p.nextToken() // 跳过 :
+		p.nextToken() // 移动到返回类型
+		if p.curTokenIs(lexer.LPAREN) {
+			// 多返回值
+			p.nextToken()
+			method.ReturnType = []*Identifier{}
+			for !p.curTokenIs(lexer.RPAREN) && !p.curTokenIs(lexer.EOF) {
+				if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.FLOAT_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.IDENT) {
+					method.ReturnType = append(method.ReturnType, &Identifier{Token: p.curToken, Value: p.curToken.Literal})
+				}
+				p.nextToken()
+				if p.curTokenIs(lexer.COMMA) {
+					p.nextToken()
+				}
+			}
+		} else {
+			// 单返回值
+			if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.FLOAT_TYPE) || p.curTokenIs(lexer.ANY) || p.curTokenIs(lexer.VOID) || p.curTokenIs(lexer.IDENT) {
+				method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
+			}
+		}
+	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.FLOAT_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
+		p.nextToken()
+		method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
+	}
+
+	return method
 }
 
 // parseClassMembers 解析类成员

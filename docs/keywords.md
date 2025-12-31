@@ -18,7 +18,9 @@
 | `package` | 包声明 | `package main` |
 | `import` | 导入包 | `import "fmt"` |
 | `class` | 类定义 | `class Person { }` |
+| `interface` | 接口定义 | `interface Printable { }` |
 | `extends` | 类继承 | `class Dog extends Animal { }` |
+| `implements` | 实现接口 | `class Dog implements Printable { }` |
 | `public` | 公开访问修饰符 | `public name string` |
 | `private` | 私有访问修饰符 | `private age int` |
 | `protected` | 受保护访问修饰符 | `protected data string` |
@@ -210,7 +212,7 @@ fn doSomething() void {
 | 变量 | `var` |
 | 控制流 | `if`, `else`, `for`, `break`, `continue` |
 | 包管理 | `package`, `import` |
-| 面向对象 | `class`, `extends`, `public`, `private`, `protected`, `static`, `this`, `super`, `new` |
+| 面向对象 | `class`, `interface`, `extends`, `implements`, `public`, `private`, `protected`, `static`, `this`, `super`, `new` |
 | 值 | `true`, `false`, `null` |
 | 类型 | `int`, `i8`, `i16`, `i32`, `i64`, `uint`, `u8`, `u16`, `u32`, `u64`, `float`, `f32`, `f64`, `bool`, `string`, `any`, `void` |
 
