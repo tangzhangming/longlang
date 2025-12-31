@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/tangzhangming/longlang/internal/interpreter"
 	"github.com/tangzhangming/longlang/internal/lexer"
@@ -59,6 +60,16 @@ func main() {
 
 	// 解释执行：执行 AST
 	interp := interpreter.New()
+
+	// 设置标准库路径（相对于可执行文件）
+	exePath, _ := os.Executable()
+	stdlibPath := filepath.Join(filepath.Dir(exePath), "stdlib")
+	// 如果不存在，尝试当前目录
+	if _, err := os.Stat(stdlibPath); os.IsNotExist(err) {
+		stdlibPath = "stdlib"
+	}
+	interp.SetStdlibPath(stdlibPath)
+
 	result := interp.Eval(program)
 
 	// 检查运行时错误

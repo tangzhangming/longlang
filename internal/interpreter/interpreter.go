@@ -2,12 +2,43 @@ package interpreter
 
 import (
 	"fmt"
+	"io/ioutil"
+
+	"github.com/tangzhangming/longlang/internal/lexer"
 	"github.com/tangzhangming/longlang/internal/parser"
 )
 
+// readFile 读取文件内容
+func readFile(path string) (string, error) {
+	content, err := ioutil.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
+// newLexer 创建词法分析器
+func newLexer(input string) *lexer.Lexer {
+	return lexer.New(input)
+}
+
+// newParser 创建语法分析器
+func newParser(l *lexer.Lexer) *parser.Parser {
+	return parser.New(l)
+}
+
 // Interpreter 解释器，负责执行 AST 节点
 type Interpreter struct {
-	env *Environment // 当前作用域环境
+	env           *Environment          // 当前作用域环境
+	stdlibPath    string                // 标准库目录路径
+	loadedModules map[string]*Module    // 已加载的模块缓存
+}
+
+// Module 模块对象
+type Module struct {
+	Name    string            // 模块名
+	Env     *Environment      // 模块环境
+	Exports map[string]Object // 导出的符号
 }
 
 // New 创建新解释器并初始化内置函数
@@ -15,7 +46,21 @@ func New() *Interpreter {
 	env := NewEnvironment()
 	// 注册内置函数（如 fmt.Println）
 	registerBuiltins(env)
-	return &Interpreter{env: env}
+	return &Interpreter{
+		env:           env,
+		stdlibPath:    "stdlib", // 默认标准库路径
+		loadedModules: make(map[string]*Module),
+	}
+}
+
+// SetStdlibPath 设置标准库目录路径
+func (i *Interpreter) SetStdlibPath(path string) {
+	i.stdlibPath = path
+}
+
+// GetEnv 获取当前环境
+func (i *Interpreter) GetEnv() *Environment {
+	return i.env
 }
 
 // Eval 执行 AST 节点，根据节点类型分发到相应的处理函数
@@ -27,8 +72,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		// 包声明目前只是声明性的，不执行任何操作
 		return nil
 	case *parser.ImportStatement:
-		// 导入语句目前只是声明性的，不执行任何操作
-		return nil
+		// 处理导入语句
+		return i.evalImportStatement(node)
 	case *parser.ClassStatement:
 		// 类定义，注册到环境中
 		return i.evalClassStatement(node)
@@ -582,6 +627,9 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 	case *BoundMethod:
 		// 处理绑定方法调用
 		return i.applyBoundMethod(fn, args, callArgs)
+	case *BoundStringMethod:
+		// 处理字符串方法调用
+		return fn.Method(fn.String, args...)
 	default:
 		return newError("不是函数: %s", fn.Type())
 	}
@@ -691,6 +739,103 @@ func splitIdentifier(ident string) []string {
 		parts = append(parts, current)
 	}
 	return parts
+}
+
+// evalImportStatement 执行导入语句
+func (i *Interpreter) evalImportStatement(node *parser.ImportStatement) Object {
+	moduleName := node.Path.Value
+
+	// 检查是否是内置库（如 "fmt"）
+	if moduleName == "fmt" {
+		// fmt 已经在初始化时注册，不需要额外处理
+		return nil
+	}
+
+	// 检查是否已加载
+	if module, ok := i.loadedModules[moduleName]; ok {
+		// 将模块注册到当前环境
+		i.registerModule(moduleName, module)
+		return nil
+	}
+
+	// 尝试从标准库加载 .long 文件
+	module, err := i.loadModule(moduleName)
+	if err != nil {
+		return newError("无法加载模块 %s: %s", moduleName, err.Error())
+	}
+
+	// 缓存并注册模块
+	i.loadedModules[moduleName] = module
+	i.registerModule(moduleName, module)
+
+	return nil
+}
+
+// loadModule 加载模块文件
+func (i *Interpreter) loadModule(name string) (*Module, error) {
+	// 构建文件路径
+	filePath := i.stdlibPath + "/" + name + ".long"
+
+	// 读取文件
+	content, err := readFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	// 创建模块环境（继承全局环境中的内置函数）
+	moduleEnv := NewEnclosedEnvironment(i.env)
+
+	// 词法分析
+	l := newLexer(content)
+
+	// 语法分析
+	p := newParser(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		return nil, fmt.Errorf("模块 %s 语法错误: %v", name, p.Errors())
+	}
+
+	// 创建模块解释器
+	moduleInterpreter := &Interpreter{
+		env:           moduleEnv,
+		stdlibPath:    i.stdlibPath,
+		loadedModules: i.loadedModules,
+	}
+
+	// 执行模块代码（不调用 main）
+	for _, stmt := range program.Statements {
+		result := moduleInterpreter.Eval(stmt)
+		if isError(result) {
+			return nil, fmt.Errorf("模块 %s 执行错误: %s", name, result.Inspect())
+		}
+	}
+
+	// 收集导出的符号（所有函数和变量）
+	exports := make(map[string]Object)
+	for key, val := range moduleEnv.store {
+		exports[key] = val
+	}
+
+	return &Module{
+		Name:    name,
+		Env:     moduleEnv,
+		Exports: exports,
+	}, nil
+}
+
+// registerModule 将模块注册到当前环境
+func (i *Interpreter) registerModule(name string, module *Module) {
+	// 创建模块命名空间对象
+	moduleObj := NewBuiltinObject(name)
+
+	// 将导出的符号添加到命名空间
+	for key, val := range module.Exports {
+		moduleObj.SetField(key, val)
+	}
+
+	// 注册到当前环境
+	i.env.Set(name, moduleObj)
 }
 
 // evalInterfaceStatement 执行接口定义语句
@@ -944,6 +1089,17 @@ func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpres
 			return member
 		}
 		return newError("命名空间中没有成员: %s", memberName)
+	case *String:
+		// 访问字符串方法
+		if method, ok := GetStringMethod(memberName); ok {
+			// 返回绑定的字符串方法
+			return &BoundStringMethod{
+				String: object,
+				Method: method,
+				Name:   memberName,
+			}
+		}
+		return newError("字符串没有方法: %s", memberName)
 	default:
 		return newError("无法访问 %s 的成员", obj.Type())
 	}

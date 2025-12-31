@@ -16,6 +16,7 @@ import (
 func registerBuiltins(env *Environment) {
 	// 注册 fmt 命名空间对象
 	env.Set("fmt", &BuiltinObject{
+		Name: "fmt",
 		Fields: map[string]Object{
 			// fmt.Println: 打印参数并换行
 			// 参数可以是任意数量和类型
@@ -61,11 +62,20 @@ func registerBuiltins(env *Environment) {
 // 用于组织相关的内置函数，实现命名空间功能
 // 例如：fmt.Println 中的 fmt 就是一个 BuiltinObject
 type BuiltinObject struct {
+	Name   string            // 命名空间名称
 	Fields map[string]Object // 命名空间中的字段（函数或其他对象）
 }
 
+// NewBuiltinObject 创建内置对象
+func NewBuiltinObject(name string) *BuiltinObject {
+	return &BuiltinObject{
+		Name:   name,
+		Fields: make(map[string]Object),
+	}
+}
+
 func (bo *BuiltinObject) Type() ObjectType { return BUILTIN_OBJ }
-func (bo *BuiltinObject) Inspect() string  { return "内置对象" }
+func (bo *BuiltinObject) Inspect() string  { return "builtin " + bo.Name }
 
 // GetField 获取字段
 // 用于访问命名空间中的成员（如 fmt.Println）
@@ -77,6 +87,11 @@ func (bo *BuiltinObject) Inspect() string  { return "内置对象" }
 func (bo *BuiltinObject) GetField(name string) (Object, bool) {
 	obj, ok := bo.Fields[name]
 	return obj, ok
+}
+
+// SetField 设置字段
+func (bo *BuiltinObject) SetField(name string, obj Object) {
+	bo.Fields[name] = obj
 }
 
 // exitError 辅助函数：用于退出程序

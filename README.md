@@ -57,6 +57,7 @@ longlang.exe run test/test1_basic.long
 
 | 文档 | 说明 |
 |------|------|
+| [标准库](docs/stdlib.md) | testing、strings、math 等标准库 |
 | [三目运算符](docs/ternary.md) | 三目运算符使用规范 |
 
 ### 开发者文档

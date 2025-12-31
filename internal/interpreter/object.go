@@ -335,3 +335,21 @@ type BoundMethod struct {
 
 func (bm *BoundMethod) Type() ObjectType { return FUNCTION_OBJ }
 func (bm *BoundMethod) Inspect() string  { return "bound method " + bm.Method.Name }
+
+// BoundStringMethod 绑定字符串方法对象
+// 表示一个绑定了字符串实例的方法
+type BoundStringMethod struct {
+	String *String                              // 绑定的字符串
+	Method func(s *String, args ...Object) Object // 方法实现
+	Name   string                               // 方法名
+}
+
+func (bsm *BoundStringMethod) Type() ObjectType { return FUNCTION_OBJ }
+func (bsm *BoundStringMethod) Inspect() string  { return "string method " + bsm.Name }
+
+// ========== 辅助函数 ==========
+
+// NewError 创建错误对象
+func NewError(format string, a ...interface{}) *Error {
+	return &Error{Message: fmt.Sprintf(format, a...)}
+}
