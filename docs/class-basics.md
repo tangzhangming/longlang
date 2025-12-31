@@ -39,8 +39,8 @@ class Person {
 
 ```longlang
 person := new Person("张三", 25)
-fmt.Println(person.name)    // 张三
-fmt.Println(person.greet()) // 你好，我是 张三
+fmt.println(person.name)    // 张三
+fmt.println(person.greet()) // 你好，我是 张三
 ```
 
 ## this 关键字
@@ -127,13 +127,13 @@ class Counter {
 
 fn main() {
     counter := new Counter(10)
-    fmt.Println("初始值: " + counter.getValue())
+    fmt.println("初始值: " + counter.getValue())
     
     counter.increment()
-    fmt.Println("递增后: " + counter.getValue())
+    fmt.println("递增后: " + counter.getValue())
     
     counter.decrement()
-    fmt.Println("递减后: " + counter.getValue())
+    fmt.println("递减后: " + counter.getValue())
 }
 ```
 

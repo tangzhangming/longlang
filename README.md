@@ -10,7 +10,7 @@
 - ✅ 函数定义和调用（支持默认参数、命名参数）
 - ✅ 面向对象（class、继承、接口、静态方法）
 - ✅ 三目运算符
-- ✅ 内置函数（fmt.Println、fmt.Print、fmt.Printf）
+- ✅ 内置函数（fmt.println、fmt.print、fmt.printf）
 
 ## 安装
 
@@ -74,7 +74,7 @@ longlang.exe run test/test1_basic.long
 package main
 
 fn main() {
-    fmt.Println("Hello, World!")
+    fmt.println("Hello, World!")
 }
 ```
 
@@ -91,12 +91,12 @@ fn main() {
     // 算术运算
     a := 10
     b := 3
-    fmt.Println("a + b =", a + b)
-    fmt.Println("a * b =", a * b)
+    fmt.println("a + b =", a + b)
+    fmt.println("a * b =", a * b)
     
     // 字符串拼接
     greeting := "Hello, " + name
-    fmt.Println(greeting)
+    fmt.println(greeting)
 }
 ```
 
@@ -110,16 +110,16 @@ fn main() {
     
     // if-else
     if score >= 90 {
-        fmt.Println("优秀")
+        fmt.println("优秀")
     } else if score >= 60 {
-        fmt.Println("及格")
+        fmt.println("及格")
     } else {
-        fmt.Println("不及格")
+        fmt.println("不及格")
     }
     
     // for 循环
     for i := 0; i < 5; i++ {
-        fmt.Println("i =", i)
+        fmt.println("i =", i)
     }
 }
 ```
@@ -134,12 +134,12 @@ fn add(a:int, b:int) int {
 }
 
 fn greet(name:string = "World") {
-    fmt.Println("Hello,", name)
+    fmt.println("Hello,", name)
 }
 
 fn main() {
     result := add(10, 20)
-    fmt.Println("10 + 20 =", result)
+    fmt.println("10 + 20 =", result)
     
     greet()
     greet("Alice")
@@ -167,8 +167,8 @@ class Person {
 
 fn main() {
     person := new Person("Alice", 25)
-    fmt.Println(person.greet())
-    fmt.Println("Age:", person.age)
+    fmt.println(person.greet())
+    fmt.println("Age:", person.age)
 }
 ```
 

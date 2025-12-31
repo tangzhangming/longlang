@@ -30,13 +30,13 @@ if condition {
 score := 85
 
 if score >= 90 {
-    fmt.Println("优秀")
+    fmt.println("优秀")
 } else if score >= 80 {
-    fmt.Println("良好")
+    fmt.println("良好")
 } else if score >= 60 {
-    fmt.Println("及格")
+    fmt.println("及格")
 } else {
-    fmt.Println("不及格")
+    fmt.println("不及格")
 }
 ```
 
@@ -48,12 +48,12 @@ hasLicense := true
 
 if age >= 18 {
     if hasLicense {
-        fmt.Println("可以开车")
+        fmt.println("可以开车")
     } else {
-        fmt.Println("需要先考驾照")
+        fmt.println("需要先考驾照")
     }
 } else {
-    fmt.Println("年龄不够")
+    fmt.println("年龄不够")
 }
 ```
 
@@ -82,11 +82,11 @@ result := condition
 
 ```longlang
 // ❌ 禁止
-fmt.Println(a > b ? a : b)
+fmt.println(a > b ? a : b)
 
 // ✅ 正确
 max := a > b ? a : b
-fmt.Println(max)
+fmt.println(max)
 ```
 
 ## for 循环
@@ -98,7 +98,7 @@ LongLang 的 for 循环语法与 Go 语言一致，支持三种形式：
 ```longlang
 i := 0
 for i < 5 {
-    fmt.Println("i =", i)
+    fmt.println("i =", i)
     i++
 }
 ```
@@ -108,7 +108,7 @@ for i < 5 {
 ```longlang
 count := 0
 for {
-    fmt.Println("count =", count)
+    fmt.println("count =", count)
     count++
     if count >= 3 {
         break
@@ -120,7 +120,7 @@ for {
 
 ```longlang
 for j := 0; j < 5; j++ {
-    fmt.Println("j =", j)
+    fmt.println("j =", j)
 }
 ```
 
@@ -135,7 +135,7 @@ for i := 0; i < 10; i++ {
     if i == 5 {
         break  // 跳出循环
     }
-    fmt.Println(i)
+    fmt.println(i)
 }
 // 输出: 0 1 2 3 4
 ```
@@ -149,7 +149,7 @@ for i := 0; i < 5; i++ {
     if i == 2 {
         continue  // 跳过 i=2
     }
-    fmt.Println(i)
+    fmt.println(i)
 }
 // 输出: 0 1 3 4
 ```
@@ -175,18 +175,18 @@ fn main() {
     // 查找第一个能被 7 整除的数
     for i := 1; i <= 100; i++ {
         if i % 7 == 0 {
-            fmt.Println("找到:", i)
+            fmt.println("找到:", i)
             break
         }
     }
     
     // 打印 1-20 中的奇数
-    fmt.Println("1-20 的奇数:")
+    fmt.println("1-20 的奇数:")
     for n := 1; n <= 20; n++ {
         if n % 2 == 0 {
             continue
         }
-        fmt.Println(n)
+        fmt.println(n)
     }
     
     // 嵌套循环打印乘法表
@@ -194,7 +194,7 @@ fn main() {
         for j := 1; j <= i; j++ {
             fmt.Print(j, "*", i, "=", i*j, " ")
         }
-        fmt.Println("")
+        fmt.println("")
     }
 }
 ```

@@ -21,17 +21,17 @@ fn main() {
     a := 10
     b := 3
     
-    fmt.Println("a + b =", a + b)   // 13
-    fmt.Println("a - b =", a - b)   // 7
-    fmt.Println("a * b =", a * b)   // 30
-    fmt.Println("a / b =", a / b)   // 3
-    fmt.Println("a % b =", a % b)   // 1
+    fmt.println("a + b =", a + b)   // 13
+    fmt.println("a - b =", a - b)   // 7
+    fmt.println("a * b =", a * b)   // 30
+    fmt.println("a / b =", a / b)   // 3
+    fmt.println("a % b =", a % b)   // 1
     
     // 自增自减
     a++
-    fmt.Println("a++ =", a)         // 11
+    fmt.println("a++ =", a)         // 11
     b--
-    fmt.Println("b-- =", b)         // 2
+    fmt.println("b-- =", b)         // 2
 }
 ```
 
@@ -42,10 +42,10 @@ fn main() {
     x := 10.5
     y := 3.2
     
-    fmt.Println("x + y =", x + y)   // 13.7
-    fmt.Println("x - y =", x - y)   // 7.3
-    fmt.Println("x * y =", x * y)   // 33.6
-    fmt.Println("x / y =", x / y)   // 3.28125
+    fmt.println("x + y =", x + y)   // 13.7
+    fmt.println("x - y =", x - y)   // 7.3
+    fmt.println("x * y =", x * y)   // 33.6
+    fmt.println("x / y =", x / y)   // 3.28125
 }
 ```
 
@@ -59,7 +59,7 @@ fn main() {
     floatVal := 3.5
     
     result := intVal + floatVal    // 13.5 (float)
-    fmt.Println("结果:", result)
+    fmt.println("结果:", result)
 }
 ```
 
@@ -81,12 +81,12 @@ fn main() {
     a := 10
     b := 20
     
-    fmt.Println("a == b:", a == b)   // false
-    fmt.Println("a != b:", a != b)   // true
-    fmt.Println("a < b:", a < b)     // true
-    fmt.Println("a > b:", a > b)     // false
-    fmt.Println("a <= b:", a <= b)   // true
-    fmt.Println("a >= b:", a >= b)   // false
+    fmt.println("a == b:", a == b)   // false
+    fmt.println("a != b:", a != b)   // true
+    fmt.println("a < b:", a < b)     // true
+    fmt.println("a > b:", a > b)     // false
+    fmt.println("a <= b:", a <= b)   // true
+    fmt.println("a >= b:", a >= b)   // false
 }
 ```
 
@@ -98,9 +98,9 @@ fn main() {
     s2 := "apple"
     s3 := "banana"
     
-    fmt.Println("s1 == s2:", s1 == s2)   // true
-    fmt.Println("s1 == s3:", s1 == s3)   // false
-    fmt.Println("s1 != s3:", s1 != s3)   // true
+    fmt.println("s1 == s2:", s1 == s2)   // true
+    fmt.println("s1 == s3:", s1 == s3)   // false
+    fmt.println("s1 != s3:", s1 != s3)   // true
 }
 ```
 
@@ -119,21 +119,21 @@ fn main() {
     a := true
     b := false
     
-    fmt.Println("a && b:", a && b)   // false
-    fmt.Println("a || b:", a || b)   // true
-    fmt.Println("!a:", !a)           // false
-    fmt.Println("!b:", !b)           // true
+    fmt.println("a && b:", a && b)   // false
+    fmt.println("a || b:", a || b)   // true
+    fmt.println("!a:", !a)           // false
+    fmt.println("!b:", !b)           // true
     
     // 复合条件
     x := 10
     y := 20
     
     if x > 5 && y > 15 {
-        fmt.Println("两个条件都满足")
+        fmt.println("两个条件都满足")
     }
     
     if x > 15 || y > 15 {
-        fmt.Println("至少一个条件满足")
+        fmt.println("至少一个条件满足")
     }
 }
 ```
@@ -193,10 +193,10 @@ fn main() {
     lastName := "三"
     
     fullName := firstName + lastName
-    fmt.Println("全名:", fullName)  // 张三
+    fmt.println("全名:", fullName)  // 张三
     
     greeting := "Hello, " + fullName + "!"
-    fmt.Println(greeting)           // Hello, 张三!
+    fmt.println(greeting)           // Hello, 张三!
 }
 ```
 

@@ -150,7 +150,7 @@ class Person {
 
 ```longlang
 fn printAny(value:any) {
-    fmt.Println(value)
+    fmt.println(value)
 }
 
 printAny(42)         // 整数
@@ -165,7 +165,7 @@ printAny(true)       // 布尔值
 
 ```longlang
 fn doSomething() void {
-    fmt.Println("执行操作")
+    fmt.println("执行操作")
     // 无需 return
 }
 ```

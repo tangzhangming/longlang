@@ -10,18 +10,18 @@ import (
 // 参数:
 //   env: 全局环境，用于注册内置函数
 // 当前支持的内置函数:
-//   - fmt.Println: 打印并换行
-//   - fmt.Print: 打印不换行
-//   - fmt.Printf: 格式化打印
+//   - fmt.println: 打印并换行
+//   - fmt.print: 打印不换行
+//   - fmt.printf: 格式化打印
 func registerBuiltins(env *Environment) {
 	// 注册 fmt 命名空间对象
 	env.Set("fmt", &BuiltinObject{
 		Name: "fmt",
 		Fields: map[string]Object{
-			// fmt.Println: 打印参数并换行
+			// fmt.println: 打印参数并换行
 			// 参数可以是任意数量和类型
-			// 例如：fmt.Println("Hello", 123, true)
-			"Println": &Builtin{Fn: func(args ...Object) Object {
+			// 例如：fmt.println("Hello", 123, true)
+			"println": &Builtin{Fn: func(args ...Object) Object {
 				values := []interface{}{}
 				for _, arg := range args {
 					// 将每个参数转换为字符串
@@ -30,21 +30,21 @@ func registerBuiltins(env *Environment) {
 				fmt.Println(values...)
 				return &Null{} // 返回 null 表示无返回值
 			}},
-			// fmt.Print: 打印参数不换行
+			// fmt.print: 打印参数不换行
 			// 参数可以是任意数量和类型
-			// 例如：fmt.Print("Hello", "World")
-			"Print": &Builtin{Fn: func(args ...Object) Object {
+			// 例如：fmt.print("Hello", "World")
+			"print": &Builtin{Fn: func(args ...Object) Object {
 				for _, arg := range args {
 					fmt.Print(arg.Inspect())
 				}
 				return &Null{}
 			}},
-			// fmt.Printf: 格式化打印
+			// fmt.printf: 格式化打印
 			// 第一个参数是格式字符串，后续参数是要格式化的值
-			// 例如：fmt.Printf("数字: %d, 字符串: %s", 123, "test")
-			"Printf": &Builtin{Fn: func(args ...Object) Object {
+			// 例如：fmt.printf("数字: %d, 字符串: %s", 123, "test")
+			"printf": &Builtin{Fn: func(args ...Object) Object {
 				if len(args) == 0 {
-					return newError("Printf 至少需要一个参数")
+					return newError("printf 至少需要一个参数")
 				}
 				format := args[0].Inspect()
 				values := []interface{}{}

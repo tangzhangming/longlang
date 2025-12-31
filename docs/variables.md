@@ -55,12 +55,12 @@ fn main() {
     
     if true {
         var blockVar = "我是块级变量"
-        fmt.Println(blockVar)    // ✅ 可访问
-        fmt.Println(localVar)    // ✅ 可访问
-        fmt.Println(globalVar)   // ✅ 可访问
+        fmt.println(blockVar)    // ✅ 可访问
+        fmt.println(localVar)    // ✅ 可访问
+        fmt.println(globalVar)   // ✅ 可访问
     }
     
-    // fmt.Println(blockVar)     // ❌ 不可访问，已超出作用域
+    // fmt.println(blockVar)     // ❌ 不可访问，已超出作用域
 }
 ```
 
@@ -94,7 +94,7 @@ var s string    // s 的值是 null
 
 // 检查 null
 if x == null {
-    fmt.Println("x 未初始化")
+    fmt.println("x 未初始化")
 }
 ```
 
@@ -119,8 +119,8 @@ fn main() {
     score := 85
     grade := score >= 60 ? "及格" : "不及格"
     
-    fmt.Println("姓名:", fullName)
-    fmt.Println("成绩:", grade)
+    fmt.println("姓名:", fullName)
+    fmt.println("成绩:", grade)
 }
 ```
 

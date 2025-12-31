@@ -130,40 +130,40 @@ package main
 fn main() {
     // 基本信息
     name := "Hello World"
-    fmt.Println("长度:", name.length())           // 11
-    fmt.Println("是否为空:", name.isEmpty())       // false
-    fmt.Println("第一个字符:", name.charAt(0))     // H
+    fmt.println("长度:", name.length())           // 11
+    fmt.println("是否为空:", name.isEmpty())       // false
+    fmt.println("第一个字符:", name.charAt(0))     // H
 
     // 查找
-    fmt.Println("indexOf:", name.indexOf("o"))     // 4
-    fmt.Println("contains:", name.contains("World")) // true
-    fmt.Println("startsWith:", name.startsWith("Hello")) // true
+    fmt.println("indexOf:", name.indexOf("o"))     // 4
+    fmt.println("contains:", name.contains("World")) // true
+    fmt.println("startsWith:", name.startsWith("Hello")) // true
 
     // 大小写
-    fmt.Println("upper:", name.upper())            // HELLO WORLD
-    fmt.Println("lower:", name.lower())            // hello world
+    fmt.println("upper:", name.upper())            // HELLO WORLD
+    fmt.println("lower:", name.lower())            // hello world
 
     // 去除空白
     text := "  trim me  "
-    fmt.Println("trim:", text.trim())              // "trim me"
+    fmt.println("trim:", text.trim())              // "trim me"
 
     // 格式转换
     varName := "user_name"
-    fmt.Println("camel:", varName.camel())         // userName
-    fmt.Println("studly:", varName.studly())       // UserName
+    fmt.println("camel:", varName.camel())         // userName
+    fmt.println("studly:", varName.studly())       // UserName
 
     className := "MyClass"
-    fmt.Println("snake:", className.snake())       // my_class
-    fmt.Println("kebab:", className.kebab())       // my-class
+    fmt.println("snake:", className.snake())       // my_class
+    fmt.println("kebab:", className.kebab())       // my-class
 
     // 替换
-    fmt.Println("replace:", "hello".replaceAll("l", "L"))  // heLLo
+    fmt.println("replace:", "hello".replaceAll("l", "L"))  // heLLo
 
     // 填充
-    fmt.Println("padLeft:", "5".padLeft(3, "0"))   // 005
+    fmt.println("padLeft:", "5".padLeft(3, "0"))   // 005
 
     // 子串
-    fmt.Println("substring:", name.substring(0, 5)) // Hello
+    fmt.println("substring:", name.substring(0, 5)) // Hello
 }
 ```
 

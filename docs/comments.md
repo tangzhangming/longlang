@@ -14,7 +14,7 @@ fn main() {
     name := "Alice"  // 行尾注释
     
     // 打印问候语
-    fmt.Println("Hello,", name)
+    fmt.println("Hello,", name)
 }
 ```
 
@@ -36,10 +36,10 @@ fn main() {
     /*
     临时禁用的代码块：
     age := 25
-    fmt.Println(age)
+    fmt.println(age)
     */
     
-    fmt.Println("Hello,", name)
+    fmt.println("Hello,", name)
 }
 ```
 
@@ -63,7 +63,7 @@ fn circleArea(radius:float) float {
 fn main() {
     a := 10
     // b := 20  // 暂时不需要这个变量
-    fmt.Println(a)
+    fmt.println(a)
 }
 ```
 
@@ -73,7 +73,7 @@ fn main() {
 fn processData(data:string) {
     // TODO: 添加数据验证
     // TODO: 处理空字符串情况
-    fmt.Println(data)
+    fmt.println(data)
 }
 ```
 
@@ -87,11 +87,11 @@ fn main() {
     
     // ========== 处理逻辑 ==========
     if age >= 18 {
-        fmt.Println(name, "是成年人")
+        fmt.println(name, "是成年人")
     }
     
     // ========== 输出结果 ==========
-    fmt.Println("处理完成")
+    fmt.println("处理完成")
 }
 ```
 
@@ -135,7 +135,7 @@ fn main() {
     user := new Person("Alice", 25)
     
     // 输出问候语
-    fmt.Println(user.greet())
+    fmt.println(user.greet())
 }
 ```
 

@@ -16,11 +16,11 @@ fn 函数名(参数列表) 返回类型 {
 
 ```longlang
 fn greet(name:string) {
-    fmt.Println("Hello,", name)
+    fmt.println("Hello,", name)
 }
 
 fn sayHello() {
-    fmt.Println("Hello, World!")
+    fmt.println("Hello, World!")
 }
 ```
 
@@ -56,7 +56,7 @@ fn divide(a:int, b:int) (int, int) {
 
 ```longlang
 fn greet(name:string, age:int) {
-    fmt.Println(name, "今年", age, "岁")
+    fmt.println(name, "今年", age, "岁")
 }
 
 // 调用时必须提供所有参数
@@ -67,7 +67,7 @@ greet("Alice", 25)
 
 ```longlang
 fn greet(name:string = "World") {
-    fmt.Println("Hello,", name)
+    fmt.println("Hello,", name)
 }
 
 // 调用方式
@@ -79,7 +79,7 @@ greet("Alice")   // 传入参数，输出: Hello, Alice
 
 ```longlang
 fn createUser(name:string, age:int = 0, city:string = "Beijing") {
-    fmt.Println("姓名:", name, "年龄:", age, "城市:", city)
+    fmt.println("姓名:", name, "年龄:", age, "城市:", city)
 }
 
 // 使用命名参数
@@ -104,11 +104,11 @@ fn square(n:int) int {
 ```longlang
 fn processData(data:string) {
     if data == "" {
-        fmt.Println("数据为空")
+        fmt.println("数据为空")
         return  // 提前退出
     }
     
-    fmt.Println("处理数据:", data)
+    fmt.println("处理数据:", data)
 }
 ```
 
@@ -139,13 +139,13 @@ fn main() {
     
     // 获取返回值
     result := add(10, 20)
-    fmt.Println("结果:", result)
+    fmt.println("结果:", result)
     
     // 直接在表达式中使用
-    fmt.Println("5 + 3 =", add(5, 3))
+    fmt.println("5 + 3 =", add(5, 3))
     
     // 嵌套调用
-    fmt.Println("max:", max(add(1, 2), add(3, 4)))
+    fmt.println("max:", max(add(1, 2), add(3, 4)))
 }
 ```
 
@@ -156,7 +156,7 @@ fn main() {
 ```longlang
 fn main() {
     // 程序从这里开始执行
-    fmt.Println("程序开始")
+    fmt.println("程序开始")
 }
 ```
 
@@ -166,7 +166,7 @@ LongLang 提供了一些内置函数：
 
 | 函数 | 说明 | 示例 |
 |------|------|------|
-| `fmt.Println` | 打印并换行 | `fmt.Println("Hello")` |
+| `fmt.println` | 打印并换行 | `fmt.println("Hello")` |
 | `fmt.Print` | 打印不换行 | `fmt.Print("Hello")` |
 | `fmt.Printf` | 格式化打印 | `fmt.Printf("数字: %d", 42)` |
 
@@ -200,7 +200,7 @@ LongLang 支持匿名函数，可以将函数作为值赋给变量：
 ```longlang
 // 无参数无返回值
 sayHello := fn() {
-    fmt.Println("Hello!")
+    fmt.println("Hello!")
 }
 sayHello()
 
@@ -221,7 +221,7 @@ fn main() {
     addX := fn(n:int) int {
         return n + x  // 捕获外部变量 x
     }
-    fmt.Println(addX(5))  // 15
+    fmt.println(addX(5))  // 15
 }
 ```
 
@@ -280,9 +280,9 @@ fn isPrime(n:int) bool {
 }
 
 fn main() {
-    fmt.Println("5! =", factorial(5))
-    fmt.Println("fib(10) =", fibonacci(10))
-    fmt.Println("17 是素数:", isPrime(17))
+    fmt.println("5! =", factorial(5))
+    fmt.println("fib(10) =", fibonacci(10))
+    fmt.println("17 是素数:", isPrime(17))
 }
 ```
 

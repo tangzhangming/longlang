@@ -20,64 +20,16 @@ import "math"
 `fmt` 是内置库，无需导入即可使用。由 Go 实现，因为需要与系统 I/O 交互。
 
 ```longlang
-fmt.Println("Hello, World!")
-fmt.Print("不换行")
-fmt.Printf("格式化: %s", "值")
+fmt.println("Hello, World!")
+fmt.print("不换行")
+fmt.printf("格式化: %s", "值")
 ```
 
 | 函数 | 说明 | 示例 |
 |------|------|------|
-| `Println(args...)` | 打印并换行 | `fmt.Println("hello", 123)` |
-| `Print(args...)` | 打印不换行 | `fmt.Print("hello")` |
-| `Printf(format, args...)` | 格式化打印 | `fmt.Printf("num: %d", 10)` |
-
-## testing - 测试库
-
-**用 LongLang 编写**，位于 `stdlib/testing.long`。
-
-用于编写测试用例，提供断言功能。
-
-```longlang
-import "testing"
-
-fn main() {
-    testing.assertEqual(1 + 1, 2, "加法测试")
-    testing.assertTrue(5 > 3, "比较测试")
-    testing.pass("测试通过")
-    testing.summary()
-}
-```
-
-### 函数列表
-
-| 函数 | 说明 |
-|------|------|
-| `assert(condition, msg)` | 断言为真 |
-| `assertEqual(a, b, msg)` | 断言相等 |
-| `assertNotEqual(a, b, msg)` | 断言不相等 |
-| `assertTrue(condition, msg)` | 断言为 true |
-| `assertFalse(condition, msg)` | 断言为 false |
-| `log(message)` | 打印日志 |
-| `pass(msg)` | 标记通过 |
-| `fail(msg)` | 标记失败 |
-| `summary()` | 打印测试摘要 |
-
-### 输出格式
-
-```
-✅ ASSERT PASSED: 加法测试
-❌ ASSERT FAILED: 比较测试
-   期望: 10
-   实际: 5
-[LOG] 调试信息
-
-========== 测试摘要 ==========
-通过: 5
-失败: 1
-总计: 6
-状态: ❌ 有失败
-==============================
-```
+| `println(args...)` | 打印并换行 | `fmt.println("hello", 123)` |
+| `print(args...)` | 打印不换行 | `fmt.print("hello")` |
+| `printf(format, args...)` | 格式化打印 | `fmt.printf("num: %d", 10)` |
 
 ## math - 数学库
 
@@ -89,9 +41,9 @@ fn main() {
 import "math"
 
 fn main() {
-    fmt.Println("PI = " + math.PI)
-    fmt.Println("2^10 = " + math.pow(2, 10))
-    fmt.Println("5! = " + math.factorial(5))
+    fmt.println("PI = " + math.PI)
+    fmt.println("2^10 = " + math.pow(2, 10))
+    fmt.println("5! = " + math.factorial(5))
 }
 ```
 
@@ -160,7 +112,7 @@ fn hello():string {
 import "mylib"
 
 fn main() {
-    fmt.Println(mylib.hello())
+    fmt.println(mylib.hello())
 }
 ```
 
@@ -169,7 +121,6 @@ fn main() {
 ```
 longlang/
 ├── stdlib/
-│   ├── testing.long    # 测试库（LongLang）
 │   └── math.long       # 数学库（LongLang）
 ├── internal/
 │   └── interpreter/
