@@ -36,6 +36,10 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseBreakStatement()
 	case lexer.CONTINUE:
 		return p.parseContinueStatement()
+	case lexer.TRY:
+		return p.parseTryStatement()
+	case lexer.THROW:
+		return p.parseThrowStatement()
 	case lexer.FUNCTION:
 		return p.parseFunctionStatement()
 	case lexer.RBRACE:
@@ -280,6 +284,107 @@ func (p *Parser) parseBreakStatement() *BreakStatement {
 // parseContinueStatement 解析 continue 语句
 func (p *Parser) parseContinueStatement() *ContinueStatement {
 	return &ContinueStatement{Token: p.curToken}
+}
+
+// parseTryStatement 解析 try-catch-finally 语句
+// 语法：try { ... } catch (ExceptionType e) { ... } finally { ... }
+func (p *Parser) parseTryStatement() *TryStatement {
+	stmt := &TryStatement{Token: p.curToken}
+
+	// 期望 try 后面是 {
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	// 解析 try 块
+	stmt.TryBlock = p.parseBlockStatement()
+
+	// 解析 catch 子句（可以有多个）
+	stmt.CatchClauses = []*CatchClause{}
+	for p.peekTokenIs(lexer.CATCH) {
+		p.nextToken() // 移动到 catch
+		catchClause := p.parseCatchClause()
+		if catchClause != nil {
+			stmt.CatchClauses = append(stmt.CatchClauses, catchClause)
+		}
+	}
+
+	// 解析 finally 块（可选）
+	if p.peekTokenIs(lexer.FINALLY) {
+		p.nextToken() // 移动到 finally
+		if !p.expectPeek(lexer.LBRACE) {
+			return nil
+		}
+		stmt.FinallyBlock = p.parseBlockStatement()
+	}
+
+	// 验证：至少要有一个 catch 或 finally
+	if len(stmt.CatchClauses) == 0 && stmt.FinallyBlock == nil {
+		msg := fmt.Sprintf("try 语句必须至少有一个 catch 或 finally 块 (行 %d, 列 %d)", 
+			stmt.Token.Line, stmt.Token.Column)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+
+	return stmt
+}
+
+// parseCatchClause 解析 catch 子句
+// 语法：catch (ExceptionType variableName) { ... } 或 catch (variableName) { ... }
+func (p *Parser) parseCatchClause() *CatchClause {
+	clause := &CatchClause{Token: p.curToken}
+
+	// 期望 catch 后面是 (
+	if !p.expectPeek(lexer.LPAREN) {
+		return nil
+	}
+
+	// 解析异常类型和变量名
+	// catch (ExceptionType e) 或 catch (e)
+	if !p.expectPeek(lexer.IDENT) {
+		return nil
+	}
+
+	firstIdent := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// 检查下一个 token
+	if p.peekTokenIs(lexer.IDENT) {
+		// 有类型：catch (ExceptionType e)
+		clause.ExceptionType = firstIdent
+		p.nextToken()
+		clause.ExceptionVar = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	} else {
+		// 无类型：catch (e)
+		clause.ExceptionVar = firstIdent
+	}
+
+	// 期望 )
+	if !p.expectPeek(lexer.RPAREN) {
+		return nil
+	}
+
+	// 期望 {
+	if !p.expectPeek(lexer.LBRACE) {
+		return nil
+	}
+
+	// 解析 catch 块
+	clause.Body = p.parseBlockStatement()
+
+	return clause
+}
+
+// parseThrowStatement 解析 throw 语句
+// 语法：throw expression
+func (p *Parser) parseThrowStatement() *ThrowStatement {
+	stmt := &ThrowStatement{Token: p.curToken}
+
+	p.nextToken() // 跳过 throw
+
+	// 解析要抛出的异常表达式
+	stmt.Value = p.parseExpression(LOWEST)
+
+	return stmt
 }
 
 // parseBlockStatement 解析块语句

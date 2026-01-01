@@ -11,6 +11,7 @@
 - ✅ 面向对象（class、继承、接口、静态方法）
 - ✅ 命名空间系统（namespace、use）
 - ✅ 数组支持（固定长度、动态长度、多维数组）
+- ✅ 异常处理（try-catch-finally、throw）
 - ✅ 三目运算符
 - ✅ 内置函数（fmt.println、fmt.print、fmt.printf、len）
 
@@ -213,7 +214,6 @@ longlang.exe run test/test_class_basic.long
 ### 计划中
 
 - ⏳ Map 支持
-- ⏳ 错误处理（try/catch）
 - ⏳ 标准库扩展
 
 ## 许可证

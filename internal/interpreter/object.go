@@ -12,23 +12,24 @@ import (
 type ObjectType string
 
 const (
-	INTEGER_OBJ         ObjectType = "INTEGER"         // 整数类型
-	FLOAT_OBJ           ObjectType = "FLOAT"           // 浮点数类型
-	STRING_OBJ          ObjectType = "STRING"          // 字符串类型
-	BOOLEAN_OBJ         ObjectType = "BOOLEAN"         // 布尔类型
-	NULL_OBJ            ObjectType = "NULL"            // null 类型
-	ARRAY_OBJ           ObjectType = "ARRAY"           // 数组类型
-	RETURN_VALUE_OBJ    ObjectType = "RETURN_VALUE"    // 返回值类型（用于函数返回）
-	ERROR_OBJ           ObjectType = "ERROR"           // 错误类型
-	FUNCTION_OBJ        ObjectType = "FUNCTION"        // 函数类型
-	BUILTIN_OBJ         ObjectType = "BUILTIN"         // 内置函数类型
-	ANY_OBJ             ObjectType = "ANY"             // 任意类型（未完全实现）
-	CLASS_OBJ           ObjectType = "CLASS"           // 类类型
-	INTERFACE_OBJ       ObjectType = "INTERFACE"       // 接口类型
-	INSTANCE_OBJ        ObjectType = "INSTANCE"        // 类实例类型
-	PACKAGE_OBJ         ObjectType = "PACKAGE"         // 包类型
-	BREAK_SIGNAL_OBJ    ObjectType = "BREAK_SIGNAL"    // break 信号
-	CONTINUE_SIGNAL_OBJ ObjectType = "CONTINUE_SIGNAL" // continue 信号
+	INTEGER_OBJ           ObjectType = "INTEGER"           // 整数类型
+	FLOAT_OBJ             ObjectType = "FLOAT"             // 浮点数类型
+	STRING_OBJ            ObjectType = "STRING"            // 字符串类型
+	BOOLEAN_OBJ           ObjectType = "BOOLEAN"           // 布尔类型
+	NULL_OBJ              ObjectType = "NULL"              // null 类型
+	ARRAY_OBJ             ObjectType = "ARRAY"             // 数组类型
+	RETURN_VALUE_OBJ      ObjectType = "RETURN_VALUE"      // 返回值类型（用于函数返回）
+	ERROR_OBJ             ObjectType = "ERROR"             // 错误类型
+	FUNCTION_OBJ          ObjectType = "FUNCTION"          // 函数类型
+	BUILTIN_OBJ           ObjectType = "BUILTIN"           // 内置函数类型
+	ANY_OBJ               ObjectType = "ANY"               // 任意类型（未完全实现）
+	CLASS_OBJ             ObjectType = "CLASS"             // 类类型
+	INTERFACE_OBJ         ObjectType = "INTERFACE"         // 接口类型
+	INSTANCE_OBJ          ObjectType = "INSTANCE"          // 类实例类型
+	PACKAGE_OBJ           ObjectType = "PACKAGE"           // 包类型
+	BREAK_SIGNAL_OBJ      ObjectType = "BREAK_SIGNAL"      // break 信号
+	CONTINUE_SIGNAL_OBJ   ObjectType = "CONTINUE_SIGNAL"   // continue 信号
+	THROWN_EXCEPTION_OBJ  ObjectType = "THROWN_EXCEPTION"  // 抛出的异常信号
 )
 
 // ========== 对象接口 ==========
@@ -136,6 +137,61 @@ type ContinueSignal struct{}
 
 func (cs *ContinueSignal) Type() ObjectType { return CONTINUE_SIGNAL_OBJ }
 func (cs *ContinueSignal) Inspect() string  { return "continue" }
+
+// ThrownException 抛出的异常信号对象
+// 用于在解释器中传递被 throw 语句抛出的异常
+// 当解释器遇到这个对象时，会沿着调用栈向上传递，直到被 catch 捕获
+type ThrownException struct {
+	Exception *Instance  // 被抛出的异常对象（必须是 Exception 类或其子类的实例）
+	StackTrace []string  // 调用栈信息
+}
+
+func (te *ThrownException) Type() ObjectType { return THROWN_EXCEPTION_OBJ }
+func (te *ThrownException) Inspect() string {
+	if te.Exception != nil {
+		// 尝试获取异常消息
+		if msg, ok := te.Exception.Fields["message"]; ok {
+			return "ThrownException: " + msg.Inspect()
+		}
+		return "ThrownException: " + te.Exception.Class.Name
+	}
+	return "ThrownException"
+}
+
+// GetMessage 获取异常消息
+func (te *ThrownException) GetMessage() string {
+	if te.Exception != nil {
+		if msg, ok := te.Exception.Fields["message"]; ok {
+			if strMsg, ok := msg.(*String); ok {
+				return strMsg.Value
+			}
+		}
+	}
+	return ""
+}
+
+// GetExceptionType 获取异常类型名称
+func (te *ThrownException) GetExceptionType() string {
+	if te.Exception != nil {
+		return te.Exception.Class.Name
+	}
+	return "Exception"
+}
+
+// IsInstanceOf 检查异常是否是指定类型或其子类
+func (te *ThrownException) IsInstanceOf(className string) bool {
+	if te.Exception == nil {
+		return false
+	}
+	class := te.Exception.Class
+	for class != nil {
+		if class.Name == className {
+			return true
+		}
+		class = class.Parent
+	}
+	return false
+}
 
 // Error 错误对象
 // 表示运行时错误

@@ -114,6 +114,12 @@ const (
 	THIS       TokenType = "THIS"       // this - 当前对象关键字
 	SUPER      TokenType = "SUPER"      // super - 父类关键字
 	NEW        TokenType = "NEW"        // new - 创建对象关键字
+	
+	// ========== 异常处理关键字 ==========
+	TRY     TokenType = "TRY"     // try - 异常捕获块
+	CATCH   TokenType = "CATCH"   // catch - 异常处理块
+	FINALLY TokenType = "FINALLY" // finally - 最终执行块
+	THROW   TokenType = "THROW"   // throw - 抛出异常
 )
 
 // Token 表示一个词法单元
@@ -176,6 +182,11 @@ var keywords = map[string]TokenType{
 	"this":       THIS,
 	"super":      SUPER,
 	"new":        NEW,
+	// 异常处理
+	"try":     TRY,
+	"catch":   CATCH,
+	"finally": FINALLY,
+	"throw":   THROW,
 }
 
 // LookupIdent 检查标识符是否是关键字

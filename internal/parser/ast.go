@@ -236,6 +236,65 @@ func (cs *ContinueStatement) statementNode()       {}
 func (cs *ContinueStatement) TokenLiteral() string { return cs.Token.Literal }
 func (cs *ContinueStatement) String() string       { return "continue" }
 
+// ========== 异常处理语句 ==========
+
+// TryStatement try-catch-finally 语句
+// 对应语法：try { ... } catch (ExceptionType e) { ... } finally { ... }
+type TryStatement struct {
+	Token       lexer.Token     // try 关键字对应的 token
+	TryBlock    *BlockStatement // try 块
+	CatchClauses []*CatchClause // catch 子句列表（可多个）
+	FinallyBlock *BlockStatement // finally 块（可选）
+}
+
+func (ts *TryStatement) statementNode()       {}
+func (ts *TryStatement) TokenLiteral() string { return ts.Token.Literal }
+func (ts *TryStatement) String() string {
+	var out string
+	out += "try " + ts.TryBlock.String()
+	for _, catch := range ts.CatchClauses {
+		out += " " + catch.String()
+	}
+	if ts.FinallyBlock != nil {
+		out += " finally " + ts.FinallyBlock.String()
+	}
+	return out
+}
+
+// CatchClause catch 子句
+// 对应语法：catch (ExceptionType variableName) { ... } 或 catch (variableName) { ... }
+type CatchClause struct {
+	Token         lexer.Token     // catch 关键字对应的 token
+	ExceptionType *Identifier     // 异常类型（可选，nil 表示无类型 catch）
+	ExceptionVar  *Identifier     // 异常变量名
+	Body          *BlockStatement // catch 块
+}
+
+func (cc *CatchClause) TokenLiteral() string { return cc.Token.Literal }
+func (cc *CatchClause) String() string {
+	var out string
+	out += "catch ("
+	if cc.ExceptionType != nil {
+		out += cc.ExceptionType.String() + " "
+	}
+	out += cc.ExceptionVar.String() + ") " + cc.Body.String()
+	return out
+}
+
+// ThrowStatement throw 语句
+// 对应语法：throw expression
+// 例如：throw new Exception("错误消息")
+type ThrowStatement struct {
+	Token lexer.Token // throw 关键字对应的 token
+	Value Expression  // 要抛出的异常表达式
+}
+
+func (ts *ThrowStatement) statementNode()       {}
+func (ts *ThrowStatement) TokenLiteral() string { return ts.Token.Literal }
+func (ts *ThrowStatement) String() string {
+	return "throw " + ts.Value.String()
+}
+
 // IncrementStatement 自增/自减语句
 // 对应语法：i++ 或 i--
 type IncrementStatement struct {

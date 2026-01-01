@@ -427,10 +427,18 @@ func (p *Parser) parseNewExpression() Expression {
 
 // parseStaticCallExpression 解析静态方法调用或常量访问
 // 通过检查是否有括号来区分：ClassName::method() 或 ClassName::CONST
+// 也支持 super::method() 语法
 func (p *Parser) parseStaticCallExpression(left Expression) Expression {
-	className, ok := left.(*Identifier)
-	if !ok {
-		p.errors = append(p.errors, fmt.Sprintf("静态访问左侧必须是类名或 self (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+	var className *Identifier
+	
+	switch l := left.(type) {
+	case *Identifier:
+		className = l
+	case *SuperExpression:
+		// super 被当作特殊的类名
+		className = &Identifier{Token: l.Token, Value: "super"}
+	default:
+		p.errors = append(p.errors, fmt.Sprintf("静态访问左侧必须是类名、self 或 super (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 

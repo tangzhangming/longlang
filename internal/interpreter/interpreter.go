@@ -144,6 +144,10 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return &BreakSignal{}
 	case *parser.ContinueStatement:
 		return &ContinueSignal{}
+	case *parser.TryStatement:
+		return i.evalTryStatement(node)
+	case *parser.ThrowStatement:
+		return i.evalThrowStatement(node)
 	case *parser.IncrementStatement:
 		return i.evalIncrementStatement(node)
 	case *parser.IntegerLiteral:
@@ -334,7 +338,8 @@ func (i *Interpreter) evalBlockStatement(block *parser.BlockStatement) Object {
 
 		if result != nil {
 			rt := result.Type()
-			if rt == RETURN_VALUE_OBJ || rt == ERROR_OBJ || rt == BREAK_SIGNAL_OBJ || rt == CONTINUE_SIGNAL_OBJ {
+			// 检查是否有控制流信号或异常
+			if rt == RETURN_VALUE_OBJ || rt == ERROR_OBJ || rt == BREAK_SIGNAL_OBJ || rt == CONTINUE_SIGNAL_OBJ || rt == THROWN_EXCEPTION_OBJ {
 				return result
 			}
 		}
@@ -820,6 +825,167 @@ func splitIdentifier(ident string) []string {
 	return parts
 }
 
+// ========== 异常处理 ==========
+
+// isThrownException 判断对象是否是抛出的异常
+func isThrownException(obj Object) bool {
+	if obj != nil {
+		return obj.Type() == THROWN_EXCEPTION_OBJ
+	}
+	return false
+}
+
+// evalTryStatement 执行 try-catch-finally 语句
+func (i *Interpreter) evalTryStatement(node *parser.TryStatement) Object {
+	// 执行 try 块
+	tryResult := i.Eval(node.TryBlock)
+
+	var finalResult Object = &Null{}
+	var caughtException *ThrownException = nil
+
+	// 检查是否抛出了异常
+	if te, ok := tryResult.(*ThrownException); ok {
+		caughtException = te
+
+		// 尝试匹配 catch 子句
+		for _, catchClause := range node.CatchClauses {
+			if i.matchCatchClause(catchClause, te) {
+				// 创建新的环境，将异常对象绑定到变量
+				catchEnv := NewEnclosedEnvironment(i.env)
+				catchEnv.Set(catchClause.ExceptionVar.Value, te.Exception)
+
+				// 保存当前环境
+				previousEnv := i.env
+				i.env = catchEnv
+
+				// 执行 catch 块
+				catchResult := i.Eval(catchClause.Body)
+
+				// 恢复环境
+				i.env = previousEnv
+
+				// 异常已被处理
+				caughtException = nil
+
+				// 检查 catch 块中是否有新的异常或返回值
+				if isThrownException(catchResult) || isReturnValue(catchResult) {
+					finalResult = catchResult
+				} else if !isError(catchResult) {
+					finalResult = catchResult
+				}
+
+				break
+			}
+		}
+	} else if isReturnValue(tryResult) {
+		// try 块中有 return 语句
+		finalResult = tryResult
+	} else if !isError(tryResult) {
+		finalResult = tryResult
+	}
+
+	// 执行 finally 块（无论是否有异常都会执行）
+	if node.FinallyBlock != nil {
+		finallyResult := i.Eval(node.FinallyBlock)
+
+		// finally 块中的 return 不影响原有返回值（Java/C# 行为）
+		// 但如果 finally 中抛出了新异常，则该异常会替代原有异常
+		if isThrownException(finallyResult) {
+			return finallyResult
+		}
+	}
+
+	// 如果异常未被捕获，继续向上传递
+	if caughtException != nil {
+		return caughtException
+	}
+
+	return finalResult
+}
+
+// matchCatchClause 检查 catch 子句是否匹配抛出的异常
+func (i *Interpreter) matchCatchClause(clause *parser.CatchClause, te *ThrownException) bool {
+	// 无类型 catch，匹配所有异常
+	if clause.ExceptionType == nil {
+		return true
+	}
+
+	// 类型化 catch，检查异常类型
+	expectedType := clause.ExceptionType.Value
+	return te.IsInstanceOf(expectedType)
+}
+
+// evalThrowStatement 执行 throw 语句
+func (i *Interpreter) evalThrowStatement(node *parser.ThrowStatement) Object {
+	// 执行要抛出的表达式
+	val := i.Eval(node.Value)
+	if isError(val) {
+		return val
+	}
+
+	// 检查抛出的值是否是异常实例
+	instance, ok := val.(*Instance)
+	if !ok {
+		return newError("throw 语句只能抛出异常实例，得到 %s (行 %d, 列 %d)",
+			val.Type(), node.Token.Line, node.Token.Column)
+	}
+
+	// 检查是否是 Exception 类或其子类
+	if !i.isExceptionClass(instance.Class) {
+		return newError("throw 语句只能抛出 Exception 或其子类的实例，得到 %s (行 %d, 列 %d)",
+			instance.Class.Name, node.Token.Line, node.Token.Column)
+	}
+
+	// 创建 ThrownException 对象
+	te := &ThrownException{
+		Exception:  instance,
+		StackTrace: i.captureStackTrace(),
+	}
+
+	// 将堆栈信息设置到异常对象中（如果有 stackTrace 字段）
+	if _, ok := instance.Fields["stackTrace"]; ok {
+		stackTraceArray := &Array{
+			Elements:    make([]Object, len(te.StackTrace)),
+			ElementType: "string",
+			IsFixed:     false,
+		}
+		for idx, trace := range te.StackTrace {
+			stackTraceArray.Elements[idx] = &String{Value: trace}
+		}
+		instance.Fields["stackTrace"] = stackTraceArray
+	}
+
+	return te
+}
+
+// isExceptionClass 检查类是否是 Exception 类或其子类
+func (i *Interpreter) isExceptionClass(class *Class) bool {
+	for class != nil {
+		if class.Name == "Exception" {
+			return true
+		}
+		class = class.Parent
+	}
+	return false
+}
+
+// captureStackTrace 捕获当前调用栈信息
+func (i *Interpreter) captureStackTrace() []string {
+	// 简单实现：返回空的堆栈跟踪
+	// 完整实现需要在解释器中维护调用栈信息
+	return []string{
+		"at <main>",
+	}
+}
+
+// isReturnValue 判断对象是否是返回值对象
+func isReturnValue(obj Object) bool {
+	if obj != nil {
+		return obj.Type() == RETURN_VALUE_OBJ
+	}
+	return false
+}
+
 // loadModule 加载模块文件
 func (i *Interpreter) loadModule(name string) (*Module, error) {
 	// 构建文件路径
@@ -928,7 +1094,9 @@ func (i *Interpreter) evalUseStatement(node *parser.UseStatement) Object {
 	}
 
 	// 尝试加载命名空间文件（如果尚未加载）
-	_ = i.loadNamespaceFile(namespace, className)
+	loadErr := i.loadNamespaceFile(namespace, className)
+	// 注意：即使加载失败，也继续尝试查找（可能已经在其他地方加载了）
+	_ = loadErr
 
 	// 首先尝试在原始命名空间中查找（支持标准库）
 	targetNamespace := i.namespaceMgr.GetNamespace(namespace)
@@ -1072,6 +1240,12 @@ func (i *Interpreter) loadNamespaceFile(namespace string, className string) erro
 			i.currentNamespace = savedNamespace
 			i.projectConfig = savedConfig
 			return fmt.Errorf("执行文件 %s 错误: %s", loadedPath, result.Inspect())
+		}
+		// 检查是否有抛出的异常
+		if isThrownException(result) {
+			i.currentNamespace = savedNamespace
+			i.projectConfig = savedConfig
+			return fmt.Errorf("执行文件 %s 时发生异常", loadedPath)
 		}
 	}
 
@@ -1485,9 +1659,16 @@ func (i *Interpreter) evalSuperExpression() Object {
 }
 
 // evalStaticCallExpression 执行静态方法调用
+// 支持：ClassName::method(), self::method(), super::method()
 func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression) Object {
 	// 获取类定义
 	className := node.ClassName.Value
+	methodName := node.Method.Value
+
+	// 处理 super:: 的情况（调用父类方法）
+	if className == "super" {
+		return i.evalSuperMethodCall(methodName, node.Arguments)
+	}
 
 	// 首先从当前环境查找（向后兼容）
 	classObj, ok := i.env.Get(className)
@@ -1521,7 +1702,6 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 	}
 
 	// 获取静态方法
-	methodName := node.Method.Value
 	method, ok := class.StaticMethods[methodName]
 	if !ok {
 		return newError("类 %s 没有静态方法: %s", className, methodName)
@@ -1537,6 +1717,80 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 	env := NewEnclosedEnvironment(method.Env)
 	// 在静态方法中提供 self（指向当前类），支持 self::xxx
 	env.Set("self", class)
+
+	// 绑定参数
+	for idx, paramInterface := range method.Parameters {
+		param, ok := paramInterface.(*parser.FunctionParameter)
+		if !ok {
+			continue
+		}
+		var val Object
+		if idx < len(args) {
+			val = args[idx]
+		} else if param.DefaultValue != nil {
+			val = i.Eval(param.DefaultValue)
+		} else {
+			val = &Null{}
+		}
+		env.Set(param.Name.Value, val)
+	}
+
+	// 执行方法体
+	body, ok := method.Body.(*parser.BlockStatement)
+	if !ok {
+		return newError("方法体类型错误")
+	}
+
+	evaluated := i.evalBlockStatementWithEnv(body, env)
+	return unwrapReturnValue(evaluated)
+}
+
+// evalSuperMethodCall 执行父类方法调用 super::method()
+func (i *Interpreter) evalSuperMethodCall(methodName string, arguments []parser.CallArgument) Object {
+	// 获取当前实例 (this)
+	thisObj, ok := i.env.Get("this")
+	if !ok {
+		return newError("super 只能在实例方法内部使用")
+	}
+
+	instance, ok := thisObj.(*Instance)
+	if !ok {
+		return newError("super 需要在类实例上下文中使用")
+	}
+
+	// 获取当前类
+	selfObj, ok := i.env.Get("self")
+	if !ok {
+		return newError("super 需要在类方法内部使用")
+	}
+
+	currentClass, ok := selfObj.(*Class)
+	if !ok {
+		return newError("self 必须指向一个类")
+	}
+
+	// 获取父类
+	if currentClass.Parent == nil {
+		return newError("类 %s 没有父类", currentClass.Name)
+	}
+	parentClass := currentClass.Parent
+
+	// 从父类获取方法
+	method, ok := parentClass.GetMethod(methodName)
+	if !ok {
+		return newError("父类 %s 没有方法: %s", parentClass.Name, methodName)
+	}
+
+	// 求值参数
+	args := i.evalExpressions(arguments)
+	if len(args) == 1 && isError(args[0]) {
+		return args[0]
+	}
+
+	// 创建函数环境
+	env := NewEnclosedEnvironment(method.Env)
+	env.Set("this", instance)
+	env.Set("self", parentClass)
 
 	// 绑定参数
 	for idx, paramInterface := range method.Parameters {
@@ -1694,6 +1948,8 @@ func (i *Interpreter) evalForStatement(node *parser.ForStatement) Object {
 				return result // return 直接返回
 			case ERROR_OBJ:
 				return result
+			case THROWN_EXCEPTION_OBJ:
+				return result // 异常向上传递
 			}
 		}
 
