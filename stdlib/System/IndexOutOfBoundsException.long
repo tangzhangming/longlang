@@ -1,0 +1,32 @@
+namespace System
+
+use System.RuntimeException
+
+// IndexOutOfBoundsException 索引越界异常
+// 当数组或字符串索引超出范围时抛出
+class IndexOutOfBoundsException extends RuntimeException {
+    private index int
+    private size int
+    
+    // 构造函数
+    public function __construct(index: int, size: int) {
+        super::__construct("Index " + index + " out of bounds [0, " + (size - 1) + "]", 0)
+        this.index = index
+        this.size = size
+    }
+    
+    // 获取越界的索引
+    public function getIndex() int {
+        return this.index
+    }
+    
+    // 获取数组/字符串大小
+    public function getSize() int {
+        return this.size
+    }
+    
+    // 转换为字符串
+    public function toString() string {
+        return "IndexOutOfBoundsException: " + this.getMessage()
+    }
+}

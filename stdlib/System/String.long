@@ -1,0 +1,337 @@
+namespace System
+
+/**
+ * String - 字符串对象类
+ * 
+ * 提供面向对象的字符串封装，内部存储原始 string 值
+ * 
+ * 使用方式：
+ *   use System.String
+ *   name := new String("hello")
+ *   name.length()   // 5
+ *   name.upper()    // 返回新的 String 对象
+ * 
+ * 注意：String 对象是引用类型，赋值时传递引用
+ *       如需值语义，请使用原始 string 类型
+ */
+class String {
+    
+    // 内部存储的原始字符串
+    private value string
+
+    /**
+     * 构造函数
+     * @param s 原始字符串
+     */
+    public function __construct(s: string) {
+        this.value = s
+    }
+
+    /**
+     * 获取内部原始字符串值
+     * @return 原始字符串
+     */
+    public function getValue() string {
+        return this.value
+    }
+
+    /**
+     * 转换为字符串（用于打印等场景）
+     * @return 原始字符串
+     */
+    public function toString() string {
+        return this.value
+    }
+
+    // ========== 基本信息 ==========
+
+    /**
+     * 获取字符串长度
+     * @return 字符数量
+     */
+    public function length() int {
+        return this.value.length()
+    }
+
+    /**
+     * 判断是否为空字符串
+     * @return 如果为空返回 true
+     */
+    public function isEmpty() bool {
+        return this.value.isEmpty()
+    }
+
+    /**
+     * 获取指定位置的字符
+     * @param index 索引位置
+     * @return 该位置的字符
+     */
+    public function charAt(index: int) string {
+        return this.value.charAt(index)
+    }
+
+    // ========== 查找 ==========
+
+    /**
+     * 返回子串第一次出现的索引
+     * @param substr 子串
+     * @return 索引位置，未找到返回 -1
+     */
+    public function indexOf(substr: string) int {
+        return this.value.indexOf(substr)
+    }
+
+    /**
+     * 返回子串最后一次出现的索引
+     * @param substr 子串
+     * @return 索引位置，未找到返回 -1
+     */
+    public function lastIndexOf(substr: string) int {
+        return this.value.lastIndexOf(substr)
+    }
+
+    /**
+     * 判断是否包含子串
+     * @param substr 子串
+     * @return 包含返回 true
+     */
+    public function contains(substr: string) bool {
+        return this.value.contains(substr)
+    }
+
+    /**
+     * 判断是否以指定前缀开始
+     * @param prefix 前缀
+     * @return 匹配返回 true
+     */
+    public function startsWith(prefix: string) bool {
+        return this.value.startsWith(prefix)
+    }
+
+    /**
+     * 判断是否以指定后缀结束
+     * @param suffix 后缀
+     * @return 匹配返回 true
+     */
+    public function endsWith(suffix: string) bool {
+        return this.value.endsWith(suffix)
+    }
+
+    // ========== 比较 ==========
+
+    /**
+     * 比较两个字符串是否相等
+     * @param other 另一个字符串
+     * @return 相等返回 true
+     */
+    public function equals(other: string) bool {
+        return this.value.equals(other)
+    }
+
+    /**
+     * 忽略大小写比较
+     * @param other 另一个字符串
+     * @return 相等返回 true
+     */
+    public function equalsIgnoreCase(other: string) bool {
+        return this.value.equalsIgnoreCase(other)
+    }
+
+    // ========== 连接和子串 ==========
+
+    /**
+     * 连接字符串
+     * @param other 另一个字符串
+     * @return 新的 String 对象
+     */
+    public function concat(other: string) String {
+        result := this.value.concat(other)
+        return new String(result)
+    }
+
+    /**
+     * 获取子串
+     * @param start 起始索引
+     * @param end 结束索引
+     * @return 新的 String 对象
+     */
+    public function substring(start: int, end: int) String {
+        result := this.value.substring(start, end)
+        return new String(result)
+    }
+
+    /**
+     * 重复字符串
+     * @param count 重复次数
+     * @return 新的 String 对象
+     */
+    public function repeat(count: int) String {
+        result := this.value.repeat(count)
+        return new String(result)
+    }
+
+    // ========== 去除空白 ==========
+
+    /**
+     * 去除首尾空白
+     * @return 新的 String 对象
+     */
+    public function trim() String {
+        result := this.value.trim()
+        return new String(result)
+    }
+
+    /**
+     * 去除左边空白
+     * @return 新的 String 对象
+     */
+    public function ltrim() String {
+        result := this.value.ltrim()
+        return new String(result)
+    }
+
+    /**
+     * 去除右边空白
+     * @return 新的 String 对象
+     */
+    public function rtrim() String {
+        result := this.value.rtrim()
+        return new String(result)
+    }
+
+    // ========== 大小写转换 ==========
+
+    /**
+     * 转换为大写
+     * @return 新的 String 对象
+     */
+    public function upper() String {
+        result := this.value.upper()
+        return new String(result)
+    }
+
+    /**
+     * 转换为小写
+     * @return 新的 String 对象
+     */
+    public function lower() String {
+        result := this.value.lower()
+        return new String(result)
+    }
+
+    /**
+     * 首字母大写
+     * @return 新的 String 对象
+     */
+    public function ucfirst() String {
+        result := this.value.ucfirst()
+        return new String(result)
+    }
+
+    /**
+     * 每个单词首字母大写
+     * @return 新的 String 对象
+     */
+    public function title() String {
+        result := this.value.title()
+        return new String(result)
+    }
+
+    // ========== 格式转换 ==========
+
+    /**
+     * 转换为小驼峰
+     * @return 新的 String 对象
+     */
+    public function camel() String {
+        result := this.value.camel()
+        return new String(result)
+    }
+
+    /**
+     * 转换为大驼峰
+     * @return 新的 String 对象
+     */
+    public function studly() String {
+        result := this.value.studly()
+        return new String(result)
+    }
+
+    /**
+     * 转换为蛇形
+     * @return 新的 String 对象
+     */
+    public function snake() String {
+        result := this.value.snake()
+        return new String(result)
+    }
+
+    /**
+     * 转换为烤串式
+     * @return 新的 String 对象
+     */
+    public function kebab() String {
+        result := this.value.kebab()
+        return new String(result)
+    }
+
+    // ========== 替换 ==========
+
+    /**
+     * 替换第一个匹配项
+     * @param search 要替换的子串
+     * @param replacement 替换为的子串
+     * @return 新的 String 对象
+     */
+    public function replace(search: string, replacement: string) String {
+        result := this.value.replace(search, replacement)
+        return new String(result)
+    }
+
+    /**
+     * 替换所有匹配项
+     * @param search 要替换的子串
+     * @param replacement 替换为的子串
+     * @return 新的 String 对象
+     */
+    public function replaceAll(search: string, replacement: string) String {
+        result := this.value.replaceAll(search, replacement)
+        return new String(result)
+    }
+
+    // ========== 填充 ==========
+
+    /**
+     * 左填充
+     * @param length 目标长度
+     * @param pad 填充字符
+     * @return 新的 String 对象
+     */
+    public function padLeft(length: int, pad: string) String {
+        result := this.value.padLeft(length, pad)
+        return new String(result)
+    }
+
+    /**
+     * 右填充
+     * @param length 目标长度
+     * @param pad 填充字符
+     * @return 新的 String 对象
+     */
+    public function padRight(length: int, pad: string) String {
+        result := this.value.padRight(length, pad)
+        return new String(result)
+    }
+
+    // ========== 其他 ==========
+
+    /**
+     * 反转字符串
+     * @return 新的 String 对象
+     */
+    public function reverse() String {
+        result := this.value.reverse()
+        return new String(result)
+    }
+}
+

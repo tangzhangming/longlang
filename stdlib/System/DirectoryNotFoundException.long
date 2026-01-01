@@ -1,0 +1,26 @@
+namespace System
+
+use System.IOException
+
+// DirectoryNotFoundException 目录未找到异常
+// 当尝试访问不存在的目录时抛出
+class DirectoryNotFoundException extends IOException {
+    private directory string
+    
+    // 构造函数
+    public function __construct(directory: string) {
+        super::__construct("Directory not found: " + directory)
+        this.directory = directory
+    }
+    
+    // 获取目录路径
+    public function getDirectory() string {
+        return this.directory
+    }
+    
+    // 转换为字符串
+    public function toString() string {
+        return "DirectoryNotFoundException: " + this.getMessage()
+    }
+}
+

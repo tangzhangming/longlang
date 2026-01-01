@@ -1,0 +1,25 @@
+namespace System
+
+use System.Exception
+
+// FileNotFoundException 文件未找到异常
+// 当尝试访问不存在的文件时抛出
+class FileNotFoundException extends Exception {
+    private filename string
+    
+    // 构造函数
+    public function __construct(filename: string) {
+        super::__construct("File not found: " + filename, 0)
+        this.filename = filename
+    }
+    
+    // 获取文件名
+    public function getFilename() string {
+        return this.filename
+    }
+    
+    // 转换为字符串
+    public function toString() string {
+        return "FileNotFoundException: " + this.getMessage()
+    }
+}

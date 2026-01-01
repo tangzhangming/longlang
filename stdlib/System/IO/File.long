@@ -1,0 +1,108 @@
+namespace System.IO
+
+// File 文件操作静态工具类
+// 提供常用的文件读写操作
+class File {
+    
+    // readAllText 读取文件全部内容为字符串
+    // @param path 文件路径
+    // @return 文件内容
+    // @throws FileNotFoundException 文件不存在
+    // @throws IOException 读取失败
+    public static function readAllText(path: string) string {
+        return __file_read_all(path)
+    }
+    
+    // readAllLines 读取文件全部内容为行数组
+    // @param path 文件路径
+    // @return 行数组
+    // @throws FileNotFoundException 文件不存在
+    // @throws IOException 读取失败
+    public static function readAllLines(path: string) any {
+        return __file_read_lines(path)
+    }
+    
+    // writeAllText 写入字符串到文件（覆盖）
+    // @param path 文件路径
+    // @param content 内容
+    // @throws IOException 写入失败
+    public static function writeAllText(path: string, content: string) {
+        __file_write_all(path, content)
+    }
+    
+    // writeAllLines 写入行数组到文件（覆盖）
+    // @param path 文件路径
+    // @param lines 行数组
+    // @throws IOException 写入失败
+    public static function writeAllLines(path: string, lines: any) {
+        __file_write_lines(path, lines)
+    }
+    
+    // appendAllText 追加字符串到文件末尾
+    // @param path 文件路径
+    // @param content 内容
+    // @throws IOException 写入失败
+    public static function appendAllText(path: string, content: string) {
+        __file_append_all(path, content)
+    }
+    
+    // appendAllLines 追加行到文件末尾
+    // @param path 文件路径
+    // @param lines 行数组
+    // @throws IOException 写入失败
+    public static function appendAllLines(path: string, lines: any) {
+        __file_append_lines(path, lines)
+    }
+    
+    // exists 检查文件是否存在
+    // @param path 文件路径
+    // @return 是否存在
+    public static function exists(path: string) bool {
+        return __file_exists(path)
+    }
+    
+    // delete 删除文件
+    // @param path 文件路径
+    // @throws FileNotFoundException 文件不存在
+    // @throws IOException 删除失败
+    public static function delete(path: string) {
+        __file_delete(path)
+    }
+    
+    // copy 复制文件
+    // @param source 源文件路径
+    // @param dest 目标路径
+    // @param overwrite 是否覆盖（默认 false）
+    // @throws FileNotFoundException 源文件不存在
+    // @throws IOException 复制失败
+    public static function copy(source: string, dest: string, overwrite: bool = false) {
+        __file_copy(source, dest, overwrite)
+    }
+    
+    // move 移动/重命名文件
+    // @param source 源文件路径
+    // @param dest 目标路径
+    // @throws FileNotFoundException 源文件不存在
+    // @throws IOException 移动失败
+    public static function move(source: string, dest: string) {
+        __file_move(source, dest)
+    }
+    
+    // getInfo 获取文件信息
+    // @param path 文件路径
+    // @return FileInfo 对象
+    // @throws FileNotFoundException 文件不存在
+    public static function getInfo(path: string) FileInfo {
+        return new FileInfo(path)
+    }
+    
+    // open 打开文件流
+    // @param path 文件路径
+    // @param mode 打开模式 ("r", "w", "a", "rw")
+    // @return FileStream 对象
+    // @throws FileNotFoundException 文件不存在（r 模式）
+    // @throws IOException 打开失败
+    public static function open(path: string, mode: string) FileStream {
+        return new FileStream(path, mode)
+    }
+}

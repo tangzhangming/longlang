@@ -1,0 +1,25 @@
+namespace System
+
+use System.Exception
+
+// InvalidArgumentException 无效参数异常
+// 当传递给方法的参数无效时抛出
+class InvalidArgumentException extends Exception {
+    private argumentName string
+    
+    // 构造函数
+    public function __construct(message: string = "Invalid argument") {
+        super::__construct(message, 0)
+        this.argumentName = ""
+    }
+    
+    // 获取无效的参数名
+    public function getArgumentName() string {
+        return this.argumentName
+    }
+    
+    // 转换为字符串
+    public function toString() string {
+        return "InvalidArgumentException: " + this.getMessage()
+    }
+}

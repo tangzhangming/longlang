@@ -1,0 +1,18 @@
+namespace System
+
+use System.Exception
+
+// IOException IO异常
+// 当发生输入/输出错误时抛出
+class IOException extends Exception {
+    
+    // 构造函数
+    public function __construct(message: string = "IO error") {
+        super::__construct(message, 0)
+    }
+    
+    // 转换为字符串
+    public function toString() string {
+        return "IOException: " + this.getMessage()
+    }
+}

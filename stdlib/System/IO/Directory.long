@@ -1,0 +1,84 @@
+namespace System.IO
+
+// Directory 目录操作静态工具类
+// 提供目录操作的各种方法
+class Directory {
+    
+    // create 创建目录
+    // @param path 目录路径
+    // @param recursive 是否递归创建（默认 false）
+    // @throws IOException 创建失败
+    public static function create(path: string, recursive: bool = false) {
+        __dir_create(path, recursive)
+    }
+    
+    // exists 检查目录是否存在
+    // @param path 目录路径
+    // @return 是否存在
+    public static function exists(path: string) bool {
+        return __dir_exists(path)
+    }
+    
+    // delete 删除目录
+    // @param path 目录路径
+    // @param recursive 是否递归删除（默认 false）
+    // @throws DirectoryNotFoundException 目录不存在
+    // @throws IOException 删除失败
+    public static function delete(path: string, recursive: bool = false) {
+        __dir_delete(path, recursive)
+    }
+    
+    // getFiles 获取目录下的文件列表
+    // @param path 目录路径
+    // @param pattern 匹配模式（默认 "*"）
+    // @return 文件路径数组
+    // @throws DirectoryNotFoundException 目录不存在
+    public static function getFiles(path: string, pattern: string = "*") any {
+        return __dir_get_files(path, pattern)
+    }
+    
+    // getDirectories 获取目录下的子目录列表
+    // @param path 目录路径
+    // @return 子目录路径数组
+    // @throws DirectoryNotFoundException 目录不存在
+    public static function getDirectories(path: string) any {
+        return __dir_get_directories(path)
+    }
+    
+    // getEntries 获取目录下所有条目（文件+目录）
+    // @param path 目录路径
+    // @return 路径数组
+    // @throws DirectoryNotFoundException 目录不存在
+    public static function getEntries(path: string) any {
+        return __dir_get_entries(path)
+    }
+    
+    // move 移动/重命名目录
+    // @param source 源目录路径
+    // @param dest 目标路径
+    // @throws DirectoryNotFoundException 源目录不存在
+    // @throws IOException 移动失败
+    public static function move(source: string, dest: string) {
+        __file_move(source, dest)
+    }
+    
+    // getCurrent 获取当前工作目录
+    // @return 当前目录路径
+    public static function getCurrent() string {
+        return __dir_get_current()
+    }
+    
+    // setCurrent 设置当前工作目录
+    // @param path 目录路径
+    // @throws DirectoryNotFoundException 目录不存在
+    public static function setCurrent(path: string) {
+        __dir_set_current(path)
+    }
+    
+    // getInfo 获取目录信息
+    // @param path 目录路径
+    // @return DirectoryInfo 对象
+    public static function getInfo(path: string) DirectoryInfo {
+        return new DirectoryInfo(path)
+    }
+}

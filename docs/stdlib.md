@@ -85,14 +85,27 @@ result := name.trim().upper().replace("WORLD", "LONGLANG")
 ```
 longlang/
 ├── stdlib/
-│   ├── System/
-│   │   ├── Str.long       # 字符串静态工具类
-│   │   └── String.long    # 字符串对象类
-│   └── math.long          # 数学库
+│   └── System/
+│       ├── Exception.long           # 异常基类
+│       ├── RuntimeException.long    # 运行时异常
+│       ├── IOException.long         # IO 异常
+│       ├── FileNotFoundException.long
+│       ├── DirectoryNotFoundException.long
+│       ├── PermissionException.long
+│       ├── Str.long                 # 字符串静态工具类
+│       ├── String.long              # 字符串对象类
+│       └── IO/
+│           ├── File.long            # 文件操作
+│           ├── Directory.long       # 目录操作
+│           ├── Path.long            # 路径操作
+│           ├── FileStream.long      # 文件流
+│           ├── FileInfo.long        # 文件信息
+│           └── DirectoryInfo.long   # 目录信息
 ├── internal/
 │   └── interpreter/
-│       ├── builtins.go    # fmt 等内置函数（Go）
-│       └── string_methods.go  # 字符串方法（Go，支持语法糖）
+│       ├── builtins.go         # fmt 等内置函数（Go）
+│       ├── builtins_io.go      # 文件操作内置函数（Go）
+│       └── string_methods.go   # 字符串方法（Go，支持语法糖）
 └── ...
 ```
 

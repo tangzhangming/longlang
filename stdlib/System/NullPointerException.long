@@ -1,0 +1,18 @@
+namespace System
+
+use System.RuntimeException
+
+// NullPointerException 空指针异常
+// 当尝试对 null 值进行操作时抛出
+class NullPointerException extends RuntimeException {
+    
+    // 构造函数
+    public function __construct(message: string = "Null pointer reference") {
+        super::__construct(message, 0)
+    }
+    
+    // 转换为字符串
+    public function toString() string {
+        return "NullPointerException: " + this.getMessage()
+    }
+}

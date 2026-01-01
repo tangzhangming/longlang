@@ -1,0 +1,316 @@
+namespace System
+
+/**
+ * Str - 字符串静态工具类
+ * 
+ * 提供字符串操作的静态方法，所有方法均返回新字符串（值语义）
+ * 
+ * 使用方式：
+ *   use System.Str
+ *   Str::length("hello")  // 5
+ *   Str::upper("hello")   // "HELLO"
+ */
+class Str {
+
+    // ========== 基本信息 ==========
+
+    /**
+     * 获取字符串长度
+     * @param s 字符串
+     * @return 字符数量（支持 Unicode）
+     */
+    public static function length(s: string) int {
+        return s.length()
+    }
+
+    /**
+     * 判断是否为空字符串
+     * @param s 字符串
+     * @return 如果为空返回 true
+     */
+    public static function isEmpty(s: string) bool {
+        return s.isEmpty()
+    }
+
+    /**
+     * 获取指定位置的字符
+     * @param s 字符串
+     * @param index 索引位置（从0开始）
+     * @return 该位置的字符
+     */
+    public static function charAt(s: string, index: int) string {
+        return s.charAt(index)
+    }
+
+    // ========== 查找 ==========
+
+    /**
+     * 返回子串第一次出现的索引
+     * @param s 字符串
+     * @param substr 子串
+     * @return 索引位置，未找到返回 -1
+     */
+    public static function indexOf(s: string, substr: string) int {
+        return s.indexOf(substr)
+    }
+
+    /**
+     * 返回子串最后一次出现的索引
+     * @param s 字符串
+     * @param substr 子串
+     * @return 索引位置，未找到返回 -1
+     */
+    public static function lastIndexOf(s: string, substr: string) int {
+        return s.lastIndexOf(substr)
+    }
+
+    /**
+     * 判断是否包含子串
+     * @param s 字符串
+     * @param substr 子串
+     * @return 包含返回 true
+     */
+    public static function contains(s: string, substr: string) bool {
+        return s.contains(substr)
+    }
+
+    /**
+     * 判断是否以指定前缀开始
+     * @param s 字符串
+     * @param prefix 前缀
+     * @return 匹配返回 true
+     */
+    public static function startsWith(s: string, prefix: string) bool {
+        return s.startsWith(prefix)
+    }
+
+    /**
+     * 判断是否以指定后缀结束
+     * @param s 字符串
+     * @param suffix 后缀
+     * @return 匹配返回 true
+     */
+    public static function endsWith(s: string, suffix: string) bool {
+        return s.endsWith(suffix)
+    }
+
+    // ========== 比较 ==========
+
+    /**
+     * 比较两个字符串是否相等
+     * @param s 字符串
+     * @param other 另一个字符串
+     * @return 相等返回 true
+     */
+    public static function equals(s: string, other: string) bool {
+        return s.equals(other)
+    }
+
+    /**
+     * 忽略大小写比较
+     * @param s 字符串
+     * @param other 另一个字符串
+     * @return 相等返回 true
+     */
+    public static function equalsIgnoreCase(s: string, other: string) bool {
+        return s.equalsIgnoreCase(other)
+    }
+
+    // ========== 连接和子串 ==========
+
+    /**
+     * 连接两个字符串
+     * @param s 字符串
+     * @param other 另一个字符串
+     * @return 连接后的新字符串
+     */
+    public static function concat(s: string, other: string) string {
+        return s.concat(other)
+    }
+
+    /**
+     * 获取子串
+     * @param s 字符串
+     * @param start 起始索引
+     * @param end 结束索引（可选，默认到末尾）
+     * @return 子串
+     */
+    public static function substring(s: string, start: int, end: int) string {
+        return s.substring(start, end)
+    }
+
+    /**
+     * 重复字符串
+     * @param s 字符串
+     * @param count 重复次数
+     * @return 重复后的新字符串
+     */
+    public static function repeat(s: string, count: int) string {
+        return s.repeat(count)
+    }
+
+    // ========== 去除空白 ==========
+
+    /**
+     * 去除首尾空白
+     * @param s 字符串
+     * @return 去除空白后的新字符串
+     */
+    public static function trim(s: string) string {
+        return s.trim()
+    }
+
+    /**
+     * 去除左边空白
+     * @param s 字符串
+     * @return 去除空白后的新字符串
+     */
+    public static function ltrim(s: string) string {
+        return s.ltrim()
+    }
+
+    /**
+     * 去除右边空白
+     * @param s 字符串
+     * @return 去除空白后的新字符串
+     */
+    public static function rtrim(s: string) string {
+        return s.rtrim()
+    }
+
+    // ========== 大小写转换 ==========
+
+    /**
+     * 转换为大写
+     * @param s 字符串
+     * @return 大写字符串
+     */
+    public static function upper(s: string) string {
+        return s.upper()
+    }
+
+    /**
+     * 转换为小写
+     * @param s 字符串
+     * @return 小写字符串
+     */
+    public static function lower(s: string) string {
+        return s.lower()
+    }
+
+    /**
+     * 首字母大写
+     * @param s 字符串
+     * @return 首字母大写的字符串
+     */
+    public static function ucfirst(s: string) string {
+        return s.ucfirst()
+    }
+
+    /**
+     * 每个单词首字母大写
+     * @param s 字符串
+     * @return 标题格式字符串
+     */
+    public static function title(s: string) string {
+        return s.title()
+    }
+
+    // ========== 格式转换 ==========
+
+    /**
+     * 转换为小驼峰（camelCase）
+     * @param s 字符串
+     * @return 小驼峰格式字符串
+     */
+    public static function camel(s: string) string {
+        return s.camel()
+    }
+
+    /**
+     * 转换为大驼峰（PascalCase）
+     * @param s 字符串
+     * @return 大驼峰格式字符串
+     */
+    public static function studly(s: string) string {
+        return s.studly()
+    }
+
+    /**
+     * 转换为蛇形（snake_case）
+     * @param s 字符串
+     * @return 蛇形格式字符串
+     */
+    public static function snake(s: string) string {
+        return s.snake()
+    }
+
+    /**
+     * 转换为烤串式（kebab-case）
+     * @param s 字符串
+     * @return 烤串格式字符串
+     */
+    public static function kebab(s: string) string {
+        return s.kebab()
+    }
+
+    // ========== 替换 ==========
+
+    /**
+     * 替换第一个匹配项
+     * @param s 字符串
+     * @param search 要替换的子串
+     * @param replacement 替换为的子串
+     * @return 替换后的新字符串
+     */
+    public static function replace(s: string, search: string, replacement: string) string {
+        return s.replace(search, replacement)
+    }
+
+    /**
+     * 替换所有匹配项
+     * @param s 字符串
+     * @param search 要替换的子串
+     * @param replacement 替换为的子串
+     * @return 替换后的新字符串
+     */
+    public static function replaceAll(s: string, search: string, replacement: string) string {
+        return s.replaceAll(search, replacement)
+    }
+
+    // ========== 填充 ==========
+
+    /**
+     * 左填充
+     * @param s 字符串
+     * @param length 目标长度
+     * @param pad 填充字符
+     * @return 填充后的新字符串
+     */
+    public static function padLeft(s: string, length: int, pad: string) string {
+        return s.padLeft(length, pad)
+    }
+
+    /**
+     * 右填充
+     * @param s 字符串
+     * @param length 目标长度
+     * @param pad 填充字符
+     * @return 填充后的新字符串
+     */
+    public static function padRight(s: string, length: int, pad: string) string {
+        return s.padRight(length, pad)
+    }
+
+    // ========== 其他 ==========
+
+    /**
+     * 反转字符串
+     * @param s 字符串
+     * @return 反转后的新字符串
+     */
+    public static function reverse(s: string) string {
+        return s.reverse()
+    }
+}
+

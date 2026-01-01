@@ -1,0 +1,92 @@
+namespace System.IO
+
+// FileInfo 文件信息类
+// 提供文件元数据信息
+class FileInfo {
+    private path string
+    private info any
+    
+    // 构造函数
+    // @param path 文件路径
+    public function __construct(path: string) {
+        this.path = path
+        this.info = __file_get_info(path)
+    }
+    
+    // getPath 获取完整路径
+    // @return 完整路径
+    public function getPath() string {
+        return this.info["path"]
+    }
+    
+    // getName 获取文件名
+    // @return 文件名
+    public function getName() string {
+        return this.info["name"]
+    }
+    
+    // getExtension 获取扩展名
+    // @return 扩展名
+    public function getExtension() string {
+        return __path_get_extension(this.path)
+    }
+    
+    // getDirectory 获取所在目录路径
+    // @return 目录路径
+    public function getDirectory() string {
+        return __path_get_directory(this.path)
+    }
+    
+    // getSize 获取文件大小（字节）
+    // @return 文件大小
+    public function getSize() int {
+        return this.info["size"]
+    }
+    
+    // getModifiedTime 获取修改时间（Unix 时间戳）
+    // @return 修改时间
+    public function getModifiedTime() int {
+        return this.info["modTime"]
+    }
+    
+    // isFile 是否是文件
+    // @return 是否是文件
+    public function isFile() bool {
+        return this.info["isFile"]
+    }
+    
+    // isDirectory 是否是目录
+    // @return 是否是目录
+    public function isDirectory() bool {
+        return this.info["isDir"]
+    }
+    
+    // isReadable 是否可读
+    // @return 是否可读
+    public function isReadable() bool {
+        return this.info["isReadable"]
+    }
+    
+    // isWritable 是否可写
+    // @return 是否可写
+    public function isWritable() bool {
+        return this.info["isWritable"]
+    }
+    
+    // isExecutable 是否可执行
+    // @return 是否可执行
+    public function isExecutable() bool {
+        return this.info["isExecutable"]
+    }
+    
+    // exists 检查文件是否存在
+    // @return 是否存在
+    public function exists() bool {
+        return __file_exists(this.path)
+    }
+    
+    // refresh 刷新文件信息
+    public function refresh() {
+        this.info = __file_get_info(this.path)
+    }
+}

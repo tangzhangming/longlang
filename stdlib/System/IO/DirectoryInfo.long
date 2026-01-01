@@ -1,0 +1,81 @@
+namespace System.IO
+
+// DirectoryInfo 目录信息类
+// 提供目录元数据信息
+class DirectoryInfo {
+    private path string
+    
+    // 构造函数
+    // @param path 目录路径
+    public function __construct(path: string) {
+        this.path = __path_get_absolute(path)
+    }
+    
+    // getPath 获取完整路径
+    // @return 完整路径
+    public function getPath() string {
+        return this.path
+    }
+    
+    // getName 获取目录名
+    // @return 目录名
+    public function getName() string {
+        return __path_get_filename(this.path)
+    }
+    
+    // getParent 获取父目录路径
+    // @return 父目录路径
+    public function getParent() string {
+        return __path_get_directory(this.path)
+    }
+    
+    // getParentInfo 获取父目录信息
+    // @return DirectoryInfo 对象
+    public function getParentInfo() DirectoryInfo {
+        return new DirectoryInfo(this.getParent())
+    }
+    
+    // exists 是否存在
+    // @return 是否存在
+    public function exists() bool {
+        return __dir_exists(this.path)
+    }
+    
+    // isEmpty 是否为空目录
+    // @return 是否为空
+    public function isEmpty() bool {
+        entries := __dir_get_entries(this.path)
+        return len(entries) == 0
+    }
+    
+    // getFiles 获取文件列表
+    // @param pattern 匹配模式，默认 "*"
+    // @return 文件路径数组
+    public function getFiles(pattern: string = "*") any {
+        return __dir_get_files(this.path, pattern)
+    }
+    
+    // getDirectories 获取子目录列表
+    // @return 子目录路径数组
+    public function getDirectories() any {
+        return __dir_get_directories(this.path)
+    }
+    
+    // getEntries 获取所有条目（文件+目录）
+    // @return 路径数组
+    public function getEntries() any {
+        return __dir_get_entries(this.path)
+    }
+    
+    // create 创建目录
+    // @param recursive 是否递归创建
+    public function create(recursive: bool = false) {
+        __dir_create(this.path, recursive)
+    }
+    
+    // delete 删除目录
+    // @param recursive 是否递归删除
+    public function delete(recursive: bool = false) {
+        __dir_delete(this.path, recursive)
+    }
+}

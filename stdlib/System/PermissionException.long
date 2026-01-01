@@ -1,0 +1,33 @@
+namespace System
+
+use System.IOException
+
+// PermissionException 权限异常
+// 当没有足够权限执行操作时抛出
+class PermissionException extends IOException {
+    private path string
+    private operation string
+    
+    // 构造函数
+    public function __construct(path: string, operation: string) {
+        super::__construct("Permission denied: cannot " + operation + " " + path)
+        this.path = path
+        this.operation = operation
+    }
+    
+    // 获取路径
+    public function getPath() string {
+        return this.path
+    }
+    
+    // 获取操作
+    public function getOperation() string {
+        return this.operation
+    }
+    
+    // 转换为字符串
+    public function toString() string {
+        return "PermissionException: " + this.getMessage()
+    }
+}
+

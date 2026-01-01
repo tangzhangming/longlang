@@ -1,0 +1,116 @@
+namespace System.IO
+
+// Path 路径操作静态工具类
+// 提供路径操作的各种方法
+class Path {
+    
+    // join 组合路径
+    // @param path1 第一个路径
+    // @param path2 第二个路径
+    // @return 组合后的路径
+    public static function join(path1: string, path2: string) string {
+        return __path_join(path1, path2)
+    }
+    
+    // join3 组合三个路径
+    // @param path1 第一个路径
+    // @param path2 第二个路径
+    // @param path3 第三个路径
+    // @return 组合后的路径
+    public static function join3(path1: string, path2: string, path3: string) string {
+        return __path_join(path1, path2, path3)
+    }
+    
+    // join4 组合四个路径
+    // @param path1 第一个路径
+    // @param path2 第二个路径
+    // @param path3 第三个路径
+    // @param path4 第四个路径
+    // @return 组合后的路径
+    public static function join4(path1: string, path2: string, path3: string, path4: string) string {
+        return __path_join(path1, path2, path3, path4)
+    }
+    
+    // getFileName 获取文件名（含扩展名）
+    // @param path 文件路径
+    // @return 文件名
+    public static function getFileName(path: string) string {
+        return __path_get_filename(path)
+    }
+    
+    // getFileNameWithoutExtension 获取文件名（不含扩展名）
+    // @param path 文件路径
+    // @return 文件名
+    public static function getFileNameWithoutExtension(path: string) string {
+        return __path_get_filename_without_ext(path)
+    }
+    
+    // getExtension 获取扩展名（含点号）
+    // @param path 文件路径
+    // @return 扩展名，如 ".txt"
+    public static function getExtension(path: string) string {
+        return __path_get_extension(path)
+    }
+    
+    // getDirectory 获取目录路径
+    // @param path 文件路径
+    // @return 目录路径
+    public static function getDirectory(path: string) string {
+        return __path_get_directory(path)
+    }
+    
+    // getAbsolute 获取绝对路径
+    // @param path 相对路径
+    // @return 绝对路径
+    public static function getAbsolute(path: string) string {
+        return __path_get_absolute(path)
+    }
+    
+    // normalize 规范化路径（处理 . 和 ..）
+    // @param path 路径
+    // @return 规范化路径
+    public static function normalize(path: string) string {
+        return __path_normalize(path)
+    }
+    
+    // isAbsolute 检查是否是绝对路径
+    // @param path 路径
+    // @return 是否绝对路径
+    public static function isAbsolute(path: string) bool {
+        return __path_is_absolute(path)
+    }
+    
+    // getRelative 获取相对路径
+    // @param from 起始路径
+    // @param to 目标路径
+    // @return 相对路径
+    public static function getRelative(from: string, to: string) string {
+        return __path_get_relative(from, to)
+    }
+    
+    // changeExtension 更改扩展名
+    // @param path 文件路径
+    // @param newExtension 新扩展名
+    // @return 新路径
+    public static function changeExtension(path: string, newExtension: string) string {
+        return __path_change_extension(path, newExtension)
+    }
+    
+    // getTempDirectory 获取临时目录路径
+    // @return 临时目录
+    public static function getTempDirectory() string {
+        return __path_get_temp_dir()
+    }
+    
+    // getTempFileName 生成临时文件路径
+    // @return 临时文件路径
+    public static function getTempFileName() string {
+        return __path_get_temp_file()
+    }
+    
+    // getSeparator 获取路径分隔符
+    // @return 路径分隔符
+    public static function getSeparator() string {
+        return __path_get_separator()
+    }
+}

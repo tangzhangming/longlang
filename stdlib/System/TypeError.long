@@ -1,0 +1,32 @@
+namespace System
+
+use System.RuntimeException
+
+// TypeError 类型错误异常
+// 当值的类型与期望不匹配时抛出
+class TypeError extends RuntimeException {
+    private expectedType string
+    private actualType string
+    
+    // 构造函数
+    public function __construct(message: string = "Type error") {
+        super::__construct(message, 0)
+        this.expectedType = ""
+        this.actualType = ""
+    }
+    
+    // 获取期望的类型
+    public function getExpectedType() string {
+        return this.expectedType
+    }
+    
+    // 获取实际的类型
+    public function getActualType() string {
+        return this.actualType
+    }
+    
+    // 转换为字符串
+    public function toString() string {
+        return "TypeError: " + this.getMessage()
+    }
+}

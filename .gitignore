@@ -1,6 +1,5 @@
 *.txt
 *.exe
-*.long
 /idea/
 /project/
 /design/
