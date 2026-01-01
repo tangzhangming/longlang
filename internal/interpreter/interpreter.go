@@ -3,6 +3,8 @@ package interpreter
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"strings"
 
 	"github.com/tangzhangming/longlang/internal/lexer"
 	"github.com/tangzhangming/longlang/internal/parser"
@@ -32,6 +34,7 @@ type Interpreter struct {
 	env           *Environment          // 当前作用域环境
 	stdlibPath    string                // 标准库目录路径
 	loadedModules map[string]*Module    // 已加载的模块缓存
+	currentFileName string              // 当前正在处理的文件名（不含扩展名），用于判断导出类
 }
 
 // Module 模块对象
@@ -796,11 +799,15 @@ func (i *Interpreter) loadModule(name string) (*Module, error) {
 		return nil, fmt.Errorf("模块 %s 语法错误: %v", name, p.Errors())
 	}
 
-	// 创建模块解释器
+	// 提取文件名（不含扩展名）用于判断导出类
+	fileName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
+	
+	// 创建模块解释器，设置当前文件名
 	moduleInterpreter := &Interpreter{
-		env:           moduleEnv,
-		stdlibPath:    i.stdlibPath,
-		loadedModules: i.loadedModules,
+		env:            moduleEnv,
+		stdlibPath:     i.stdlibPath,
+		loadedModules:  i.loadedModules,
+		currentFileName: fileName,
 	}
 
 	// 执行模块代码（不调用 main）
@@ -811,10 +818,18 @@ func (i *Interpreter) loadModule(name string) (*Module, error) {
 		}
 	}
 
-	// 收集导出的符号（所有函数和变量）
+	// 收集导出的符号（只导出 IsExported=true 的类，其他符号全部导出）
 	exports := make(map[string]Object)
 	for key, val := range moduleEnv.store {
-		exports[key] = val
+		// 如果是类，检查是否为导出类
+		if class, ok := val.(*Class); ok {
+			if class.IsExported {
+				exports[key] = val
+			}
+		} else {
+			// 函数、变量等其他符号全部导出
+			exports[key] = val
+		}
 	}
 
 	return &Module{
@@ -870,12 +885,19 @@ func (i *Interpreter) evalInterfaceStatement(node *parser.InterfaceStatement) Ob
 
 // evalClassStatement 执行类定义语句
 func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
+	// 判断是否为导出类：类名与文件名相同
+	isExported := false
+	if i.currentFileName != "" && node.Name.Value == i.currentFileName {
+		isExported = true
+	}
+	
 	class := &Class{
 		Name:          node.Name.Value,
 		Variables:     make(map[string]*ClassVariable),
 		Methods:       make(map[string]*ClassMethod),
 		StaticMethods: make(map[string]*ClassMethod),
 		Env:           i.env,
+		IsExported:    isExported,
 	}
 
 	// 处理继承

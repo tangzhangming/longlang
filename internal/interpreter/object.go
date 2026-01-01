@@ -198,6 +198,7 @@ type Class struct {
 	Methods       map[string]*ClassMethod   // 实例方法
 	StaticMethods map[string]*ClassMethod   // 静态方法
 	Env           *Environment              // 类定义时的环境（用于闭包）
+	IsExported    bool                      // 是否为导出类（与文件名相同）
 }
 
 func (c *Class) Type() ObjectType { return CLASS_OBJ }
