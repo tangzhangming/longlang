@@ -2,6 +2,7 @@
 *.exe
 *.long
 /idea/
+/project/
 /design/
 /test/
 /tools/

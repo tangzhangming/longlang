@@ -187,8 +187,14 @@ func (p *Parser) parseClassMembers() []ClassMember {
 			method := p.parseClassMethod(accessModifier, isStatic)
 			if method != nil {
 				members = append(members, method)
-				if p.curTokenIs(lexer.RBRACE) {
-					p.nextToken()
+				// 方法解析完成后，curToken 是方法体的 }，需要跳过它
+				// 但只有当下一个 token 不是类的 } 时才跳过（避免跳过类的 }）
+				if p.curTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.EOF) {
+					// 检查是否还有更多成员
+					if p.peekTokenIs(lexer.PUBLIC) || p.peekTokenIs(lexer.PRIVATE) || p.peekTokenIs(lexer.PROTECTED) {
+						p.nextToken() // 跳过方法体的 }
+					}
+					// 如果 peekToken 是 }，说明到达类的末尾，不跳过
 				}
 			} else {
 				// 错误恢复

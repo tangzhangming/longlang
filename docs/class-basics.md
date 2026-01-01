@@ -25,6 +25,67 @@ class Person {
 }
 ```
 
+## 一个文件多个类
+
+**一个文件可以包含多个类，但只有与文件名相同的类才是导出类（可以被外部调用）。**
+
+### 文件名导出规则
+
+**核心规则：只有与文件名（不含扩展名）相同的类可以被外部访问。**
+
+```longlang
+// 文件：Redis.long
+package cache
+
+// ✅ 导出类（类名 Redis 与文件名 Redis.long 相同）
+class Redis {
+    private connection Connection  // 使用私有类
+    
+    public function __construct(host:string, port:int) {
+        this.connection = new Connection(host, port)
+    }
+}
+
+// ❌ 私有类（只能在文件内使用）
+class Connection {
+    private host string
+    private port int
+    
+    public function __construct(host:string, port:int) {
+        this.host = host
+        this.port = port
+    }
+}
+```
+
+### 使用示例
+
+```longlang
+// main.long
+package main
+
+import "cache"
+
+fn main() {
+    // ✅ 可以使用导出类 Redis
+    redis := new cache.Redis("localhost", 6379)
+    
+    // ❌ 错误！Connection 是私有类，不能访问
+    // conn := new cache.Connection("localhost", 6379)  // 编译错误
+}
+```
+
+### 文件名规则
+
+| 规则 | 说明 | 示例 |
+|------|------|------|
+| 类名匹配文件名 | 导出类名必须与文件名（不含扩展名）相同 | `Redis.long` → `class Redis` |
+| 大小写敏感 | 类名和文件名必须完全匹配（包括大小写） | `Redis.long` ≠ `redis.long` |
+| 一个文件一个导出类 | 每个文件只能有一个与文件名相同的类 | - |
+| 其他类是私有类 | 文件内其他类只能在文件内使用 | - |
+
+详细说明请参考 [类多文件设计](../design/class-multi-file.md)。
+
 ## 访问修饰符
 
 | 修饰符 | 说明 |

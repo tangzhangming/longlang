@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/tangzhangming/longlang/internal/config"
 	"github.com/tangzhangming/longlang/internal/lexer"
 	"github.com/tangzhangming/longlang/internal/parser"
 )
@@ -31,10 +32,15 @@ func newParser(l *lexer.Lexer) *parser.Parser {
 
 // Interpreter 解释器，负责执行 AST 节点
 type Interpreter struct {
-	env           *Environment          // 当前作用域环境
-	stdlibPath    string                // 标准库目录路径
-	loadedModules map[string]*Module    // 已加载的模块缓存
-	currentFileName string              // 当前正在处理的文件名（不含扩展名），用于判断导出类
+	env              *Environment          // 当前作用域环境
+	stdlibPath       string                // 标准库目录路径
+	loadedModules    map[string]*Module    // 已加载的模块缓存（已废弃，保留以兼容）
+	currentFileName  string                // 当前正在处理的文件名（不含扩展名），用于判断导出类
+	namespaceMgr     *NamespaceManager     // 命名空间管理器
+	currentNamespace *Namespace            // 当前命名空间
+	projectRoot      string                // 项目根目录
+	projectConfig    *config.ProjectConfig // 项目配置
+	loadedNamespaces map[string]bool       // 已加载的命名空间文件缓存
 }
 
 // Module 模块对象
@@ -50,15 +56,25 @@ func New() *Interpreter {
 	// 注册内置函数（如 fmt.Println）
 	registerBuiltins(env)
 	return &Interpreter{
-		env:           env,
-		stdlibPath:    "stdlib", // 默认标准库路径
-		loadedModules: make(map[string]*Module),
+		env:              env,
+		stdlibPath:       "stdlib", // 默认标准库路径
+		loadedModules:    make(map[string]*Module),
+		namespaceMgr:     NewNamespaceManager(),
+		projectRoot:      "",
+		projectConfig:    nil,
+		loadedNamespaces: make(map[string]bool),
 	}
 }
 
 // SetStdlibPath 设置标准库目录路径
 func (i *Interpreter) SetStdlibPath(path string) {
 	i.stdlibPath = path
+}
+
+// SetProjectConfig 设置项目配置
+func (i *Interpreter) SetProjectConfig(projectRoot string, cfg *config.ProjectConfig) {
+	i.projectRoot = projectRoot
+	i.projectConfig = cfg
 }
 
 // GetEnv 获取当前环境
@@ -75,8 +91,14 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		// 包声明目前只是声明性的，不执行任何操作
 		return nil
 	case *parser.ImportStatement:
-		// 处理导入语句
+		// 处理导入语句（已废弃，保留以兼容）
 		return i.evalImportStatement(node)
+	case *parser.NamespaceStatement:
+		// 处理命名空间声明
+		return i.evalNamespaceStatement(node)
+	case *parser.UseStatement:
+		// 处理 use 导入语句
+		return i.evalUseStatement(node)
 	case *parser.ClassStatement:
 		// 类定义，注册到环境中
 		return i.evalClassStatement(node)
@@ -211,11 +233,11 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 	return newError("未知节点类型: %T", node)
 }
 
-// evalProgram 执行程序，遍历所有语句并执行，最后调用 main 函数
+// evalProgram 执行程序，遍历所有语句并执行，最后调用类的 main 静态方法
 func (i *Interpreter) evalProgram(program *parser.Program) Object {
 	var result Object
 
-	// 首先执行所有语句（包括函数定义）
+	// 首先执行所有语句（包括类定义）
 	for _, statement := range program.Statements {
 		result = i.Eval(statement)
 
@@ -228,25 +250,74 @@ func (i *Interpreter) evalProgram(program *parser.Program) Object {
 		}
 	}
 
-	// 查找并调用 main 函数
-	mainFn, ok := i.env.Get("main")
-	if !ok {
-		return newError("未找到 main 函数")
+	// 查找包含 main 静态方法的类
+	// 先收集所有包含main方法的类
+	type mainClassInfo struct {
+		class  *Class
+		method *ClassMethod
+		name   string
+	}
+	var mainClasses []mainClassInfo
+
+	// 从所有命名空间中查找并收集所有包含main方法的类
+	for _, ns := range i.namespaceMgr.namespaces {
+		for className, class := range ns.Classes {
+			if method, ok := class.StaticMethods["main"]; ok {
+				mainClasses = append(mainClasses, mainClassInfo{
+					class:  class,
+					method: method,
+					name:   className,
+				})
+			}
+		}
 	}
 
-	// 调用 main 函数
-	switch fn := mainFn.(type) {
-	case *Function:
-		body, ok := fn.Body.(*parser.BlockStatement)
-		if !ok {
-			return newError("main 函数体类型错误")
+	// 如果找到多个 main 方法，报错
+	if len(mainClasses) > 1 {
+		classList := ""
+		for idx, info := range mainClasses {
+			if idx > 0 {
+				classList += ", "
+			}
+			classList += info.name
 		}
-		// main 函数使用当前环境
-		evaluated := i.evalBlockStatement(body)
-		return unwrapReturnValue(evaluated)
-	default:
-		return newError("main 不是函数")
+		return newError("找到多个包含 main 方法的类: %s，必须指定启动入口类", classList)
 	}
+
+	// 如果只找到一个，使用它
+	var mainClass *Class
+	var mainMethod *ClassMethod
+	if len(mainClasses) == 1 {
+		mainClass = mainClasses[0].class
+		mainMethod = mainClasses[0].method
+	}
+
+	// 注意：暂时只从命名空间查找，如果需要支持没有命名空间的类，
+	// 需要扩展Environment提供遍历所有对象的方法
+
+	if mainClass == nil || mainMethod == nil {
+		return newError("未找到包含 main 静态方法的类")
+	}
+
+	// 调用 main 静态方法
+	// 创建函数环境
+	env := NewEnclosedEnvironment(mainMethod.Env)
+	// 在静态方法中提供 self（指向当前类）
+	env.Set("self", mainClass)
+
+	// 执行方法体
+	body, ok := mainMethod.Body.(*parser.BlockStatement)
+	if !ok {
+		return newError("main 方法体类型错误")
+	}
+
+	// 保存当前环境并切换
+	oldEnv := i.env
+	i.env = env
+	defer func() { i.env = oldEnv }()
+
+	evaluated := i.evalBlockStatement(body)
+	return unwrapReturnValue(evaluated)
 }
 
 // evalBlockStatement 执行块语句
@@ -612,7 +683,7 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 		extendedEnv := i.extendFunctionEnv(fn, args, callArgs)
 		evaluated := i.evalBlockStatementWithEnv(body, extendedEnv)
 		result := unwrapReturnValue(evaluated)
-		
+
 		// 检查返回类型
 		if len(fn.ReturnType) == 0 {
 			// 函数没有声明返回类型，不应该返回非 null 值
@@ -620,7 +691,7 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 				return newError("函数未声明返回类型，但返回了值")
 			}
 		}
-		
+
 		return result
 	case *Builtin:
 		return fn.Fn(args...)
@@ -801,12 +872,12 @@ func (i *Interpreter) loadModule(name string) (*Module, error) {
 
 	// 提取文件名（不含扩展名）用于判断导出类
 	fileName := strings.TrimSuffix(filepath.Base(filePath), filepath.Ext(filePath))
-	
+
 	// 创建模块解释器，设置当前文件名
 	moduleInterpreter := &Interpreter{
-		env:            moduleEnv,
-		stdlibPath:     i.stdlibPath,
-		loadedModules:  i.loadedModules,
+		env:             moduleEnv,
+		stdlibPath:      i.stdlibPath,
+		loadedModules:   i.loadedModules,
 		currentFileName: fileName,
 	}
 
@@ -853,6 +924,173 @@ func (i *Interpreter) registerModule(name string, module *Module) {
 	i.env.Set(name, moduleObj)
 }
 
+// evalNamespaceStatement 执行命名空间声明语句
+func (i *Interpreter) evalNamespaceStatement(node *parser.NamespaceStatement) Object {
+	namespaceName := node.Name.Value
+
+	// 如果有项目配置，使用 root_namespace 解析命名空间
+	if i.projectConfig != nil {
+		namespaceName = i.projectConfig.ResolveNamespace(namespaceName)
+	}
+
+	// 获取或创建命名空间
+	namespace := i.namespaceMgr.GetNamespace(namespaceName)
+	i.currentNamespace = namespace
+
+	// 命名空间声明不返回值，只是设置当前命名空间
+	return nil
+}
+
+// evalUseStatement 执行 use 导入语句
+func (i *Interpreter) evalUseStatement(node *parser.UseStatement) Object {
+	fullPath := node.Path.Value
+
+	// 解析完全限定名：Illuminate.Database.Eloquent.Model
+	// 分解为：命名空间 Illuminate.Database.Eloquent，类名 Model
+	namespace, className, err := ResolveClassName(fullPath)
+	if err != nil {
+		return newError("无效的 use 路径: %s", fullPath)
+	}
+
+	// 如果有项目配置，使用 root_namespace 解析命名空间
+	resolvedNamespace := namespace
+	if i.projectConfig != nil {
+		resolvedNamespace = i.projectConfig.ResolveNamespace(namespace)
+	}
+
+	// 尝试加载命名空间文件（如果尚未加载）
+	_ = i.loadNamespaceFile(namespace, className)
+
+	// 获取命名空间（使用解析后的命名空间）
+	targetNamespace := i.namespaceMgr.GetNamespace(resolvedNamespace)
+
+	// 查找类
+	class, ok := targetNamespace.GetClass(className)
+	if !ok {
+		return newError("命名空间 %s 中没有找到类 %s", namespace, className)
+	}
+
+	// 确定导入到当前环境的名称
+	importName := className
+	if node.Alias != nil {
+		importName = node.Alias.Value
+	}
+
+	// 将类导入到当前环境
+	i.env.Set(importName, class)
+
+	return nil
+}
+
+// loadNamespaceFile 根据命名空间路径加载对应的文件
+// 例如：Mycompany.Myapp.Models + User -> src/Mycompany/Myapp/Models/User.long
+func (i *Interpreter) loadNamespaceFile(namespace string, className string) error {
+	// 构建完整的命名空间路径作为缓存 key
+	fullKey := namespace + "." + className
+
+	// 检查是否已经加载过
+	if i.loadedNamespaces[fullKey] {
+		return nil
+	}
+
+	// 如果没有项目根目录，无法加载文件
+	if i.projectRoot == "" {
+		return fmt.Errorf("未设置项目根目录")
+	}
+
+	// 将命名空间转换为文件路径
+	// 例如：Mycompany.Myapp.Models -> Mycompany/Myapp/Models
+	namespacePath := strings.ReplaceAll(namespace, ".", string(filepath.Separator))
+
+	// 如果有 root_namespace，计算相对路径
+	// 例如：namespace = "Usoppsoft.Account.Models", root_namespace = "Usoppsoft.Account"
+	// 则相对路径为 "Models"
+	relativeNamespacePath := namespacePath
+	if i.projectConfig != nil && i.projectConfig.RootNamespace != "" {
+		rootNsPath := strings.ReplaceAll(i.projectConfig.RootNamespace, ".", string(filepath.Separator))
+		if strings.HasPrefix(namespacePath, rootNsPath) {
+			// 去掉 root_namespace 前缀
+			relativeNamespacePath = strings.TrimPrefix(namespacePath, rootNsPath)
+			relativeNamespacePath = strings.TrimPrefix(relativeNamespacePath, string(filepath.Separator))
+		}
+	}
+
+	// 构建可能的文件路径
+	var filePaths []string
+
+	// 1. 使用相对路径在 src 目录下查找（优先）
+	if relativeNamespacePath != "" {
+		srcRelPath := filepath.Join(i.projectRoot, "src", relativeNamespacePath, className+".long")
+		filePaths = append(filePaths, srcRelPath)
+	} else {
+		// 如果相对路径为空，直接在 src 下查找
+		srcRelPath := filepath.Join(i.projectRoot, "src", className+".long")
+		filePaths = append(filePaths, srcRelPath)
+	}
+
+	// 2. 使用完整路径在 src 目录下查找
+	srcPath := filepath.Join(i.projectRoot, "src", namespacePath, className+".long")
+	filePaths = append(filePaths, srcPath)
+
+	// 3. 在项目根目录下查找（相对路径）
+	if relativeNamespacePath != "" {
+		rootRelPath := filepath.Join(i.projectRoot, relativeNamespacePath, className+".long")
+		filePaths = append(filePaths, rootRelPath)
+	}
+
+	// 4. 在项目根目录下查找（完整路径）
+	rootPath := filepath.Join(i.projectRoot, namespacePath, className+".long")
+	filePaths = append(filePaths, rootPath)
+
+	// 5. 在 vendor 目录下查找
+	vendorPath := filepath.Join(i.projectRoot, "vendor", namespacePath, className+".long")
+	filePaths = append(filePaths, vendorPath)
+
+	// 尝试加载文件
+	var loadedPath string
+	var content string
+	for _, path := range filePaths {
+		if c, err := readFile(path); err == nil {
+			content = c
+			loadedPath = path
+			break
+		}
+	}
+
+	if loadedPath == "" {
+		return fmt.Errorf("找不到文件: %s，尝试路径: %v", className+".long", filePaths)
+	}
+
+	// 标记为已加载
+	i.loadedNamespaces[fullKey] = true
+
+	// 解析并执行文件
+	l := newLexer(content)
+	p := newParser(l)
+	program := p.ParseProgram()
+
+	if len(p.Errors()) > 0 {
+		return fmt.Errorf("解析文件 %s 错误: %s", loadedPath, p.Errors()[0])
+	}
+
+	// 保存当前命名空间，执行完后恢复
+	savedNamespace := i.currentNamespace
+
+	// 执行文件中的语句（但不执行 main）
+	for _, stmt := range program.Statements {
+		result := i.Eval(stmt)
+		if isError(result) {
+			i.currentNamespace = savedNamespace
+			return fmt.Errorf("执行文件 %s 错误: %s", loadedPath, result.Inspect())
+		}
+	}
+
+	// 恢复命名空间
+	i.currentNamespace = savedNamespace
+
+	return nil
+}
+
 // evalInterfaceStatement 执行接口定义语句
 func (i *Interpreter) evalInterfaceStatement(node *parser.InterfaceStatement) Object {
 	iface := &Interface{
@@ -890,7 +1128,7 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 	if i.currentFileName != "" && node.Name.Value == i.currentFileName {
 		isExported = true
 	}
-	
+
 	class := &Class{
 		Name:          node.Name.Value,
 		Variables:     make(map[string]*ClassVariable),
@@ -974,7 +1212,14 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 		}
 	}
 
-	i.env.Set(node.Name.Value, class)
+	// 如果有当前命名空间，将类注册到命名空间，否则注册到环境（兼容旧代码）
+	if i.currentNamespace != nil {
+		i.currentNamespace.SetClass(node.Name.Value, class)
+	} else {
+		// 如果没有命名空间，也注册到环境（向后兼容）
+		i.env.Set(node.Name.Value, class)
+	}
+
 	return class
 }
 
@@ -991,7 +1236,29 @@ func toInterfaceSlice(params []*parser.FunctionParameter) []interface{} {
 func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 	// 获取类定义
 	className := node.ClassName.Value
+
+	// 首先从当前环境查找（向后兼容）
 	classObj, ok := i.env.Get(className)
+
+	// 如果当前环境找不到，且存在当前命名空间，从当前命名空间查找
+	if !ok && i.currentNamespace != nil {
+		if class, found := i.currentNamespace.GetClass(className); found {
+			classObj = class
+			ok = true
+		}
+	}
+
+	// 如果还是找不到，从所有命名空间中查找
+	if !ok {
+		for _, ns := range i.namespaceMgr.namespaces {
+			if class, found := ns.GetClass(className); found {
+				classObj = class
+				ok = true
+				break
+			}
+		}
+	}
+
 	if !ok {
 		return newError("未定义的类: %s", className)
 	}
@@ -1202,7 +1469,29 @@ func (i *Interpreter) evalSuperExpression() Object {
 func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression) Object {
 	// 获取类定义
 	className := node.ClassName.Value
+
+	// 首先从当前环境查找（向后兼容）
 	classObj, ok := i.env.Get(className)
+
+	// 如果当前环境找不到，且存在当前命名空间，从当前命名空间查找
+	if !ok && i.currentNamespace != nil {
+		if class, found := i.currentNamespace.GetClass(className); found {
+			classObj = class
+			ok = true
+		}
+	}
+
+	// 如果还是找不到，从所有命名空间中查找
+	if !ok {
+		for _, ns := range i.namespaceMgr.namespaces {
+			if class, found := ns.GetClass(className); found {
+				classObj = class
+				ok = true
+				break
+			}
+		}
+	}
+
 	if !ok {
 		return newError("未定义的类: %s", className)
 	}
@@ -1364,4 +1653,3 @@ func (i *Interpreter) evalIncrementStatement(node *parser.IncrementStatement) Ob
 	i.env.Set(node.Name.Value, &Integer{Value: newVal})
 	return &Integer{Value: newVal}
 }
-

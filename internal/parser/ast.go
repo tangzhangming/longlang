@@ -497,7 +497,7 @@ func (ps *PackageStatement) String() string {
 	return "package " + ps.Name.String()
 }
 
-// ImportStatement 导入语句
+// ImportStatement 导入语句（已废弃，保留以兼容）
 // 对应语法：import "package/path"
 // 例如：import "util.string"
 type ImportStatement struct {
@@ -509,6 +509,39 @@ func (is *ImportStatement) statementNode()       {}
 func (is *ImportStatement) TokenLiteral() string { return is.Token.Literal }
 func (is *ImportStatement) String() string {
 	return "import " + is.Path.String()
+}
+
+// NamespaceStatement 命名空间声明语句
+// 对应语法：namespace Namespace.Name 或 namespace Name
+// 例如：namespace Mycompany.Myapp.Models 或 namespace Models
+type NamespaceStatement struct {
+	Token lexer.Token // namespace 关键字对应的 token
+	Name  *Identifier // 命名空间名称（支持点分隔，如 "Mycompany.Myapp.Models"）
+}
+
+func (ns *NamespaceStatement) statementNode()       {}
+func (ns *NamespaceStatement) TokenLiteral() string { return ns.Token.Literal }
+func (ns *NamespaceStatement) String() string {
+	return "namespace " + ns.Name.String()
+}
+
+// UseStatement 导入语句（use）
+// 对应语法：use Full.Qualified.ClassName 或 use Namespace.ClassName as Alias
+// 例如：use Illuminate.Database.Eloquent.Model 或 use Cache.Redis as RedisClient
+type UseStatement struct {
+	Token lexer.Token // use 关键字对应的 token
+	Path  *Identifier // 完全限定名（如 "Illuminate.Database.Eloquent.Model"）
+	Alias *Identifier // 别名（可选）
+}
+
+func (us *UseStatement) statementNode()       {}
+func (us *UseStatement) TokenLiteral() string { return us.Token.Literal }
+func (us *UseStatement) String() string {
+	out := "use " + us.Path.String()
+	if us.Alias != nil {
+		out += " as " + us.Alias.String()
+	}
+	return out
 }
 
 // ========== 接口相关 ==========

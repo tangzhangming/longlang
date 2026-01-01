@@ -20,6 +20,10 @@ func (p *Parser) parseStatement() Statement {
 		return p.parsePackageStatement()
 	case lexer.IMPORT:
 		return p.parseImportStatement()
+	case lexer.NAMESPACE:
+		return p.parseNamespaceStatement()
+	case lexer.USE:
+		return p.parseUseStatement()
 	case lexer.CLASS:
 		return p.parseClassStatement()
 	case lexer.INTERFACE:

@@ -96,9 +96,13 @@ const (
 	F32_TYPE   TokenType = "F32_TYPE"   // f32 - 32位浮点数
 	F64_TYPE   TokenType = "F64_TYPE"   // f64 - 64位浮点数
 	
-	// ========== 包和导入关键字 ==========
-	PACKAGE TokenType = "PACKAGE" // package - 包声明关键字
-	IMPORT  TokenType = "IMPORT"  // import - 导入关键字
+	// ========== 包和导入关键字（已废弃，保留以兼容） ==========
+	PACKAGE TokenType = "PACKAGE" // package - 包声明关键字（已废弃）
+	IMPORT  TokenType = "IMPORT"  // import - 导入关键字（已废弃）
+	
+	// ========== 命名空间关键字 ==========
+	NAMESPACE TokenType = "NAMESPACE" // namespace - 命名空间声明关键字
+	USE       TokenType = "USE"       // use - 导入关键字
 	
 	// ========== 类相关关键字 ==========
 	CLASS      TokenType = "CLASS"      // class - 类定义关键字
@@ -162,6 +166,8 @@ var keywords = map[string]TokenType{
 	// 包和类相关
 	"package":    PACKAGE,
 	"import":     IMPORT,
+	"namespace":  NAMESPACE,
+	"use":        USE,
 	"class":      CLASS,
 	"interface":  INTERFACE,
 	"extends":    EXTENDS,
