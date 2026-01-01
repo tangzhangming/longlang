@@ -1,200 +1,212 @@
-# 字符串 (String)
+# 字符串系统
 
-LongLang 中的字符串是一个对象，支持丰富的内置方法。
+LongLang 提供了三种使用字符串的方式，满足不同场景的需求。
 
-## 字符串定义
+## 字符串类型
 
-```longlang
-// 使用双引号
-var name string = "hello"
+### 值类型（原始 string）
 
-// 使用单引号
-var char string = 'world'
-
-// 使用反引号（支持多行）
-var text string = `line1
-line2`
-
-// 短变量声明
-content := "this is a string"
-```
-
-## 字符串连接
+原始 `string` 类型是值类型，采用类似 Go 的实现：
+- **不可变**：字符串一旦创建就不能修改
+- **值语义**：赋值时复制值，而不是引用
+- **内存高效**：底层使用指针 + 长度结构
 
 ```longlang
-// 使用 + 运算符
-result := "hello" + " " + "world"  // "hello world"
-
-// 使用 concat 方法
-result := "hello".concat(" world")  // "hello world"
-
-// 字符串 + 其他类型会自动转换
-result := "age: " + 25  // "age: 25"
+name := "hello"
+other := name    // other 是 name 的副本
+// 修改 other 不会影响 name
 ```
 
----
+### 对象类型（System.String）
 
-## 字符串方法
+`System.String` 类封装原始字符串，提供面向对象的接口：
+- **引用类型**：赋值时传递引用
+- **方法链**：支持链式调用
+- **面向对象**：适合需要对象封装的场景
+
+```longlang
+use System.String
+
+name := new String("hello")
+other := name    // other 和 name 指向同一个对象
+```
+
+## 三种使用方式
+
+### 方式 1：语法糖（推荐）
+
+原始字符串可以直接调用方法，语法简洁：
+
+```longlang
+name := "hello world"
+fmt.println(name.length())          // 11
+fmt.println(name.upper())           // HELLO WORLD
+fmt.println(name.contains("world")) // true
+
+// 链式调用
+result := name.trim().upper().replace("WORLD", "LONGLANG")
+fmt.println(result)  // HELLO LONGLANG
+```
+
+### 方式 2：静态工具类（System.Str）
+
+使用静态方法操作字符串：
+
+```longlang
+use System.Str
+
+fmt.println(Str::length("hello"))               // 5
+fmt.println(Str::upper("hello"))                // HELLO
+fmt.println(Str::contains("hello", "ell"))      // true
+fmt.println(Str::replace("hello", "l", "L"))    // heLlo
+```
+
+### 方式 3：对象类（System.String）
+
+使用对象封装字符串：
+
+```longlang
+use System.String
+
+name := new String("hello world")
+fmt.println(name.getValue())    // hello world
+fmt.println(name.length())      // 11
+
+// 链式调用（返回新的 String 对象）
+result := name.upper().replace("WORLD", "LONGLANG")
+fmt.println(result.getValue())  // HELLO LONGLANG
+```
+
+## 方法列表
 
 ### 基本信息
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
-| `length()` | 获取字符串长度（字符数） | `"hello".length()` | `5` |
-| `isEmpty()` | 判断是否为空字符串 | `"".isEmpty()` | `true` |
-| `charAt(index)` | 获取指定位置的字符 | `"hello".charAt(0)` | `"h"` |
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
+| `length()` | 获取字符串长度 | `"hello".length()` | `5` |
+| `isEmpty()` | 判断是否为空 | `"".isEmpty()` | `true` |
+| `charAt(index)` | 获取指定位置字符 | `"hello".charAt(0)` | `"h"` |
 
-### 查找方法
+### 查找
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
-| `indexOf(str)` | 返回子串第一次出现的索引，未找到返回 -1 | `"hello".indexOf("l")` | `2` |
-| `lastIndexOf(str)` | 返回子串最后一次出现的索引 | `"hello".lastIndexOf("l")` | `3` |
-| `contains(str)` | 判断是否包含子串 | `"hello".contains("ell")` | `true` |
-| `startsWith(prefix)` | 判断是否以指定前缀开始 | `"hello".startsWith("he")` | `true` |
-| `endsWith(suffix)` | 判断是否以指定后缀结束 | `"hello".endsWith("lo")` | `true` |
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
+| `indexOf(substr)` | 首次出现索引 | `"hello".indexOf("l")` | `2` |
+| `lastIndexOf(substr)` | 最后出现索引 | `"hello".lastIndexOf("l")` | `3` |
+| `contains(substr)` | 是否包含子串 | `"hello".contains("ell")` | `true` |
+| `startsWith(prefix)` | 是否以前缀开始 | `"hello".startsWith("he")` | `true` |
+| `endsWith(suffix)` | 是否以后缀结束 | `"hello".endsWith("lo")` | `true` |
 
-### 比较方法
+### 比较
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
-| `equals(str)` | 比较两个字符串是否相等 | `"hello".equals("hello")` | `true` |
-| `equalsIgnoreCase(str)` | 忽略大小写比较 | `"Hello".equalsIgnoreCase("hello")` | `true` |
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
+| `equals(other)` | 比较相等 | `"hello".equals("hello")` | `true` |
+| `equalsIgnoreCase(other)` | 忽略大小写比较 | `"Hello".equalsIgnoreCase("hello")` | `true` |
 
 ### 连接和子串
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
-| `concat(str)` | 连接字符串 | `"hello".concat(" world")` | `"hello world"` |
-| `substring(start)` | 从指定位置截取到末尾 | `"hello".substring(2)` | `"llo"` |
-| `substring(start, end)` | 截取指定范围的子串 | `"hello".substring(0, 2)` | `"he"` |
-| `repeat(n)` | 重复字符串 n 次 | `"ab".repeat(3)` | `"ababab"` |
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
+| `concat(other)` | 连接字符串 | `"hello".concat(" world")` | `"hello world"` |
+| `substring(start, end)` | 获取子串 | `"hello".substring(0, 2)` | `"he"` |
+| `repeat(count)` | 重复字符串 | `"ab".repeat(3)` | `"ababab"` |
 
-### 去除空白和字符
+### 去除空白
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
 | `trim()` | 去除首尾空白 | `"  hello  ".trim()` | `"hello"` |
-| `trim(str)` | 去除首尾指定字符串 | `"xxxhelloxxx".trim("xxx")` | `"hello"` |
 | `ltrim()` | 去除左边空白 | `"  hello".ltrim()` | `"hello"` |
-| `ltrim(str)` | 去除左边指定字符串 | `"http://example.com".ltrim("http://")` | `"example.com"` |
 | `rtrim()` | 去除右边空白 | `"hello  ".rtrim()` | `"hello"` |
-| `rtrim(str)` | 去除右边指定字符串 | `"example.com/".rtrim("/")` | `"example.com"` |
 
 ### 大小写转换
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
-| `upper()` | 转换为大写 | `"hello".upper()` | `"HELLO"` |
-| `lower()` | 转换为小写 | `"HELLO".lower()` | `"hello"` |
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
+| `upper()` | 转大写 | `"hello".upper()` | `"HELLO"` |
+| `lower()` | 转小写 | `"HELLO".lower()` | `"hello"` |
 | `ucfirst()` | 首字母大写 | `"hello".ucfirst()` | `"Hello"` |
-| `title()` | 每个单词首字母大写 | `"hello world".title()` | `"Hello World"` |
+| `title()` | 每词首字母大写 | `"hello world".title()` | `"Hello World"` |
 
 ### 格式转换
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
-| `camel()` | 转为小驼峰（camelCase） | `"foo_bar".camel()` | `"fooBar"` |
-| `studly()` | 转为大驼峰（PascalCase） | `"foo_bar".studly()` | `"FooBar"` |
-| `snake()` | 转为蛇形（snake_case） | `"fooBar".snake()` | `"foo_bar"` |
-| `snake(delimiter)` | 转为蛇形（自定义分隔符） | `"fooBar".snake("-")` | `"foo-bar"` |
-| `kebab()` | 转为烤串式（kebab-case） | `"fooBar".kebab()` | `"foo-bar"` |
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
+| `camel()` | 小驼峰 | `"foo_bar".camel()` | `"fooBar"` |
+| `studly()` | 大驼峰 | `"foo_bar".studly()` | `"FooBar"` |
+| `snake()` | 蛇形 | `"fooBar".snake()` | `"foo_bar"` |
+| `kebab()` | 烤串式 | `"fooBar".kebab()` | `"foo-bar"` |
 
-### 替换方法
+### 替换
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
-| `replace(old, new)` | 替换第一个匹配项 | `"hello".replace("l", "L")` | `"heLlo"` |
-| `replaceAll(old, new)` | 替换所有匹配项 | `"hello".replaceAll("l", "L")` | `"heLLo"` |
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
+| `replace(search, replacement)` | 替换首个 | `"hello".replace("l", "L")` | `"heLlo"` |
+| `replaceAll(search, replacement)` | 替换全部 | `"hello".replaceAll("l", "L")` | `"heLLo"` |
 
-### 填充方法
+### 填充
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
-| `padLeft(length, pad)` | 左填充到指定长度 | `"5".padLeft(3, "0")` | `"005"` |
-| `padRight(length, pad)` | 右填充到指定长度 | `"5".padRight(3, "0")` | `"500"` |
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
+| `padLeft(length, pad)` | 左填充 | `"5".padLeft(3, "0")` | `"005"` |
+| `padRight(length, pad)` | 右填充 | `"5".padRight(3, "0")` | `"500"` |
 
-### 其他方法
+### 其他
 
-| 方法 | 说明 | 示例 | 返回值 |
-|------|------|------|--------|
+| 方法 | 说明 | 示例 | 结果 |
+|------|------|------|------|
 | `reverse()` | 反转字符串 | `"hello".reverse()` | `"olleh"` |
 
----
+## 值类型 vs 对象类型
 
-## 完整示例
+| 特性 | 值类型 (string) | 对象类型 (String) |
+|------|-----------------|-------------------|
+| 赋值行为 | 复制值 | 复制引用 |
+| 内存使用 | 更少 | 更多（有对象开销） |
+| 方法返回 | 新的 string | 新的 String 对象 |
+| 适用场景 | 大多数情况 | 需要对象封装时 |
 
 ```longlang
-package main
+// 值类型
+a := "hello"
+b := a           // b 是副本
+// a 和 b 是独立的
 
-fn main() {
-    // 基本信息
-    name := "Hello World"
-    fmt.println("长度:", name.length())           // 11
-    fmt.println("是否为空:", name.isEmpty())       // false
-    fmt.println("第一个字符:", name.charAt(0))     // H
-
-    // 查找
-    fmt.println("indexOf:", name.indexOf("o"))     // 4
-    fmt.println("contains:", name.contains("World")) // true
-    fmt.println("startsWith:", name.startsWith("Hello")) // true
-
-    // 大小写
-    fmt.println("upper:", name.upper())            // HELLO WORLD
-    fmt.println("lower:", name.lower())            // hello world
-
-    // 去除空白
-    text := "  trim me  "
-    fmt.println("trim:", text.trim())              // "trim me"
-
-    // 格式转换
-    varName := "user_name"
-    fmt.println("camel:", varName.camel())         // userName
-    fmt.println("studly:", varName.studly())       // UserName
-
-    className := "MyClass"
-    fmt.println("snake:", className.snake())       // my_class
-    fmt.println("kebab:", className.kebab())       // my-class
-
-    // 替换
-    fmt.println("replace:", "hello".replaceAll("l", "L"))  // heLLo
-
-    // 填充
-    fmt.println("padLeft:", "5".padLeft(3, "0"))   // 005
-
-    // 子串
-    fmt.println("substring:", name.substring(0, 5)) // Hello
-}
+// 对象类型
+use System.String
+a := new String("hello")
+b := a           // b 和 a 指向同一对象
 ```
 
----
+## 最佳实践
 
-## 方法速查表
+1. **优先使用语法糖**：简洁、高效，满足大多数需求
+2. **静态方法用于工具函数**：当不需要保存中间状态时
+3. **对象类型用于复杂操作**：当需要传递字符串对象或需要显式的面向对象语义时
 
-| 分类 | 方法列表 |
-|------|----------|
-| 基本信息 | `length()`, `isEmpty()`, `charAt()` |
-| 查找 | `indexOf()`, `lastIndexOf()`, `contains()`, `startsWith()`, `endsWith()` |
-| 比较 | `equals()`, `equalsIgnoreCase()` |
-| 连接子串 | `concat()`, `substring()`, `repeat()` |
-| 空白处理 | `trim()`, `ltrim()`, `rtrim()` |
-| 大小写 | `upper()`, `lower()`, `ucfirst()`, `title()` |
-| 格式转换 | `camel()`, `studly()`, `snake()`, `kebab()` |
-| 替换 | `replace()`, `replaceAll()` |
-| 填充 | `padLeft()`, `padRight()` |
-| 其他 | `reverse()` |
+```longlang
+// 推荐：语法糖
+result := "hello world".upper().replace("WORLD", "LONGLANG")
 
----
+// 工具函数场景
+use System.Str
+if Str::isEmpty(input) {
+    fmt.println("输入为空")
+}
 
-## 暂未实现
+// 对象场景
+use System.String
+name := new String(userInput)
+// 传递 name 对象到其他函数
+processString(name)
+```
 
-以下方法因需要数组支持，暂未实现：
+## 命名空间
 
-| 方法 | 说明 |
-|------|------|
-| `split(delimiter)` | 按分隔符分割字符串为数组 |
-| `getBytes()` | 返回字符串的字节数组 |
-| `toCharArray()` | 返回字符数组 |
+字符串相关类位于 `System` 命名空间：
 
-这些方法将在数组功能实现后添加。
-
+```longlang
+use System.String    // 对象类
+use System.Str       // 静态工具类
+```

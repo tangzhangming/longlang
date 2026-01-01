@@ -916,20 +916,22 @@ func (i *Interpreter) evalUseStatement(node *parser.UseStatement) Object {
 		return newError("无效的 use 路径: %s", fullPath)
 	}
 
-	// 如果有项目配置，使用 root_namespace 解析命名空间
-	resolvedNamespace := namespace
-	if i.projectConfig != nil {
-		resolvedNamespace = i.projectConfig.ResolveNamespace(namespace)
-	}
-
 	// 尝试加载命名空间文件（如果尚未加载）
 	_ = i.loadNamespaceFile(namespace, className)
 
-	// 获取命名空间（使用解析后的命名空间）
-	targetNamespace := i.namespaceMgr.GetNamespace(resolvedNamespace)
-
-	// 查找类
+	// 首先尝试在原始命名空间中查找（支持标准库）
+	targetNamespace := i.namespaceMgr.GetNamespace(namespace)
 	class, ok := targetNamespace.GetClass(className)
+
+	// 如果找不到，且有项目配置，尝试使用 root_namespace 解析后的命名空间
+	if !ok && i.projectConfig != nil {
+		resolvedNamespace := i.projectConfig.ResolveNamespace(namespace)
+		if resolvedNamespace != namespace {
+			targetNamespace = i.namespaceMgr.GetNamespace(resolvedNamespace)
+			class, ok = targetNamespace.GetClass(className)
+		}
+	}
+
 	if !ok {
 		return newError("命名空间 %s 中没有找到类 %s", namespace, className)
 	}
@@ -957,58 +959,62 @@ func (i *Interpreter) loadNamespaceFile(namespace string, className string) erro
 		return nil
 	}
 
-	// 如果没有项目根目录，无法加载文件
-	if i.projectRoot == "" {
-		return fmt.Errorf("未设置项目根目录")
-	}
-
 	// 将命名空间转换为文件路径
 	// 例如：Mycompany.Myapp.Models -> Mycompany/Myapp/Models
 	namespacePath := strings.ReplaceAll(namespace, ".", string(filepath.Separator))
 
-	// 如果有 root_namespace，计算相对路径
-	// 例如：namespace = "Usoppsoft.Account.Models", root_namespace = "Usoppsoft.Account"
-	// 则相对路径为 "Models"
-	relativeNamespacePath := namespacePath
-	if i.projectConfig != nil && i.projectConfig.RootNamespace != "" {
-		rootNsPath := strings.ReplaceAll(i.projectConfig.RootNamespace, ".", string(filepath.Separator))
-		if strings.HasPrefix(namespacePath, rootNsPath) {
-			// 去掉 root_namespace 前缀
-			relativeNamespacePath = strings.TrimPrefix(namespacePath, rootNsPath)
-			relativeNamespacePath = strings.TrimPrefix(relativeNamespacePath, string(filepath.Separator))
-		}
-	}
-
 	// 构建可能的文件路径
 	var filePaths []string
 
-	// 1. 使用相对路径在 src 目录下查找（优先）
-	if relativeNamespacePath != "" {
-		srcRelPath := filepath.Join(i.projectRoot, "src", relativeNamespacePath, className+".long")
-		filePaths = append(filePaths, srcRelPath)
-	} else {
-		// 如果相对路径为空，直接在 src 下查找
-		srcRelPath := filepath.Join(i.projectRoot, "src", className+".long")
-		filePaths = append(filePaths, srcRelPath)
+	// 如果有项目根目录，搜索项目目录
+	if i.projectRoot != "" {
+		// 如果有 root_namespace，计算相对路径
+		// 例如：namespace = "Usoppsoft.Account.Models", root_namespace = "Usoppsoft.Account"
+		// 则相对路径为 "Models"
+		relativeNamespacePath := namespacePath
+		if i.projectConfig != nil && i.projectConfig.RootNamespace != "" {
+			rootNsPath := strings.ReplaceAll(i.projectConfig.RootNamespace, ".", string(filepath.Separator))
+			if strings.HasPrefix(namespacePath, rootNsPath) {
+				// 去掉 root_namespace 前缀
+				relativeNamespacePath = strings.TrimPrefix(namespacePath, rootNsPath)
+				relativeNamespacePath = strings.TrimPrefix(relativeNamespacePath, string(filepath.Separator))
+			}
+		}
+
+		// 1. 使用相对路径在 src 目录下查找（优先）
+		if relativeNamespacePath != "" {
+			srcRelPath := filepath.Join(i.projectRoot, "src", relativeNamespacePath, className+".long")
+			filePaths = append(filePaths, srcRelPath)
+		} else {
+			// 如果相对路径为空，直接在 src 下查找
+			srcRelPath := filepath.Join(i.projectRoot, "src", className+".long")
+			filePaths = append(filePaths, srcRelPath)
+		}
+
+		// 2. 使用完整路径在 src 目录下查找
+		srcPath := filepath.Join(i.projectRoot, "src", namespacePath, className+".long")
+		filePaths = append(filePaths, srcPath)
+
+		// 3. 在项目根目录下查找（相对路径）
+		if relativeNamespacePath != "" {
+			rootRelPath := filepath.Join(i.projectRoot, relativeNamespacePath, className+".long")
+			filePaths = append(filePaths, rootRelPath)
+		}
+
+		// 4. 在项目根目录下查找（完整路径）
+		rootPath := filepath.Join(i.projectRoot, namespacePath, className+".long")
+		filePaths = append(filePaths, rootPath)
+
+		// 5. 在 vendor 目录下查找
+		vendorPath := filepath.Join(i.projectRoot, "vendor", namespacePath, className+".long")
+		filePaths = append(filePaths, vendorPath)
 	}
 
-	// 2. 使用完整路径在 src 目录下查找
-	srcPath := filepath.Join(i.projectRoot, "src", namespacePath, className+".long")
-	filePaths = append(filePaths, srcPath)
-
-	// 3. 在项目根目录下查找（相对路径）
-	if relativeNamespacePath != "" {
-		rootRelPath := filepath.Join(i.projectRoot, relativeNamespacePath, className+".long")
-		filePaths = append(filePaths, rootRelPath)
+	// 6. 在标准库目录下查找（无论是否有项目根目录）
+	if i.stdlibPath != "" {
+		stdlibPath := filepath.Join(i.stdlibPath, namespacePath, className+".long")
+		filePaths = append(filePaths, stdlibPath)
 	}
-
-	// 4. 在项目根目录下查找（完整路径）
-	rootPath := filepath.Join(i.projectRoot, namespacePath, className+".long")
-	filePaths = append(filePaths, rootPath)
-
-	// 5. 在 vendor 目录下查找
-	vendorPath := filepath.Join(i.projectRoot, "vendor", namespacePath, className+".long")
-	filePaths = append(filePaths, vendorPath)
 
 	// 尝试加载文件
 	var loadedPath string
@@ -1037,20 +1043,30 @@ func (i *Interpreter) loadNamespaceFile(namespace string, className string) erro
 		return fmt.Errorf("解析文件 %s 错误: %s", loadedPath, p.Errors()[0])
 	}
 
-	// 保存当前命名空间，执行完后恢复
+	// 保存当前状态，执行完后恢复
 	savedNamespace := i.currentNamespace
+	savedConfig := i.projectConfig
+
+	// 如果是从标准库加载的文件，临时禁用 projectConfig
+	// 这样 namespace 声明不会被 root_namespace 前缀化
+	isStdlibFile := i.stdlibPath != "" && strings.HasPrefix(loadedPath, i.stdlibPath)
+	if isStdlibFile {
+		i.projectConfig = nil
+	}
 
 	// 执行文件中的语句（但不执行 main）
 	for _, stmt := range program.Statements {
 		result := i.Eval(stmt)
 		if isError(result) {
 			i.currentNamespace = savedNamespace
+			i.projectConfig = savedConfig
 			return fmt.Errorf("执行文件 %s 错误: %s", loadedPath, result.Inspect())
 		}
 	}
 
-	// 恢复命名空间
+	// 恢复状态
 	i.currentNamespace = savedNamespace
+	i.projectConfig = savedConfig
 
 	return nil
 }
