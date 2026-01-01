@@ -1,0 +1,110 @@
+namespace System.Binary
+
+// BinaryWriter 二进制写入器
+// 用于构建二进制数据，支持各种数据类型的写入
+class BinaryWriter {
+    private buffer any
+    
+    // 构造函数
+    public function __construct() {
+        this.buffer = __bytebuffer_new(64)
+    }
+    
+    // ===== 写入方法 =====
+    
+    // writeByte 写入单个字节
+    // @param b 字节值 (0-255)
+    public function writeByte(b: int) {
+        __bytebuffer_write_byte(this.buffer, b)
+    }
+    
+    // writeBytes 写入字节数组
+    // @param bytes 字节数组
+    public function writeBytes(bytes: any) {
+        __bytebuffer_write_bytes(this.buffer, bytes)
+    }
+    
+    // writeString 写入字符串
+    // @param str 字符串
+    public function writeString(str: string) {
+        __bytebuffer_write_string(this.buffer, str)
+    }
+    
+    // writeLine 写入字符串并添加换行符
+    // @param str 字符串
+    public function writeLine(str: string) {
+        __bytebuffer_write_string(this.buffer, str)
+        __bytebuffer_write_byte(this.buffer, 10) // \n
+    }
+    
+    // writeInt8 写入 int8
+    // @param value 整数值
+    public function writeInt8(value: int) {
+        __bytebuffer_write_byte(this.buffer, value)
+    }
+    
+    // writeInt16BE 写入 int16（大端序）
+    // @param value 整数值
+    public function writeInt16BE(value: int) {
+        __bytebuffer_write_int16_be(this.buffer, value)
+    }
+    
+    // writeInt32BE 写入 int32（大端序）
+    // @param value 整数值
+    public function writeInt32BE(value: int) {
+        __bytebuffer_write_int32_be(this.buffer, value)
+    }
+    
+    // writeInt64BE 写入 int64（大端序）
+    // @param value 整数值
+    public function writeInt64BE(value: int) {
+        __bytebuffer_write_int64_be(this.buffer, value)
+    }
+    
+    // writeInt16LE 写入 int16（小端序）
+    // @param value 整数值
+    public function writeInt16LE(value: int) {
+        bytes := Bytes::writeInt16LE(value)
+        __bytebuffer_write_bytes(this.buffer, bytes)
+    }
+    
+    // writeInt32LE 写入 int32（小端序）
+    // @param value 整数值
+    public function writeInt32LE(value: int) {
+        bytes := Bytes::writeInt32LE(value)
+        __bytebuffer_write_bytes(this.buffer, bytes)
+    }
+    
+    // writeInt64LE 写入 int64（小端序）
+    // @param value 整数值
+    public function writeInt64LE(value: int) {
+        bytes := Bytes::writeInt64LE(value)
+        __bytebuffer_write_bytes(this.buffer, bytes)
+    }
+    
+    // ===== 输出方法 =====
+    
+    // toBytes 获取写入的字节数组
+    // @return 字节数组
+    public function toBytes() any {
+        return __bytebuffer_to_bytes(this.buffer)
+    }
+    
+    // toString 获取写入的字符串
+    // @return 字符串
+    public function toString() string {
+        return __bytebuffer_to_string(this.buffer)
+    }
+    
+    // size 获取当前大小
+    // @return 字节数
+    public function size() int {
+        return __bytebuffer_size(this.buffer)
+    }
+    
+    // clear 清空缓冲区
+    public function clear() {
+        __bytebuffer_clear(this.buffer)
+    }
+}
+

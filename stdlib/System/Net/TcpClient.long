@@ -1,0 +1,129 @@
+namespace System.Net
+
+// TcpClient TCP 客户端类
+// 用于连接到 TCP 服务器
+class TcpClient {
+    private conn any
+    private host string
+    private port int
+    
+    // 构造函数
+    // @param host 服务器地址
+    // @param port 服务器端口
+    public function __construct(host: string, port: int) {
+        this.host = host
+        this.port = port
+        this.conn = __tcp_connect(host, port)
+    }
+    
+    // getConnection 获取底层连接
+    // @return TcpConnection 连接对象
+    public function getConnection() TcpConnection {
+        return new TcpConnection(this.conn)
+    }
+    
+    // read 读取指定字节数
+    // @param count 字节数
+    // @return 字节数组
+    public function read(count: int) any {
+        return __tcp_conn_read(this.conn, count)
+    }
+    
+    // readLine 读取一行
+    // @return 行内容
+    public function readLine() string {
+        return __tcp_conn_read_line(this.conn)
+    }
+    
+    // readAll 读取所有数据
+    // @return 数据内容
+    public function readAll() string {
+        return __tcp_conn_read_all(this.conn)
+    }
+    
+    // write 写入字符串
+    // @param data 数据
+    // @return 写入的字节数
+    public function write(data: string) int {
+        return __tcp_conn_write(this.conn, data)
+    }
+    
+    // writeLine 写入一行
+    // @param line 行内容
+    // @return 写入的字节数
+    public function writeLine(line: string) int {
+        return __tcp_conn_write_line(this.conn, line)
+    }
+    
+    // writeBytes 写入字节数组
+    // @param bytes 字节数组
+    // @return 写入的字节数
+    public function writeBytes(bytes: any) int {
+        return __tcp_conn_write_bytes(this.conn, bytes)
+    }
+    
+    // flush 刷新缓冲区
+    public function flush() {
+        __tcp_conn_flush(this.conn)
+    }
+    
+    // close 关闭连接
+    public function close() {
+        __tcp_conn_close(this.conn)
+    }
+    
+    // getLocalAddress 获取本地地址
+    // @return 本地地址
+    public function getLocalAddress() string {
+        return __tcp_conn_get_local_addr(this.conn)
+    }
+    
+    // getRemoteAddress 获取远程地址
+    // @return 远程地址
+    public function getRemoteAddress() string {
+        return __tcp_conn_get_remote_addr(this.conn)
+    }
+    
+    // isClosed 是否已关闭
+    // @return 是否关闭
+    public function isClosed() bool {
+        return __tcp_conn_is_closed(this.conn)
+    }
+    
+    // setTimeout 设置读写超时（毫秒）
+    // @param timeout 超时时间
+    public function setTimeout(timeout: int) {
+        __tcp_conn_set_timeout(this.conn, timeout)
+    }
+    
+    // setReadTimeout 设置读超时（毫秒）
+    // @param timeout 超时时间
+    public function setReadTimeout(timeout: int) {
+        __tcp_conn_set_read_timeout(this.conn, timeout)
+    }
+    
+    // setWriteTimeout 设置写超时（毫秒）
+    // @param timeout 超时时间
+    public function setWriteTimeout(timeout: int) {
+        __tcp_conn_set_write_timeout(this.conn, timeout)
+    }
+    
+    // connect 静态方法：连接到服务器
+    // @param host 服务器地址
+    // @param port 服务器端口
+    // @return TcpClient 实例
+    public static function connect(host: string, port: int) TcpClient {
+        return new TcpClient(host, port)
+    }
+    
+    // connectWithTimeout 静态方法：带超时连接到服务器
+    // @param host 服务器地址
+    // @param port 服务器端口
+    // @param timeout 超时时间（毫秒）
+    // @return TcpClient 实例
+    public static function connectWithTimeout(host: string, port: int, timeout: int) TcpClient {
+        client := new TcpClient(host, port)
+        return client
+    }
+}
+

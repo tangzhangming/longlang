@@ -1,0 +1,186 @@
+namespace System.Binary
+
+// BinaryReader 二进制读取器
+// 从字节数组顺序读取各种数据类型
+class BinaryReader {
+    private buffer any
+    private position int
+    private length int
+    
+    // 构造函数
+    // @param bytes 字节数组
+    public function __construct(bytes: any) {
+        this.buffer = bytes
+        this.position = 0
+        this.length = len(bytes)
+    }
+    
+    // fromString 从字符串创建
+    // @param str 字符串
+    // @return BinaryReader 实例
+    public static function fromString(str: string) BinaryReader {
+        return new BinaryReader(Bytes::fromString(str))
+    }
+    
+    // ===== 读取方法 =====
+    
+    // readByte 读取单个字节
+    // @return 字节值 (0-255)
+    public function readByte() int {
+        if (this.position >= this.length) {
+            return -1
+        }
+        value := this.buffer[this.position]
+        this.position = this.position + 1
+        return value
+    }
+    
+    // readBytes 读取指定数量的字节
+    // @param count 字节数
+    // @return 字节数组
+    public function readBytes(count: int) any {
+        end := this.position + count
+        if (end > this.length) {
+            end = this.length
+        }
+        result := Bytes::slice(this.buffer, this.position, end)
+        this.position = end
+        return result
+    }
+    
+    // readString 读取指定长度的字符串
+    // @param count 字节数
+    // @return 字符串
+    public function readString(count: int) string {
+        bytes := this.readBytes(count)
+        return Bytes::toString(bytes)
+    }
+    
+    // readLine 读取一行（到 \n 或 \r\n）
+    // @return 行内容
+    public function readLine() string {
+        start := this.position
+        for this.position < this.length {
+            if (this.buffer[this.position] == 10) {
+                // 找到 \n
+                end := this.position
+                // 检查是否有 \r
+                if (end > start && this.buffer[end - 1] == 13) {
+                    end = end - 1
+                }
+                this.position = this.position + 1
+                return Bytes::toString(Bytes::slice(this.buffer, start, end))
+            }
+            this.position = this.position + 1
+        }
+        // 没有找到换行符，返回剩余内容
+        return Bytes::toString(Bytes::slice(this.buffer, start, this.length))
+    }
+    
+    // readInt8 读取 int8
+    // @return 有符号 8 位整数
+    public function readInt8() int {
+        return Bytes::readInt8(this.buffer, this.position - 1 + 1)
+    }
+    
+    // readInt16BE 读取 int16（大端序）
+    // @return 有符号 16 位整数
+    public function readInt16BE() int {
+        value := Bytes::readInt16BE(this.buffer, this.position)
+        this.position = this.position + 2
+        return value
+    }
+    
+    // readInt32BE 读取 int32（大端序）
+    // @return 有符号 32 位整数
+    public function readInt32BE() int {
+        value := Bytes::readInt32BE(this.buffer, this.position)
+        this.position = this.position + 4
+        return value
+    }
+    
+    // readInt64BE 读取 int64（大端序）
+    // @return 有符号 64 位整数
+    public function readInt64BE() int {
+        value := Bytes::readInt64BE(this.buffer, this.position)
+        this.position = this.position + 8
+        return value
+    }
+    
+    // readInt16LE 读取 int16（小端序）
+    // @return 有符号 16 位整数
+    public function readInt16LE() int {
+        value := Bytes::readInt16LE(this.buffer, this.position)
+        this.position = this.position + 2
+        return value
+    }
+    
+    // readInt32LE 读取 int32（小端序）
+    // @return 有符号 32 位整数
+    public function readInt32LE() int {
+        value := Bytes::readInt32LE(this.buffer, this.position)
+        this.position = this.position + 4
+        return value
+    }
+    
+    // readInt64LE 读取 int64（小端序）
+    // @return 有符号 64 位整数
+    public function readInt64LE() int {
+        value := Bytes::readInt64LE(this.buffer, this.position)
+        this.position = this.position + 8
+        return value
+    }
+    
+    // ===== 位置和状态 =====
+    
+    // getPosition 获取当前位置
+    // @return 当前位置
+    public function getPosition() int {
+        return this.position
+    }
+    
+    // setPosition 设置位置
+    // @param pos 新位置
+    public function setPosition(pos: int) {
+        if (pos < 0) {
+            pos = 0
+        }
+        if (pos > this.length) {
+            pos = this.length
+        }
+        this.position = pos
+    }
+    
+    // skip 跳过指定字节数
+    // @param count 字节数
+    public function skip(count: int) {
+        this.position = this.position + count
+        if (this.position > this.length) {
+            this.position = this.length
+        }
+    }
+    
+    // reset 重置到开始位置
+    public function reset() {
+        this.position = 0
+    }
+    
+    // remaining 剩余可读字节数
+    // @return 字节数
+    public function remaining() int {
+        return this.length - this.position
+    }
+    
+    // hasRemaining 是否还有数据可读
+    // @return 是否有剩余数据
+    public function hasRemaining() bool {
+        return this.position < this.length
+    }
+    
+    // getLength 获取总长度
+    // @return 总字节数
+    public function getLength() int {
+        return this.length
+    }
+}
+

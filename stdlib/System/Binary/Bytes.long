@@ -1,0 +1,166 @@
+namespace System.Binary
+
+// Bytes 字节操作工具类
+// 提供字节数组的创建、转换和操作方法
+class Bytes {
+    
+    // ===== 创建方法 =====
+    
+    // create 创建指定大小的字节数组（初始化为 0）
+    // @param size 数组大小
+    // @return 字节数组
+    public static function create(size: int) any {
+        return __bytes_new(size)
+    }
+    
+    // fromString 从字符串创建字节数组
+    // @param str 字符串
+    // @return 字节数组
+    public static function fromString(str: string) any {
+        return __bytes_from_string(str)
+    }
+    
+    // fromHex 从十六进制字符串创建字节数组
+    // @param hex 十六进制字符串
+    // @return 字节数组
+    public static function fromHex(hex: string) any {
+        return __bytes_from_hex(hex)
+    }
+    
+    // ===== 转换方法 =====
+    
+    // toString 字节数组转字符串
+    // @param bytes 字节数组
+    // @return 字符串
+    public static function toString(bytes: any) string {
+        return __bytes_to_string(bytes)
+    }
+    
+    // toHex 字节数组转十六进制字符串
+    // @param bytes 字节数组
+    // @return 十六进制字符串
+    public static function toHex(bytes: any) string {
+        return __bytes_to_hex(bytes)
+    }
+    
+    // ===== 操作方法 =====
+    
+    // concat 连接两个字节数组
+    // @param bytes1 第一个字节数组
+    // @param bytes2 第二个字节数组
+    // @return 新的字节数组
+    public static function concat(bytes1: any, bytes2: any) any {
+        return __bytes_concat(bytes1, bytes2)
+    }
+    
+    // slice 切片字节数组
+    // @param bytes 字节数组
+    // @param start 起始位置
+    // @param end 结束位置（不包含）
+    // @return 新的字节数组
+    public static function slice(bytes: any, start: int, end: int) any {
+        return __bytes_slice(bytes, start, end)
+    }
+    
+    // copy 复制字节
+    // @param src 源数组
+    // @param srcOffset 源偏移
+    // @param dst 目标数组
+    // @param dstOffset 目标偏移
+    // @param length 复制长度
+    // @return 实际复制的字节数
+    public static function copy(src: any, srcOffset: int, dst: any, dstOffset: int, length: int) int {
+        return __bytes_copy(src, srcOffset, dst, dstOffset, length)
+    }
+    
+    // equals 比较两个字节数组是否相等
+    // @param bytes1 第一个字节数组
+    // @param bytes2 第二个字节数组
+    // @return 是否相等
+    public static function equals(bytes1: any, bytes2: any) bool {
+        return __bytes_equals(bytes1, bytes2)
+    }
+    
+    // indexOf 查找子序列位置
+    // @param bytes 字节数组
+    // @param sub 子序列
+    // @return 位置（-1 表示未找到）
+    public static function indexOf(bytes: any, sub: any) int {
+        return __bytes_index_of(bytes, sub)
+    }
+    
+    // ===== 整数编码（大端序）=====
+    
+    // writeInt8 写入 int8
+    public static function writeInt8(value: int) any {
+        return __bytes_write_int8(value)
+    }
+    
+    // readInt8 读取 int8
+    public static function readInt8(bytes: any, offset: int) int {
+        return __bytes_read_int8(bytes, offset)
+    }
+    
+    // writeInt16BE 写入 int16（大端序）
+    public static function writeInt16BE(value: int) any {
+        return __bytes_write_int16_be(value)
+    }
+    
+    // readInt16BE 读取 int16（大端序）
+    public static function readInt16BE(bytes: any, offset: int) int {
+        return __bytes_read_int16_be(bytes, offset)
+    }
+    
+    // writeInt32BE 写入 int32（大端序）
+    public static function writeInt32BE(value: int) any {
+        return __bytes_write_int32_be(value)
+    }
+    
+    // readInt32BE 读取 int32（大端序）
+    public static function readInt32BE(bytes: any, offset: int) int {
+        return __bytes_read_int32_be(bytes, offset)
+    }
+    
+    // writeInt64BE 写入 int64（大端序）
+    public static function writeInt64BE(value: int) any {
+        return __bytes_write_int64_be(value)
+    }
+    
+    // readInt64BE 读取 int64（大端序）
+    public static function readInt64BE(bytes: any, offset: int) int {
+        return __bytes_read_int64_be(bytes, offset)
+    }
+    
+    // ===== 整数编码（小端序）=====
+    
+    // writeInt16LE 写入 int16（小端序）
+    public static function writeInt16LE(value: int) any {
+        return __bytes_write_int16_le(value)
+    }
+    
+    // readInt16LE 读取 int16（小端序）
+    public static function readInt16LE(bytes: any, offset: int) int {
+        return __bytes_read_int16_le(bytes, offset)
+    }
+    
+    // writeInt32LE 写入 int32（小端序）
+    public static function writeInt32LE(value: int) any {
+        return __bytes_write_int32_le(value)
+    }
+    
+    // readInt32LE 读取 int32（小端序）
+    public static function readInt32LE(bytes: any, offset: int) int {
+        return __bytes_read_int32_le(bytes, offset)
+    }
+    
+    // writeInt64LE 写入 int64（小端序）
+    public static function writeInt64LE(value: int) any {
+        return __bytes_write_int64_le(value)
+    }
+    
+    // readInt64LE 读取 int64（小端序）
+    public static function readInt64LE(bytes: any, offset: int) int {
+        return __bytes_read_int64_le(bytes, offset)
+    }
+}
+

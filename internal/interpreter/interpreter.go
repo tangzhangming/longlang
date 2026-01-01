@@ -57,6 +57,10 @@ func New() *Interpreter {
 	registerBuiltins(env)
 	// 注册文件操作内置函数
 	registerIOBuiltins(env)
+	// 注册网络操作内置函数
+	registerNetBuiltins(env)
+	// 注册字节操作内置函数
+	registerBytesBuiltins(env)
 	return &Interpreter{
 		env:              env,
 		stdlibPath:       "stdlib", // 默认标准库路径

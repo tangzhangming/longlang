@@ -1,0 +1,107 @@
+namespace System.Net
+
+// TcpConnection TCP 连接类
+// 表示一个 TCP 连接，可用于读写数据
+class TcpConnection {
+    private conn any
+    
+    // 构造函数（通常由 TcpListener.accept() 或 TcpClient 创建）
+    // @param conn 底层连接对象
+    public function __construct(conn: any) {
+        this.conn = conn
+    }
+    
+    // read 读取指定字节数
+    // @param count 字节数
+    // @return 字节数组
+    // @throws IOException 读取失败
+    public function read(count: int) any {
+        return __tcp_conn_read(this.conn, count)
+    }
+    
+    // readLine 读取一行（以换行符结束）
+    // @return 行内容（不含换行符）
+    // @throws IOException 读取失败
+    public function readLine() string {
+        return __tcp_conn_read_line(this.conn)
+    }
+    
+    // readAll 读取所有数据直到连接关闭
+    // @return 所有数据
+    // @throws IOException 读取失败
+    public function readAll() string {
+        return __tcp_conn_read_all(this.conn)
+    }
+    
+    // write 写入字符串
+    // @param data 数据
+    // @return 写入的字节数
+    // @throws IOException 写入失败
+    public function write(data: string) int {
+        return __tcp_conn_write(this.conn, data)
+    }
+    
+    // writeLine 写入一行（自动添加换行符）
+    // @param line 行内容
+    // @return 写入的字节数
+    // @throws IOException 写入失败
+    public function writeLine(line: string) int {
+        return __tcp_conn_write_line(this.conn, line)
+    }
+    
+    // writeBytes 写入字节数组
+    // @param bytes 字节数组
+    // @return 写入的字节数
+    // @throws IOException 写入失败
+    public function writeBytes(bytes: any) int {
+        return __tcp_conn_write_bytes(this.conn, bytes)
+    }
+    
+    // flush 刷新缓冲区到网络
+    // @throws IOException 刷新失败
+    public function flush() {
+        __tcp_conn_flush(this.conn)
+    }
+    
+    // close 关闭连接
+    public function close() {
+        __tcp_conn_close(this.conn)
+    }
+    
+    // getLocalAddress 获取本地地址
+    // @return 本地地址（如 "192.168.1.100:54321"）
+    public function getLocalAddress() string {
+        return __tcp_conn_get_local_addr(this.conn)
+    }
+    
+    // getRemoteAddress 获取远程地址
+    // @return 远程地址（如 "192.168.1.1:8080"）
+    public function getRemoteAddress() string {
+        return __tcp_conn_get_remote_addr(this.conn)
+    }
+    
+    // isClosed 是否已关闭
+    // @return 是否关闭
+    public function isClosed() bool {
+        return __tcp_conn_is_closed(this.conn)
+    }
+    
+    // setTimeout 设置读写超时（毫秒）
+    // @param timeout 超时时间
+    public function setTimeout(timeout: int) {
+        __tcp_conn_set_timeout(this.conn, timeout)
+    }
+    
+    // setReadTimeout 设置读超时（毫秒）
+    // @param timeout 超时时间
+    public function setReadTimeout(timeout: int) {
+        __tcp_conn_set_read_timeout(this.conn, timeout)
+    }
+    
+    // setWriteTimeout 设置写超时（毫秒）
+    // @param timeout 超时时间
+    public function setWriteTimeout(timeout: int) {
+        __tcp_conn_set_write_timeout(this.conn, timeout)
+    }
+}
+

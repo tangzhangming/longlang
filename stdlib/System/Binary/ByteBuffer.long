@@ -1,0 +1,177 @@
+namespace System.Binary
+
+// ByteBuffer 字节缓冲区类
+// 用于读写二进制数据，支持自动扩容和位置管理
+class ByteBuffer {
+    private buffer any
+    
+    // 构造函数
+    // @param capacity 初始容量
+    public function __construct(capacity: int) {
+        this.buffer = __bytebuffer_new(capacity)
+    }
+    
+    // create 创建默认容量的 ByteBuffer
+    // @return ByteBuffer 实例
+    public static function create() ByteBuffer {
+        return new ByteBuffer(64)
+    }
+    
+    // fromBytes 从字节数组创建 ByteBuffer
+    // @param bytes 字节数组
+    // @return ByteBuffer 实例
+    public static function fromBytes(bytes: any) ByteBuffer {
+        buf := new ByteBuffer(64)
+        buf.buffer = __bytebuffer_from_bytes(bytes)
+        return buf
+    }
+    
+    // fromString 从字符串创建 ByteBuffer
+    // @param str 字符串
+    // @return ByteBuffer 实例
+    public static function fromString(str: string) ByteBuffer {
+        bytes := __bytes_from_string(str)
+        return ByteBuffer::fromBytes(bytes)
+    }
+    
+    // ===== 写入方法 =====
+    
+    // writeByte 写入单个字节
+    // @param b 字节值 (0-255)
+    public function writeByte(b: int) {
+        __bytebuffer_write_byte(this.buffer, b)
+    }
+    
+    // writeBytes 写入字节数组
+    // @param bytes 字节数组
+    public function writeBytes(bytes: any) {
+        __bytebuffer_write_bytes(this.buffer, bytes)
+    }
+    
+    // writeString 写入字符串
+    // @param str 字符串
+    public function writeString(str: string) {
+        __bytebuffer_write_string(this.buffer, str)
+    }
+    
+    // writeInt16BE 写入 16 位整数（大端序）
+    // @param value 整数值
+    public function writeInt16BE(value: int) {
+        __bytebuffer_write_int16_be(this.buffer, value)
+    }
+    
+    // writeInt32BE 写入 32 位整数（大端序）
+    // @param value 整数值
+    public function writeInt32BE(value: int) {
+        __bytebuffer_write_int32_be(this.buffer, value)
+    }
+    
+    // writeInt64BE 写入 64 位整数（大端序）
+    // @param value 整数值
+    public function writeInt64BE(value: int) {
+        __bytebuffer_write_int64_be(this.buffer, value)
+    }
+    
+    // ===== 读取方法 =====
+    
+    // readByte 读取单个字节
+    // @return 字节值
+    public function readByte() int {
+        return __bytebuffer_read_byte(this.buffer)
+    }
+    
+    // readBytes 读取指定数量的字节
+    // @param count 字节数
+    // @return 字节数组
+    public function readBytes(count: int) any {
+        return __bytebuffer_read_bytes(this.buffer, count)
+    }
+    
+    // readString 读取指定长度的字符串
+    // @param count 字节数
+    // @return 字符串
+    public function readString(count: int) string {
+        return __bytebuffer_read_string(this.buffer, count)
+    }
+    
+    // readLine 读取一行（到换行符）
+    // @return 行内容
+    public function readLine() string {
+        return __bytebuffer_read_line(this.buffer)
+    }
+    
+    // readInt16BE 读取 16 位整数（大端序）
+    // @return 整数值
+    public function readInt16BE() int {
+        return __bytebuffer_read_int16_be(this.buffer)
+    }
+    
+    // readInt32BE 读取 32 位整数（大端序）
+    // @return 整数值
+    public function readInt32BE() int {
+        return __bytebuffer_read_int32_be(this.buffer)
+    }
+    
+    // readInt64BE 读取 64 位整数（大端序）
+    // @return 整数值
+    public function readInt64BE() int {
+        return __bytebuffer_read_int64_be(this.buffer)
+    }
+    
+    // ===== 位置和大小管理 =====
+    
+    // getPosition 获取当前读取位置
+    // @return 当前位置
+    public function getPosition() int {
+        return __bytebuffer_get_position(this.buffer)
+    }
+    
+    // setPosition 设置读取位置
+    // @param pos 新位置
+    public function setPosition(pos: int) {
+        __bytebuffer_set_position(this.buffer, pos)
+    }
+    
+    // reset 重置位置到开始
+    public function reset() {
+        __bytebuffer_reset(this.buffer)
+    }
+    
+    // clear 清空缓冲区
+    public function clear() {
+        __bytebuffer_clear(this.buffer)
+    }
+    
+    // size 获取缓冲区大小
+    // @return 字节数
+    public function size() int {
+        return __bytebuffer_size(this.buffer)
+    }
+    
+    // remaining 获取剩余可读字节数
+    // @return 剩余字节数
+    public function remaining() int {
+        return __bytebuffer_remaining(this.buffer)
+    }
+    
+    // hasRemaining 是否还有数据可读
+    // @return 是否有剩余数据
+    public function hasRemaining() bool {
+        return this.remaining() > 0
+    }
+    
+    // ===== 转换方法 =====
+    
+    // toBytes 转换为字节数组
+    // @return 字节数组
+    public function toBytes() any {
+        return __bytebuffer_to_bytes(this.buffer)
+    }
+    
+    // toString 转换为字符串
+    // @return 字符串
+    public function toString() string {
+        return __bytebuffer_to_string(this.buffer)
+    }
+}
+

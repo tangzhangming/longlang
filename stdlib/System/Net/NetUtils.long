@@ -1,0 +1,21 @@
+namespace System.Net
+
+// NetUtils 网络工具类
+// 提供网络相关的工具方法
+class NetUtils {
+    
+    // parseAddress 解析地址字符串为 host 和 port
+    // @param address 地址字符串（如 "127.0.0.1:8080"）
+    // @return Map 包含 host 和 port
+    public static function parseAddress(address: string) any {
+        return __net_parse_address(address)
+    }
+    
+    // resolveHost DNS 解析，获取主机名对应的 IP 地址列表
+    // @param hostname 主机名（如 "www.google.com"）
+    // @return IP 地址数组
+    public static function resolveHost(hostname: string) any {
+        return __net_resolve_host(hostname)
+    }
+}
+
