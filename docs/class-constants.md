@@ -173,3 +173,4 @@ class Config {
 | 访问 | `ClassName::CONST` | `instance.name` |
 | 值限制 | 必须是字面量 | 可以是表达式 |
 
+

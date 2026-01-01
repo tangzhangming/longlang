@@ -359,26 +359,44 @@ func (l *Lexer) readNumber() (string, bool) {
 // 参数:
 //   quote: 引号字符（" 或 '）
 // 返回:
-//   字符串内容（不包含引号）
+//   字符串内容（不包含引号，转义字符已处理）
 func (l *Lexer) readString(quote byte) string {
-	position := l.position + 1 // 跳过开始的引号
-	for {
-		l.readChar()
-		if l.ch == quote || l.ch == 0 {
-			// 遇到结束引号或文件结束
-			break
-		}
-		// 处理转义字符
+	var result []byte
+	l.readChar() // 跳过开始的引号
+	for l.ch != quote && l.ch != 0 {
 		if l.ch == '\\' {
-			l.readChar() // 跳过转义字符
+			// 处理转义字符
+			l.readChar()
+			switch l.ch {
+			case 'n':
+				result = append(result, '\n')
+			case 'r':
+				result = append(result, '\r')
+			case 't':
+				result = append(result, '\t')
+			case '\\':
+				result = append(result, '\\')
+			case '"':
+				result = append(result, '"')
+			case '\'':
+				result = append(result, '\'')
+			case '0':
+				result = append(result, 0)
+			default:
+				// 未知转义序列，保留原样
+				result = append(result, '\\')
+				result = append(result, l.ch)
+			}
+		} else {
+			result = append(result, l.ch)
 		}
+		l.readChar()
 	}
-	result := l.input[position : l.position]
 	if l.ch == quote {
 		// 跳过结束引号
 		l.readChar()
 	}
-	return result
+	return string(result)
 }
 
 // readRawString 读取原始字符串字面量

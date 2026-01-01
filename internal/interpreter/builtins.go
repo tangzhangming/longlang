@@ -3,6 +3,8 @@ package interpreter
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 )
 
 // registerBuiltins 注册内置函数
@@ -63,6 +65,66 @@ func registerBuiltins(env *Environment) {
 			return newError("isset 函数的第一个参数必须是 Map 或数组，得到 %s", args[0].Type())
 		}
 	}})
+
+	// 注册全局 parseInt 函数
+	// parseInt(string) - 将字符串解析为整数
+	env.Set("parseInt", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("parseInt 函数需要1个参数，得到 %d 个", len(args))
+		}
+		str, ok := args[0].(*String)
+		if !ok {
+			return newError("parseInt 参数必须是字符串，得到 %s", args[0].Type())
+		}
+		// 去除首尾空白
+		s := strings.TrimSpace(str.Value)
+		val, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return newError("无法将 '%s' 解析为整数", str.Value)
+		}
+		return &Integer{Value: val}
+	}})
+
+	// 注册全局 parseFloat 函数
+	// parseFloat(string) - 将字符串解析为浮点数
+	env.Set("parseFloat", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("parseFloat 函数需要1个参数，得到 %d 个", len(args))
+		}
+		str, ok := args[0].(*String)
+		if !ok {
+			return newError("parseFloat 参数必须是字符串，得到 %s", args[0].Type())
+		}
+		s := strings.TrimSpace(str.Value)
+		val, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return newError("无法将 '%s' 解析为浮点数", str.Value)
+		}
+		return &Float{Value: val}
+	}})
+
+	// 注册全局 toString 函数
+	// toString(value) - 将任意值转换为字符串
+	env.Set("toString", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("toString 函数需要1个参数，得到 %d 个", len(args))
+		}
+		return &String{Value: args[0].Inspect()}
+	}})
+
+	// 注册全局 byteLen 函数
+	// byteLen(string) - 获取字符串的字节长度（用于网络协议等场景）
+	env.Set("byteLen", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("byteLen 函数需要1个参数，得到 %d 个", len(args))
+		}
+		str, ok := args[0].(*String)
+		if !ok {
+			return newError("byteLen 参数必须是字符串，得到 %s", args[0].Type())
+		}
+		return &Integer{Value: int64(len(str.Value))}
+	}})
+
 	// 注册 fmt 命名空间对象
 	env.Set("fmt", &BuiltinObject{
 		Name: "fmt",

@@ -249,3 +249,4 @@ longlang run src/Application.long
 | 使用 root_namespace | 配置根命名空间简化代码中的命名空间声明 |
 | 合理分层 | 按功能分层：Models、Services、Controllers 等 |
 
+

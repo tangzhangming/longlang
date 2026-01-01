@@ -105,3 +105,4 @@ func (p *Parser) peekTokenIsType() bool {
 	return p.isTypeToken(p.peekToken.Type)
 }
 
+

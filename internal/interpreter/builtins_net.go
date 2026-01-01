@@ -259,6 +259,10 @@ func registerNetBuiltins(env *Environment) {
 		if err != nil {
 			return newError("IOException: %s", err.Error())
 		}
+		// 自动 flush
+		if err := conn.Writer.Flush(); err != nil {
+			return newError("IOException: %s", err.Error())
+		}
 		return &Integer{Value: int64(n)}
 	}})
 
@@ -281,6 +285,10 @@ func registerNetBuiltins(env *Environment) {
 
 		n, err := conn.Writer.WriteString(lineStr.Value + "\n")
 		if err != nil {
+			return newError("IOException: %s", err.Error())
+		}
+		// 自动 flush
+		if err := conn.Writer.Flush(); err != nil {
 			return newError("IOException: %s", err.Error())
 		}
 		return &Integer{Value: int64(n)}
@@ -314,6 +322,10 @@ func registerNetBuiltins(env *Environment) {
 
 		n, err := conn.Writer.Write(buf)
 		if err != nil {
+			return newError("IOException: %s", err.Error())
+		}
+		// 自动 flush
+		if err := conn.Writer.Flush(); err != nil {
 			return newError("IOException: %s", err.Error())
 		}
 		return &Integer{Value: int64(n)}
@@ -553,4 +565,5 @@ type TcpConnection struct {
 
 func (tc *TcpConnection) Type() ObjectType { return "TCP_CONNECTION" }
 func (tc *TcpConnection) Inspect() string  { return "TcpConnection(" + tc.RemoteAddr + ")" }
+
 

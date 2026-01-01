@@ -1,0 +1,452 @@
+namespace System.Redis
+
+use System.Net.TcpClient
+use System.Redis.RedisException
+
+/**
+ * RedisClient - Redis 客户端类
+ * 
+ * 纯 LongLang 实现的 Redis 客户端，支持 RESP 协议
+ * 
+ * 使用示例：
+ *   use System.Redis.RedisClient
+ *   
+ *   client := RedisClient::connect("127.0.0.1", 6379)
+ *   client.set("name", "LongLang")
+ *   name := client.get("name")
+ *   fmt.println(name)  // LongLang
+ *   client.close()
+ */
+class RedisClient {
+    private tcp any
+    private host string
+    private port int
+    private connected bool
+    
+    /**
+     * 构造函数
+     */
+    public function __construct(host: string, port: int) {
+        this.host = host
+        this.port = port
+        this.connected = false
+    }
+    
+    /**
+     * connect 连接到 Redis 服务器
+     */
+    public static function connect(host: string, port: int) RedisClient {
+        client := new RedisClient(host, port)
+        client.tcp = new TcpClient(host, port)
+        client.connected = true
+        return client
+    }
+    
+    /**
+     * auth 认证
+     */
+    public function auth(password: string) bool {
+        reply := this.cmd2("AUTH", password)
+        return reply == "OK"
+    }
+    
+    /**
+     * ping 测试连接
+     */
+    public function ping() string {
+        return this.cmd1("PING")
+    }
+    
+    /**
+     * selectDb 选择数据库
+     */
+    public function selectDb(db: int) bool {
+        reply := this.cmd2("SELECT", toString(db))
+        return reply == "OK"
+    }
+    
+    // ========== 字符串操作 ==========
+    
+    public function set(key: string, value: string) bool {
+        reply := this.cmd3("SET", key, value)
+        return reply == "OK"
+    }
+    
+    public function setEx(key: string, seconds: int, value: string) bool {
+        reply := this.cmd4("SETEX", key, toString(seconds), value)
+        return reply == "OK"
+    }
+    
+    public function setNx(key: string, value: string) bool {
+        reply := this.cmd3("SETNX", key, value)
+        return reply == "1"
+    }
+    
+    public function get(key: string) string {
+        return this.cmd2("GET", key)
+    }
+    
+    public function getOrNull(key: string) any {
+        return this.cmd2Raw("GET", key)
+    }
+    
+    public function incr(key: string) int {
+        reply := this.cmd2("INCR", key)
+        return parseInt(reply)
+    }
+    
+    public function incrBy(key: string, increment: int) int {
+        reply := this.cmd3("INCRBY", key, toString(increment))
+        return parseInt(reply)
+    }
+    
+    public function decr(key: string) int {
+        reply := this.cmd2("DECR", key)
+        return parseInt(reply)
+    }
+    
+    public function decrBy(key: string, decrement: int) int {
+        reply := this.cmd3("DECRBY", key, toString(decrement))
+        return parseInt(reply)
+    }
+    
+    public function append(key: string, value: string) int {
+        reply := this.cmd3("APPEND", key, value)
+        return parseInt(reply)
+    }
+    
+    public function strlen(key: string) int {
+        reply := this.cmd2("STRLEN", key)
+        return parseInt(reply)
+    }
+    
+    // ========== 键操作 ==========
+    
+    public function del(key: string) int {
+        reply := this.cmd2("DEL", key)
+        return parseInt(reply)
+    }
+    
+    public function exists(key: string) bool {
+        reply := this.cmd2("EXISTS", key)
+        return reply == "1"
+    }
+    
+    public function expire(key: string, seconds: int) bool {
+        reply := this.cmd3("EXPIRE", key, toString(seconds))
+        return reply == "1"
+    }
+    
+    public function ttl(key: string) int {
+        reply := this.cmd2("TTL", key)
+        return parseInt(reply)
+    }
+    
+    public function persist(key: string) bool {
+        reply := this.cmd2("PERSIST", key)
+        return reply == "1"
+    }
+    
+    public function keyType(key: string) string {
+        return this.cmd2("TYPE", key)
+    }
+    
+    public function rename(key: string, newKey: string) bool {
+        reply := this.cmd3("RENAME", key, newKey)
+        return reply == "OK"
+    }
+    
+    public function keys(pattern: string) any {
+        return this.cmd2Array("KEYS", pattern)
+    }
+    
+    // ========== 哈希操作 ==========
+    
+    public function hset(key: string, field: string, value: string) bool {
+        reply := this.cmd4("HSET", key, field, value)
+        return reply == "1"
+    }
+    
+    public function hget(key: string, field: string) string {
+        return this.cmd3("HGET", key, field)
+    }
+    
+    public function hdel(key: string, field: string) bool {
+        reply := this.cmd3("HDEL", key, field)
+        return reply == "1"
+    }
+    
+    public function hexists(key: string, field: string) bool {
+        reply := this.cmd3("HEXISTS", key, field)
+        return reply == "1"
+    }
+    
+    public function hgetall(key: string) any {
+        return this.cmd2Array("HGETALL", key)
+    }
+    
+    public function hkeys(key: string) any {
+        return this.cmd2Array("HKEYS", key)
+    }
+    
+    public function hvals(key: string) any {
+        return this.cmd2Array("HVALS", key)
+    }
+    
+    public function hlen(key: string) int {
+        reply := this.cmd2("HLEN", key)
+        return parseInt(reply)
+    }
+    
+    // ========== 列表操作 ==========
+    
+    public function lpush(key: string, value: string) int {
+        reply := this.cmd3("LPUSH", key, value)
+        return parseInt(reply)
+    }
+    
+    public function rpush(key: string, value: string) int {
+        reply := this.cmd3("RPUSH", key, value)
+        return parseInt(reply)
+    }
+    
+    public function lpop(key: string) string {
+        return this.cmd2("LPOP", key)
+    }
+    
+    public function rpop(key: string) string {
+        return this.cmd2("RPOP", key)
+    }
+    
+    public function llen(key: string) int {
+        reply := this.cmd2("LLEN", key)
+        return parseInt(reply)
+    }
+    
+    public function lrange(key: string, start: int, stop: int) any {
+        return this.cmd4Array("LRANGE", key, toString(start), toString(stop))
+    }
+    
+    public function lindex(key: string, index: int) string {
+        return this.cmd3("LINDEX", key, toString(index))
+    }
+    
+    public function lset(key: string, index: int, value: string) bool {
+        reply := this.cmd4("LSET", key, toString(index), value)
+        return reply == "OK"
+    }
+    
+    // ========== 集合操作 ==========
+    
+    public function sadd(key: string, member: string) int {
+        reply := this.cmd3("SADD", key, member)
+        return parseInt(reply)
+    }
+    
+    public function srem(key: string, member: string) int {
+        reply := this.cmd3("SREM", key, member)
+        return parseInt(reply)
+    }
+    
+    public function sismember(key: string, member: string) bool {
+        reply := this.cmd3("SISMEMBER", key, member)
+        return reply == "1"
+    }
+    
+    public function smembers(key: string) any {
+        return this.cmd2Array("SMEMBERS", key)
+    }
+    
+    public function scard(key: string) int {
+        reply := this.cmd2("SCARD", key)
+        return parseInt(reply)
+    }
+    
+    // ========== 有序集合操作 ==========
+    
+    public function zadd(key: string, score: float, member: string) int {
+        reply := this.cmd4("ZADD", key, toString(score), member)
+        return parseInt(reply)
+    }
+    
+    public function zscore(key: string, member: string) string {
+        return this.cmd3("ZSCORE", key, member)
+    }
+    
+    public function zrank(key: string, member: string) int {
+        reply := this.cmd3("ZRANK", key, member)
+        if reply == "" {
+            return -1
+        }
+        return parseInt(reply)
+    }
+    
+    public function zrange(key: string, start: int, stop: int) any {
+        return this.cmd4Array("ZRANGE", key, toString(start), toString(stop))
+    }
+    
+    public function zrevrange(key: string, start: int, stop: int) any {
+        return this.cmd4Array("ZREVRANGE", key, toString(start), toString(stop))
+    }
+    
+    public function zcard(key: string) int {
+        reply := this.cmd2("ZCARD", key)
+        return parseInt(reply)
+    }
+    
+    public function zrem(key: string, member: string) int {
+        reply := this.cmd3("ZREM", key, member)
+        return parseInt(reply)
+    }
+    
+    // ========== 通用操作 ==========
+    
+    public function flushDb() bool {
+        reply := this.cmd1("FLUSHDB")
+        return reply == "OK"
+    }
+    
+    public function flushAll() bool {
+        reply := this.cmd1("FLUSHALL")
+        return reply == "OK"
+    }
+    
+    public function dbSize() int {
+        reply := this.cmd1("DBSIZE")
+        return parseInt(reply)
+    }
+    
+    public function close() {
+        if this.connected {
+            this.tcp.close()
+            this.connected = false
+        }
+    }
+    
+    // ========== 私有方法：命令执行 ==========
+    
+    private function cmd1(cmd: string) string {
+        this.sendCmd1(cmd)
+        return this.readReply()
+    }
+    
+    private function cmd2(cmd: string, arg1: string) string {
+        this.sendCmd2(cmd, arg1)
+        return this.readReply()
+    }
+    
+    private function cmd2Raw(cmd: string, arg1: string) any {
+        this.sendCmd2(cmd, arg1)
+        return this.readReplyRaw()
+    }
+    
+    private function cmd2Array(cmd: string, arg1: string) any {
+        this.sendCmd2(cmd, arg1)
+        return this.readArrayReply()
+    }
+    
+    private function cmd3(cmd: string, arg1: string, arg2: string) string {
+        this.sendCmd3(cmd, arg1, arg2)
+        return this.readReply()
+    }
+    
+    private function cmd4(cmd: string, arg1: string, arg2: string, arg3: string) string {
+        this.sendCmd4(cmd, arg1, arg2, arg3)
+        return this.readReply()
+    }
+    
+    private function cmd4Array(cmd: string, arg1: string, arg2: string, arg3: string) any {
+        this.sendCmd4(cmd, arg1, arg2, arg3)
+        return this.readArrayReply()
+    }
+    
+    // ========== 私有方法：发送 RESP 命令 ==========
+    
+    private function sendCmd1(cmd: string) {
+        msg := "*1\r\n$" + toString(byteLen(cmd)) + "\r\n" + cmd + "\r\n"
+        this.tcp.write(msg)
+    }
+    
+    private function sendCmd2(cmd: string, arg1: string) {
+        msg := "*2\r\n"
+        msg = msg + "$" + toString(byteLen(cmd)) + "\r\n" + cmd + "\r\n"
+        msg = msg + "$" + toString(byteLen(arg1)) + "\r\n" + arg1 + "\r\n"
+        this.tcp.write(msg)
+    }
+    
+    private function sendCmd3(cmd: string, arg1: string, arg2: string) {
+        msg := "*3\r\n"
+        msg = msg + "$" + toString(byteLen(cmd)) + "\r\n" + cmd + "\r\n"
+        msg = msg + "$" + toString(byteLen(arg1)) + "\r\n" + arg1 + "\r\n"
+        msg = msg + "$" + toString(byteLen(arg2)) + "\r\n" + arg2 + "\r\n"
+        this.tcp.write(msg)
+    }
+    
+    private function sendCmd4(cmd: string, arg1: string, arg2: string, arg3: string) {
+        msg := "*4\r\n"
+        msg = msg + "$" + toString(byteLen(cmd)) + "\r\n" + cmd + "\r\n"
+        msg = msg + "$" + toString(byteLen(arg1)) + "\r\n" + arg1 + "\r\n"
+        msg = msg + "$" + toString(byteLen(arg2)) + "\r\n" + arg2 + "\r\n"
+        msg = msg + "$" + toString(byteLen(arg3)) + "\r\n" + arg3 + "\r\n"
+        this.tcp.write(msg)
+    }
+    
+    // ========== 私有方法：读取 RESP 响应 ==========
+    
+    private function readReply() string {
+        raw := this.readReplyRaw()
+        if raw == null {
+            return ""
+        }
+        return raw
+    }
+    
+    private function readReplyRaw() any {
+        line := this.tcp.readLine()
+        if len(line) == 0 {
+            return null
+        }
+        
+        typeChar := line.charAt(0)
+        content := line.substring(1, len(line))
+        
+        if typeChar == "+" {
+            return content
+        } else if typeChar == "-" {
+            throw new RedisException(content)
+        } else if typeChar == ":" {
+            return content
+        } else if typeChar == "$" {
+            length := parseInt(content)
+            if length == -1 {
+                return null
+            }
+            data := this.tcp.read(length)
+            this.tcp.readLine()
+            return __bytes_to_string(data)
+        } else if typeChar == "*" {
+            count := parseInt(content)
+            if count == -1 {
+                return null
+            }
+            result := []any{}
+            i := 0
+            for i < count {
+                elem := this.readReplyRaw()
+                result.push(elem)
+                i = i + 1
+            }
+            return result
+        }
+        
+        return content
+    }
+    
+    private function readArrayReply() any {
+        raw := this.readReplyRaw()
+        if raw == null {
+            return []string{}
+        }
+        return raw
+    }
+}
