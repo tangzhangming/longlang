@@ -87,12 +87,6 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 	switch node := node.(type) {
 	case *parser.Program:
 		return i.evalProgram(node)
-	case *parser.PackageStatement:
-		// 包声明目前只是声明性的，不执行任何操作
-		return nil
-	case *parser.ImportStatement:
-		// 处理导入语句（已废弃，保留以兼容）
-		return i.evalImportStatement(node)
 	case *parser.NamespaceStatement:
 		// 处理命名空间声明
 		return i.evalNamespaceStatement(node)
@@ -813,36 +807,6 @@ func splitIdentifier(ident string) []string {
 		parts = append(parts, current)
 	}
 	return parts
-}
-
-// evalImportStatement 执行导入语句
-func (i *Interpreter) evalImportStatement(node *parser.ImportStatement) Object {
-	moduleName := node.Path.Value
-
-	// 检查是否是内置库（如 "fmt"）
-	if moduleName == "fmt" {
-		// fmt 已经在初始化时注册，不需要额外处理
-		return nil
-	}
-
-	// 检查是否已加载
-	if module, ok := i.loadedModules[moduleName]; ok {
-		// 将模块注册到当前环境
-		i.registerModule(moduleName, module)
-		return nil
-	}
-
-	// 尝试从标准库加载 .long 文件
-	module, err := i.loadModule(moduleName)
-	if err != nil {
-		return newError("无法加载模块 %s: %s", moduleName, err.Error())
-	}
-
-	// 缓存并注册模块
-	i.loadedModules[moduleName] = module
-	i.registerModule(moduleName, module)
-
-	return nil
 }
 
 // loadModule 加载模块文件

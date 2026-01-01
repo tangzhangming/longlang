@@ -16,10 +16,6 @@ func (p *Parser) parseStatement() Statement {
 	}
 
 	switch p.curToken.Type {
-	case lexer.PACKAGE:
-		return p.parsePackageStatement()
-	case lexer.IMPORT:
-		return p.parseImportStatement()
 	case lexer.NAMESPACE:
 		return p.parseNamespaceStatement()
 	case lexer.USE:

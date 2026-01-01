@@ -15,8 +15,8 @@
 | `break` | 跳出循环 | `break` |
 | `continue` | 继续下一次循环 | `continue` |
 | `return` | 返回值 | `return value` |
-| `package` | 包声明 | `package main` |
-| `import` | 导入包 | `import "fmt"` |
+| `namespace` | 命名空间声明 | `namespace Models` |
+| `use` | 导入类 | `use App.Models.User` |
 | `class` | 类定义 | `class Person { }` |
 | `interface` | 接口定义 | `interface Printable { }` |
 | `extends` | 类继承 | `class Dog extends Animal { }` |
@@ -139,17 +139,20 @@ fn max(a:int, b:int) int {
 }
 ```
 
-### 包管理关键字
+### 命名空间关键字
 
-#### package / import
+#### namespace / use
 
 ```longlang
-package main
+namespace App
 
-import "fmt"
+use App.Models.User
 
-fn main() {
-    fmt.Println("Hello!")
+class Application {
+    public static function main() {
+        user := new User("Alice")
+        fmt.println(user.name)
+    }
 }
 ```
 
@@ -211,7 +214,7 @@ fn doSomething() void {
 | 函数 | `fn`, `function`, `return` |
 | 变量 | `var` |
 | 控制流 | `if`, `else`, `for`, `break`, `continue` |
-| 包管理 | `package`, `import` |
+| 命名空间 | `namespace`, `use` |
 | 面向对象 | `class`, `interface`, `extends`, `implements`, `public`, `private`, `protected`, `static`, `this`, `super`, `new` |
 | 值 | `true`, `false`, `null` |
 | 类型 | `int`, `i8`, `i16`, `i32`, `i64`, `uint`, `u8`, `u16`, `u32`, `u64`, `float`, `f32`, `f64`, `bool`, `string`, `any`, `void` |

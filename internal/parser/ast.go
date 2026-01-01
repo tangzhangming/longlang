@@ -481,35 +481,7 @@ func (tae *TypeAssertionExpression) String() string {
 	return "(" + tae.Left.String() + ".( " + tae.Type.String() + "))"
 }
 
-// ========== 包和导入 ==========
-
-// PackageStatement 包声明语句
-// 对应语法：package packageName
-// 例如：package main
-type PackageStatement struct {
-	Token lexer.Token // package 关键字对应的 token
-	Name  *Identifier // 包名
-}
-
-func (ps *PackageStatement) statementNode()       {}
-func (ps *PackageStatement) TokenLiteral() string { return ps.Token.Literal }
-func (ps *PackageStatement) String() string {
-	return "package " + ps.Name.String()
-}
-
-// ImportStatement 导入语句（已废弃，保留以兼容）
-// 对应语法：import "package/path"
-// 例如：import "util.string"
-type ImportStatement struct {
-	Token lexer.Token // import 关键字对应的 token
-	Path  *StringLiteral // 导入路径
-}
-
-func (is *ImportStatement) statementNode()       {}
-func (is *ImportStatement) TokenLiteral() string { return is.Token.Literal }
-func (is *ImportStatement) String() string {
-	return "import " + is.Path.String()
-}
+// ========== 命名空间和导入 ==========
 
 // NamespaceStatement 命名空间声明语句
 // 对应语法：namespace Namespace.Name 或 namespace Name

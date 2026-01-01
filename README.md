@@ -9,6 +9,7 @@
 - ✅ 控制流（if/else if/else、for 循环）
 - ✅ 函数定义和调用（支持默认参数、命名参数）
 - ✅ 面向对象（class、继承、接口、静态方法）
+- ✅ 命名空间系统（namespace、use）
 - ✅ 三目运算符
 - ✅ 内置函数（fmt.println、fmt.print、fmt.printf）
 
@@ -42,7 +43,7 @@ longlang.exe run test/test1_basic.long
 | [注释](docs/comments.md) | 单行注释用法 |
 | [类型系统](docs/types.md) | 整数、浮点数、字符串、布尔类型 |
 | [运算符](docs/operators.md) | 算术、比较、逻辑运算符 |
-| [模块与包](docs/packages.md) | package、import、包管理 |
+| [命名空间](docs/namespace.md) | namespace、use、项目结构 |
 | [关键字](docs/keywords.md) | 语言保留关键字列表 |
 
 ### 面向对象
@@ -71,55 +72,61 @@ longlang.exe run test/test1_basic.long
 ### Hello World
 
 ```longlang
-package main
+namespace App
 
-fn main() {
-    fmt.println("Hello, World!")
+class Application {
+    public static function main() {
+        fmt.println("Hello, World!")
+    }
 }
 ```
 
 ### 变量和运算
 
 ```longlang
-package main
+namespace App
 
-fn main() {
-    // 变量声明
-    name := "LongLang"
-    version := 1.0
-    
-    // 算术运算
-    a := 10
-    b := 3
-    fmt.println("a + b =", a + b)
-    fmt.println("a * b =", a * b)
-    
-    // 字符串拼接
-    greeting := "Hello, " + name
-    fmt.println(greeting)
+class Application {
+    public static function main() {
+        // 变量声明
+        name := "LongLang"
+        version := 1.0
+        
+        // 算术运算
+        a := 10
+        b := 3
+        fmt.println("a + b =", a + b)
+        fmt.println("a * b =", a * b)
+        
+        // 字符串拼接
+        greeting := "Hello, " + name
+        fmt.println(greeting)
+    }
 }
 ```
 
 ### 控制流
 
 ```longlang
-package main
+namespace App
 
-fn main() {
-    score := 85
-    
-    // if-else
-    if score >= 90 {
-        fmt.println("优秀")
-    } else if score >= 60 {
-        fmt.println("及格")
-    } else {
-        fmt.println("不及格")
-    }
-    
-    // for 循环
-    for i := 0; i < 5; i++ {
-        fmt.println("i =", i)
+class Application {
+    public static function main() {
+        score := 85
+        
+        // if-else
+        if score >= 90 {
+            fmt.println("优秀")
+        } else if score >= 60 {
+            fmt.println("及格")
+        } else {
+            fmt.println("不及格")
+        }
+        
+        // for 循环
+        for i := 0; i < 5; i++ {
+            fmt.println("i =", i)
+        }
     }
 }
 ```
@@ -127,29 +134,26 @@ fn main() {
 ### 函数
 
 ```longlang
-package main
+namespace App
 
-fn add(a:int, b:int) int {
-    return a + b
+class MathUtils {
+    public static function add(a:int, b:int) int {
+        return a + b
+    }
 }
 
-fn greet(name:string = "World") {
-    fmt.println("Hello,", name)
-}
-
-fn main() {
-    result := add(10, 20)
-    fmt.println("10 + 20 =", result)
-    
-    greet()
-    greet("Alice")
+class Application {
+    public static function main() {
+        result := MathUtils::add(10, 20)
+        fmt.println("10 + 20 =", result)
+    }
 }
 ```
 
 ### 类和对象
 
 ```longlang
-package main
+namespace App
 
 class Person {
     public name string
@@ -165,10 +169,12 @@ class Person {
     }
 }
 
-fn main() {
-    person := new Person("Alice", 25)
-    fmt.println(person.greet())
-    fmt.println("Age:", person.age)
+class Application {
+    public static function main() {
+        person := new Person("Alice", 25)
+        fmt.println(person.greet())
+        fmt.println("Age:", person.age)
+    }
 }
 ```
 
@@ -205,7 +211,6 @@ longlang.exe run test/test_class_basic.long
 
 - ⏳ 数组和 Map 支持
 - ⏳ 错误处理（try/catch）
-- ⏳ 模块导入系统
 - ⏳ 标准库扩展
 
 ## 许可证
