@@ -10,8 +10,9 @@
 - ✅ 函数定义和调用（支持默认参数、命名参数）
 - ✅ 面向对象（class、继承、接口、静态方法）
 - ✅ 命名空间系统（namespace、use）
+- ✅ 数组支持（固定长度、动态长度、多维数组）
 - ✅ 三目运算符
-- ✅ 内置函数（fmt.println、fmt.print、fmt.printf）
+- ✅ 内置函数（fmt.println、fmt.print、fmt.printf、len）
 
 ## 安装
 
@@ -42,6 +43,7 @@ longlang.exe run test/test1_basic.long
 | [函数](docs/functions.md) | 函数定义、参数、返回值 |
 | [注释](docs/comments.md) | 单行注释用法 |
 | [类型系统](docs/types.md) | 整数、浮点数、字符串、布尔类型 |
+| [数组](docs/array.md) | 固定长度数组、动态数组、多维数组 |
 | [运算符](docs/operators.md) | 算术、比较、逻辑运算符 |
 | [命名空间](docs/namespace.md) | namespace、use、项目结构 |
 | [关键字](docs/keywords.md) | 语言保留关键字列表 |
@@ -210,7 +212,7 @@ longlang.exe run test/test_class_basic.long
 
 ### 计划中
 
-- ⏳ 数组和 Map 支持
+- ⏳ Map 支持
 - ⏳ 错误处理（try/catch）
 - ⏳ 标准库扩展
 

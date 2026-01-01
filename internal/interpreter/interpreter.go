@@ -224,6 +224,15 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalStaticCallExpression(node)
 	case *parser.StaticAccessExpression:
 		return i.evalStaticAccessExpression(node)
+	case *parser.ArrayLiteral:
+		return i.evalArrayLiteral(node)
+	case *parser.TypedArrayLiteral:
+		return i.evalTypedArrayLiteral(node)
+	case *parser.IndexExpression:
+		return i.evalIndexExpression(node)
+	case *parser.ArrayType:
+		// ArrayType 在表达式位置时返回 nil（通常不应该执行到这里）
+		return &Null{}
 	}
 
 	return newError("未知节点类型: %T", node)
@@ -1443,6 +1452,17 @@ func (i *Interpreter) evalAssignmentExpression(node *parser.AssignmentExpression
 			return val
 		}
 		return newError("无法给 %s 的成员赋值", obj.Type())
+	case *parser.IndexExpression:
+		// 数组索引赋值：array[index] = value
+		arrayObj := i.Eval(left.Left)
+		if isError(arrayObj) {
+			return arrayObj
+		}
+		indexObj := i.Eval(left.Index)
+		if isError(indexObj) {
+			return indexObj
+		}
+		return i.evalArrayAssignment(arrayObj, indexObj, val)
 	default:
 		return newError("无效的赋值目标")
 	}

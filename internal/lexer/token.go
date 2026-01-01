@@ -56,6 +56,7 @@ const (
 	// 静态方法调用运算符
 	DOUBLE_COLON TokenType = "::" // :: - 静态方法调用运算符
 	DOT          TokenType = "."  // . - 成员访问运算符
+	ELLIPSIS     TokenType = "..." // ... - 省略号（用于数组长度推导）
 
 	// 自增自减运算符
 	INCREMENT TokenType = "++" // 自增运算符 ++

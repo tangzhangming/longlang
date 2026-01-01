@@ -13,7 +13,22 @@ import (
 //   - fmt.println: 打印并换行
 //   - fmt.print: 打印不换行
 //   - fmt.printf: 格式化打印
+//   - len: 获取数组或字符串的长度
 func registerBuiltins(env *Environment) {
+	// 注册全局 len 函数
+	env.Set("len", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("len 函数需要1个参数，得到 %d 个", len(args))
+		}
+		switch arg := args[0].(type) {
+		case *Array:
+			return &Integer{Value: int64(len(arg.Elements))}
+		case *String:
+			return &Integer{Value: int64(len([]rune(arg.Value)))}
+		default:
+			return newError("len 函数不支持类型 %s", args[0].Type())
+		}
+	}})
 	// 注册 fmt 命名空间对象
 	env.Set("fmt", &BuiltinObject{
 		Name: "fmt",

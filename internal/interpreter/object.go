@@ -17,6 +17,7 @@ const (
 	STRING_OBJ          ObjectType = "STRING"          // 字符串类型
 	BOOLEAN_OBJ         ObjectType = "BOOLEAN"         // 布尔类型
 	NULL_OBJ            ObjectType = "NULL"            // null 类型
+	ARRAY_OBJ           ObjectType = "ARRAY"           // 数组类型
 	RETURN_VALUE_OBJ    ObjectType = "RETURN_VALUE"    // 返回值类型（用于函数返回）
 	ERROR_OBJ           ObjectType = "ERROR"           // 错误类型
 	FUNCTION_OBJ        ObjectType = "FUNCTION"        // 函数类型
@@ -84,6 +85,30 @@ type Null struct{}
 
 func (n *Null) Type() ObjectType { return NULL_OBJ }
 func (n *Null) Inspect() string  { return "null" }
+
+// ========== 数组对象 ==========
+
+// Array 数组对象
+// 表示一个数组，可以是固定长度数组或动态数组（切片）
+type Array struct {
+	Elements    []Object // 数组元素
+	ElementType string   // 元素类型（如 "int", "string" 等，空表示推导）
+	IsFixed     bool     // 是否为固定长度数组（false 表示切片）
+	Capacity    int64    // 数组容量（固定长度数组的大小）
+}
+
+func (a *Array) Type() ObjectType { return ARRAY_OBJ }
+func (a *Array) Inspect() string {
+	var out strings.Builder
+	elements := make([]string, len(a.Elements))
+	for i, e := range a.Elements {
+		elements[i] = e.Inspect()
+	}
+	out.WriteString("{")
+	out.WriteString(strings.Join(elements, ", "))
+	out.WriteString("}")
+	return out.String()
+}
 
 // ========== 特殊对象 ==========
 

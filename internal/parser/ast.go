@@ -57,12 +57,12 @@ func (p *Program) String() string {
 
 // LetStatement 变量声明语句
 // 对应语法：var name type = value 或 var name = value
-// 例如：var x int = 10 或 var y = 20
+// 例如：var x int = 10 或 var y = 20 或 var numbers [5]int = {1,2,3,4,5}
 type LetStatement struct {
-	Token lexer.Token  // var 关键字对应的 token
-	Name  *Identifier  // 变量名
-	Type  *Identifier  // 变量类型（可选，如果为 nil 则表示类型推导）
-	Value Expression   // 变量的初始值（可选）
+	Token lexer.Token // var 关键字对应的 token
+	Name  *Identifier // 变量名
+	Type  Expression  // 变量类型（可选，*Identifier 或 *ArrayType）
+	Value Expression  // 变量的初始值（可选）
 }
 
 func (ls *LetStatement) statementNode()       {}
@@ -72,7 +72,14 @@ func (ls *LetStatement) String() string {
 	out += ls.TokenLiteral() + " "
 	out += ls.Name.String()
 	if ls.Type != nil {
-		out += " " + ls.Type.String()
+		switch t := ls.Type.(type) {
+		case *Identifier:
+			out += " " + t.String()
+		case *ArrayType:
+			out += " " + t.String()
+		default:
+			out += " " + ls.Type.String()
+		}
 	}
 	if ls.Value != nil {
 		out += " = " + ls.Value.String()
@@ -816,5 +823,97 @@ func (ae *AssignmentExpression) expressionNode()      {}
 func (ae *AssignmentExpression) TokenLiteral() string { return ae.Token.Literal }
 func (ae *AssignmentExpression) String() string {
 	return "(" + ae.Left.String() + " = " + ae.Right.String() + ")"
+}
+
+// ========== 数组相关 ==========
+
+// ArrayType 数组类型
+// 对应语法：[size]elementType 或 [...]elementType
+// 例如：[5]int, [...]string
+type ArrayType struct {
+	Token       lexer.Token // [ 对应的 token
+	Size        Expression  // 数组大小（IntegerLiteral），nil 表示切片类型
+	IsInferred  bool        // 是否是 [...] 形式（长度推导）
+	ElementType Expression  // 元素类型（Identifier 或嵌套的 ArrayType/SliceType）
+}
+
+func (at *ArrayType) expressionNode()      {}
+func (at *ArrayType) TokenLiteral() string { return at.Token.Literal }
+func (at *ArrayType) String() string {
+	var out string
+	out += "["
+	if at.IsInferred {
+		out += "..."
+	} else if at.Size != nil {
+		out += at.Size.String()
+	}
+	out += "]"
+	if at.ElementType != nil {
+		out += at.ElementType.String()
+	}
+	return out
+}
+
+// ArrayLiteral 数组字面量
+// 对应语法：{element1, element2, ...}
+// 例如：{1, 2, 3}, {"a", "b"}
+type ArrayLiteral struct {
+	Token    lexer.Token  // { 对应的 token
+	Elements []Expression // 元素列表
+}
+
+func (al *ArrayLiteral) expressionNode()      {}
+func (al *ArrayLiteral) TokenLiteral() string { return al.Token.Literal }
+func (al *ArrayLiteral) String() string {
+	var out string
+	out += "{"
+	for i, elem := range al.Elements {
+		if i > 0 {
+			out += ", "
+		}
+		out += elem.String()
+	}
+	out += "}"
+	return out
+}
+
+// TypedArrayLiteral 带类型的数组字面量
+// 对应语法：[size]type{elements} 或 []type{elements}
+// 例如：[5]int{1, 2, 3, 4, 5}, []string{"a", "b"}
+type TypedArrayLiteral struct {
+	Token       lexer.Token  // [ 对应的 token
+	Type        *ArrayType   // 数组类型
+	Elements    []Expression // 元素列表
+}
+
+func (tal *TypedArrayLiteral) expressionNode()      {}
+func (tal *TypedArrayLiteral) TokenLiteral() string { return tal.Token.Literal }
+func (tal *TypedArrayLiteral) String() string {
+	var out string
+	out += tal.Type.String()
+	out += "{"
+	for i, elem := range tal.Elements {
+		if i > 0 {
+			out += ", "
+		}
+		out += elem.String()
+	}
+	out += "}"
+	return out
+}
+
+// IndexExpression 索引访问表达式
+// 对应语法：array[index]
+// 例如：numbers[0], matrix[1][2]
+type IndexExpression struct {
+	Token lexer.Token // [ 对应的 token
+	Left  Expression  // 数组表达式
+	Index Expression  // 索引表达式
+}
+
+func (ie *IndexExpression) expressionNode()      {}
+func (ie *IndexExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *IndexExpression) String() string {
+	return "(" + ie.Left.String() + "[" + ie.Index.String() + "])"
 }
 

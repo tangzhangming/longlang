@@ -52,6 +52,12 @@ func (p *Parser) parseStatement() Statement {
 }
 
 // parseLetStatement 解析变量声明语句
+// 支持：
+//   - var x int = 10
+//   - var x = 10
+//   - var numbers [5]int = {1, 2, 3, 4, 5}
+//   - var ids []int = {1, 2, 3}
+//   - var names = {"a", "b"}
 func (p *Parser) parseLetStatement() Statement {
 	stmt := &LetStatement{Token: p.curToken}
 
@@ -61,8 +67,22 @@ func (p *Parser) parseLetStatement() Statement {
 
 	stmt.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	// 可选类型声明
-	if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.FLOAT_TYPE) || p.peekTokenIs(lexer.ANY) {
+	// 检查是否是数组类型声明 [
+	if p.peekTokenIs(lexer.LBRACKET) {
+		p.nextToken() // 移动到 [
+		arrayType := p.parseArrayType()
+		if arrayType != nil {
+			stmt.Type = arrayType
+		}
+	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || 
+		p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.FLOAT_TYPE) || 
+		p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.I8_TYPE) || 
+		p.peekTokenIs(lexer.I16_TYPE) || p.peekTokenIs(lexer.I32_TYPE) || 
+		p.peekTokenIs(lexer.I64_TYPE) || p.peekTokenIs(lexer.UINT_TYPE) || 
+		p.peekTokenIs(lexer.U8_TYPE) || p.peekTokenIs(lexer.U16_TYPE) || 
+		p.peekTokenIs(lexer.U32_TYPE) || p.peekTokenIs(lexer.U64_TYPE) ||
+		p.peekTokenIs(lexer.F32_TYPE) || p.peekTokenIs(lexer.F64_TYPE) {
+		// 简单类型声明
 		p.nextToken()
 		stmt.Type = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 	}

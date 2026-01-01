@@ -222,9 +222,22 @@ func (l *Lexer) NextToken() Token {
 	case ']':
 		tok = newToken(RBRACKET, l.ch, l.line, l.column)
 	case '.':
-		// 点号用于成员访问（如 object.member）
-		// 单独的点号，用于成员访问运算符
-		tok = newToken(DOT, l.ch, l.line, l.column)
+		// 可能是 . 或 ...
+		if l.peekChar() == '.' {
+			// 检查是否是 ...
+			l.readChar() // 读取第二个 .
+			if l.peekChar() == '.' {
+				// 是 ...
+				l.readChar() // 读取第三个 .
+				tok = Token{Type: ELLIPSIS, Literal: "...", Line: l.line, Column: l.column - 2}
+			} else {
+				// 只有两个点 .. 是非法的
+				tok = Token{Type: ILLEGAL, Literal: "..", Line: l.line, Column: l.column - 1}
+			}
+		} else {
+			// 单独的点号，用于成员访问运算符
+			tok = newToken(DOT, l.ch, l.line, l.column)
+		}
 	case '"':
 		// 双引号字符串字面量
 		tok.Type = STRING

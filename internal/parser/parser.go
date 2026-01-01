@@ -39,6 +39,7 @@ var precedences = map[lexer.TokenType]int{
 	lexer.ASTERISK:     PRODUCT,
 	lexer.MOD:          PRODUCT,
 	lexer.LPAREN:       CALL,
+	lexer.LBRACKET:     INDEX,
 	lexer.QUESTION:     CONDITIONAL,
 	lexer.ASSIGN:       ASSIGNMENT,
 	lexer.DOT:          CALL,
@@ -93,6 +94,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.THIS, p.parseThisExpression)
 	p.registerPrefix(lexer.SUPER, p.parseSuperExpression)
 	p.registerPrefix(lexer.NEW, p.parseNewExpression)
+	p.registerPrefix(lexer.LBRACE, p.parseArrayLiteral)
+	p.registerPrefix(lexer.LBRACKET, p.parseArrayTypeOrLiteral)
 
 	// 注册中缀解析函数
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)
@@ -114,6 +117,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.DOT, p.parseMemberAccessExpression)
 	p.registerInfix(lexer.ASSIGN, p.parseAssignmentExpression)
 	p.registerInfix(lexer.DOUBLE_COLON, p.parseStaticCallExpression)
+	p.registerInfix(lexer.LBRACKET, p.parseIndexExpression)
 
 	// 初始化 curToken 和 peekToken
 	p.nextToken()
