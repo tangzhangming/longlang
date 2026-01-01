@@ -119,14 +119,14 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.Eval(node.Expression)
 	case *parser.LetStatement:
 		val := i.Eval(node.Value)
-		if isError(val) {
+		if isError(val) || isThrownException(val) {
 			return val
 		}
 		i.env.Set(node.Name.Value, val)
 		return val
 	case *parser.AssignStatement:
 		val := i.Eval(node.Value)
-		if isError(val) {
+		if isError(val) || isThrownException(val) {
 			return val
 		}
 		i.env.Set(node.Name.Value, val)
@@ -1577,10 +1577,16 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 		// 执行构造函数体
 		oldEnv := i.env
 		i.env = constructorEnv
+		var result Object
 		if body, ok := constructor.Body.(*parser.BlockStatement); ok {
-			i.evalBlockStatement(body)
+			result = i.evalBlockStatement(body)
 		}
 		i.env = oldEnv
+
+		// 检查构造函数中是否有异常
+		if isThrownException(result) || isError(result) {
+			return result
+		}
 	}
 
 	return instance
@@ -1683,7 +1689,7 @@ func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpres
 // evalAssignmentExpression 执行赋值表达式
 func (i *Interpreter) evalAssignmentExpression(node *parser.AssignmentExpression) Object {
 	val := i.Eval(node.Right)
-	if isError(val) {
+	if isError(val) || isThrownException(val) {
 		return val
 	}
 

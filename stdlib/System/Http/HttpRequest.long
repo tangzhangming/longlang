@@ -1,0 +1,160 @@
+namespace System.Http
+
+/**
+ * HttpRequest - HTTP 请求对象
+ * 
+ * 表示一个传入的 HTTP 请求
+ * 由 HttpServer 自动创建并传递给处理函数
+ */
+class HttpRequest {
+    private _method string
+    private _path string
+    private _fullPath string
+    private _httpVersion string
+    private _headers any  // map[string]string
+    private _queryParams any  // map[string]string
+    private _body string
+    private _remoteAddr string
+    
+    /**
+     * 构造函数
+     */
+    public function __construct() {
+        this._method = ""
+        this._path = ""
+        this._fullPath = ""
+        this._httpVersion = ""
+        this._headers = map[string]string{}
+        this._queryParams = map[string]string{}
+        this._body = ""
+        this._remoteAddr = ""
+    }
+    
+    // ========== Getter 方法 ==========
+    
+    /**
+     * method 获取请求方法
+     * @return GET, POST, PUT, DELETE 等
+     */
+    public function method() string {
+        return this._method
+    }
+    
+    /**
+     * path 获取请求路径（不含查询参数）
+     * @return 如 "/api/users"
+     */
+    public function path() string {
+        return this._path
+    }
+    
+    /**
+     * fullPath 获取完整路径（含查询参数）
+     * @return 如 "/api/users?id=123"
+     */
+    public function fullPath() string {
+        return this._fullPath
+    }
+    
+    /**
+     * httpVersion 获取 HTTP 版本
+     * @return 如 "HTTP/1.1"
+     */
+    public function httpVersion() string {
+        return this._httpVersion
+    }
+    
+    /**
+     * body 获取请求体
+     * @return 请求体内容
+     */
+    public function body() string {
+        return this._body
+    }
+    
+    /**
+     * remoteAddress 获取客户端地址
+     * @return 如 "127.0.0.1:52341"
+     */
+    public function remoteAddress() string {
+        return this._remoteAddr
+    }
+    
+    /**
+     * header 获取请求头
+     * @param key 请求头名称（区分大小写）
+     * @return 请求头值，不存在则返回空字符串
+     */
+    public function header(key: string) string {
+        if isset(this._headers, key) {
+            return this._headers[key]
+        }
+        return ""
+    }
+    
+    /**
+     * query 获取查询参数
+     * @param key 参数名
+     * @return 参数值，不存在则返回空字符串
+     */
+    public function query(key: string) string {
+        if isset(this._queryParams, key) {
+            return this._queryParams[key]
+        }
+        return ""
+    }
+    
+    /**
+     * contentLength 获取 Content-Length
+     * @return 内容长度，不存在则返回 0
+     */
+    public function contentLength() int {
+        lenStr := this.header("Content-Length")
+        if lenStr == "" {
+            return 0
+        }
+        return parseInt(lenStr)
+    }
+    
+    /**
+     * contentType 获取 Content-Type
+     * @return 内容类型，不存在则返回空字符串
+     */
+    public function contentType() string {
+        return this.header("Content-Type")
+    }
+    
+    // ========== 内部 Setter 方法（由 HttpServer 调用）==========
+    
+    public function _setMethod(method: string) {
+        this._method = method
+    }
+    
+    public function _setPath(path: string) {
+        this._path = path
+    }
+    
+    public function _setFullPath(fullPath: string) {
+        this._fullPath = fullPath
+    }
+    
+    public function _setHttpVersion(version: string) {
+        this._httpVersion = version
+    }
+    
+    public function _setBody(body: string) {
+        this._body = body
+    }
+    
+    public function _setRemoteAddr(addr: string) {
+        this._remoteAddr = addr
+    }
+    
+    public function _setHeader(key: string, value: string) {
+        this._headers[key] = value
+    }
+    
+    public function _setQueryParam(key: string, value: string) {
+        this._queryParams[key] = value
+    }
+}

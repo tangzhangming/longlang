@@ -58,6 +58,7 @@ var stringMethods = map[string]StringMethod{
 
 	// ========== 其他 ==========
 	"reverse": stringReverse,
+	"split":   stringSplit,
 }
 
 // GetStringMethod 获取字符串方法
@@ -556,6 +557,46 @@ func toSnakeCase(s string, delimiter string) string {
 		}
 	}
 	return result.String()
+}
+
+// stringSplit 分割字符串
+// "a,b,c".split(",") => ["a", "b", "c"]
+// "a  b  c".split(" ") => ["a", "", "b", "", "c"]
+// "hello".split("") => ["h", "e", "l", "l", "o"]
+func stringSplit(s *String, args ...Object) Object {
+	if len(args) < 1 {
+		return NewError("split 需要至少1个参数")
+	}
+	sep, ok := args[0].(*String)
+	if !ok {
+		return NewError("split 参数必须是字符串")
+	}
+
+	var parts []string
+	if sep.Value == "" {
+		// 空分隔符：按字符分割
+		for _, r := range s.Value {
+			parts = append(parts, string(r))
+		}
+	} else {
+		parts = strings.Split(s.Value, sep.Value)
+	}
+
+	// 如果有第二个参数，限制分割数量
+	if len(args) >= 2 {
+		limit, ok := args[1].(*Integer)
+		if ok && limit.Value > 0 && int(limit.Value) < len(parts) {
+			// 重新分割，限制数量
+			parts = strings.SplitN(s.Value, sep.Value, int(limit.Value))
+		}
+	}
+
+	// 转换为 LongLang 数组
+	elements := make([]Object, len(parts))
+	for i, part := range parts {
+		elements[i] = &String{Value: part}
+	}
+	return &Array{Elements: elements}
 }
 
 

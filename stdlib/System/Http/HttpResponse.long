@@ -1,0 +1,151 @@
+namespace System.Http
+
+use System.Net.TcpConnection
+
+/**
+ * HttpResponse - HTTP 响应对象
+ * 
+ * 用于构建并发送 HTTP 响应
+ * 由 HttpServer 自动创建并传递给处理函数
+ */
+class HttpResponse {
+    private _conn any  // TcpConnection
+    private _statusCode int
+    private _headers any  // map[string]string
+    private _headersSent bool
+    
+    /**
+     * 构造函数
+     * @param conn TCP 连接
+     */
+    public function __construct(conn: TcpConnection) {
+        this._conn = conn
+        this._statusCode = 200
+        this._headers = map[string]string{}
+        this._headersSent = false
+    }
+    
+    /**
+     * status 设置响应状态码
+     * @param code HTTP 状态码
+     * @return this 支持链式调用
+     */
+    public function status(code: int) HttpResponse {
+        this._statusCode = code
+        return this
+    }
+    
+    /**
+     * header 设置响应头
+     * @param key 响应头名称
+     * @param value 响应头值
+     * @return this 支持链式调用
+     */
+    public function header(key: string, value: string) HttpResponse {
+        this._headers[key] = value
+        return this
+    }
+    
+    /**
+     * html 发送 HTML 响应
+     * @param content HTML 内容
+     */
+    public function html(content: string) {
+        this._sendHeaders("text/html; charset=utf-8")
+        this._conn.write(content)
+        this._conn.flush()
+    }
+    
+    /**
+     * json 发送 JSON 响应
+     * @param content JSON 字符串
+     */
+    public function json(content: string) {
+        this._sendHeaders("application/json; charset=utf-8")
+        this._conn.write(content)
+        this._conn.flush()
+    }
+    
+    /**
+     * text 发送纯文本响应
+     * @param content 文本内容
+     */
+    public function text(content: string) {
+        this._sendHeaders("text/plain; charset=utf-8")
+        this._conn.write(content)
+        this._conn.flush()
+    }
+    
+    /**
+     * redirect 发送重定向响应
+     * @param url 重定向目标 URL
+     */
+    public function redirect(url: string) {
+        this._statusCode = 302
+        this.header("Location", url)
+        this._sendHeaders("text/plain; charset=utf-8")
+        this._conn.write("Redirecting to " + url)
+        this._conn.flush()
+    }
+    
+    // ========== 私有方法 ==========
+    
+    private function _sendHeaders(contentType: string) {
+        if this._headersSent {
+            return
+        }
+        
+        // 状态行
+        this._conn.writeLine("HTTP/1.1 " + toString(this._statusCode) + " " + this._getStatusText())
+        
+        // Content-Type
+        this._conn.writeLine("Content-Type: " + contentType)
+        
+        // 自定义响应头
+        headerKeys := this._headers.keys()
+        i := 0
+        for i < len(headerKeys) {
+            key := headerKeys[i]
+            this._conn.writeLine(key + ": " + this._headers[key])
+            i = i + 1
+        }
+        
+        // 结束头部
+        this._conn.writeLine("")
+        
+        this._headersSent = true
+    }
+    
+    private function _getStatusText() string {
+        if this._statusCode == 200 {
+            return "OK"
+        } else if this._statusCode == 201 {
+            return "Created"
+        } else if this._statusCode == 204 {
+            return "No Content"
+        } else if this._statusCode == 301 {
+            return "Moved Permanently"
+        } else if this._statusCode == 302 {
+            return "Found"
+        } else if this._statusCode == 304 {
+            return "Not Modified"
+        } else if this._statusCode == 400 {
+            return "Bad Request"
+        } else if this._statusCode == 401 {
+            return "Unauthorized"
+        } else if this._statusCode == 403 {
+            return "Forbidden"
+        } else if this._statusCode == 404 {
+            return "Not Found"
+        } else if this._statusCode == 405 {
+            return "Method Not Allowed"
+        } else if this._statusCode == 500 {
+            return "Internal Server Error"
+        } else if this._statusCode == 502 {
+            return "Bad Gateway"
+        } else if this._statusCode == 503 {
+            return "Service Unavailable"
+        }
+        return "Unknown"
+    }
+}

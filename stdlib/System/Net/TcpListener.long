@@ -1,5 +1,7 @@
 namespace System.Net
 
+use System.IOException
+
 // TcpListener TCP 监听器类
 // 用于创建 TCP 服务器，监听和接受客户端连接
 class TcpListener {
@@ -10,9 +12,11 @@ class TcpListener {
     // 构造函数
     // @param host 监听地址（如 "0.0.0.0" 或 "127.0.0.1"）
     // @param port 监听端口
+    // @throws IOException 如果端口被占用或无法监听
     public function __construct(host: string, port: int) {
         this.host = host
         this.port = port
+        // __tcp_listen 在失败时会抛出异常，会自动传播
         this.listener = __tcp_listen(host, port)
     }
     
@@ -51,9 +55,8 @@ class TcpListener {
     // @param host 监听地址
     // @param port 监听端口
     // @return TcpListener 实例
+    // @throws IOException 如果端口被占用或无法监听
     public static function listen(host: string, port: int) TcpListener {
         return new TcpListener(host, port)
     }
 }
-
-

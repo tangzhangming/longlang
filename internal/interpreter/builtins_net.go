@@ -15,6 +15,7 @@ func registerNetBuiltins(env *Environment) {
 	// ===== TCP 监听器函数 =====
 
 	// __tcp_listen(host, port) - 创建 TCP 监听器
+	// 失败时抛出异常（可被 try-catch 捕获）
 	env.Set("__tcp_listen", &Builtin{Fn: func(args ...Object) Object {
 		if len(args) != 2 {
 			return newError("__tcp_listen 需要2个参数，得到 %d 个", len(args))
@@ -31,7 +32,8 @@ func registerNetBuiltins(env *Environment) {
 		addr := fmt.Sprintf("%s:%d", hostStr.Value, portInt.Value)
 		listener, err := net.Listen("tcp", addr)
 		if err != nil {
-			return newError("IOException: %s", err.Error())
+			// 抛出可被 try-catch 捕获的异常
+			return createIOException(fmt.Sprintf("无法监听 %s: %s", addr, err.Error()))
 		}
 
 		return &TcpListener{Listener: listener, Address: addr}
@@ -566,4 +568,75 @@ type TcpConnection struct {
 func (tc *TcpConnection) Type() ObjectType { return "TCP_CONNECTION" }
 func (tc *TcpConnection) Inspect() string  { return "TcpConnection(" + tc.RemoteAddr + ")" }
 
+// createIOException 创建一个 IOException 异常实例
+// 这个异常可以被 try-catch 捕获，并提供 getMessage() 等标准方法
+func createIOException(message string) *ThrownException {
+	// 创建 Exception 基类
+	exceptionClass := &Class{
+		Name: "Exception",
+		Methods: map[string]*ClassMethod{
+			"getMessage": {
+				Name:       "getMessage",
+				Parameters: []interface{}{},
+				ReturnType: []string{"string"},
+				Body:       nil, // 内置方法
+			},
+			"getCode": {
+				Name:       "getCode",
+				Parameters: []interface{}{},
+				ReturnType: []string{"int"},
+				Body:       nil,
+			},
+			"toString": {
+				Name:       "toString",
+				Parameters: []interface{}{},
+				ReturnType: []string{"string"},
+				Body:       nil,
+			},
+		},
+		Variables: map[string]*ClassVariable{
+			"message": {Name: "message", Type: "string", AccessModifier: "private"},
+			"code":    {Name: "code", Type: "int", AccessModifier: "private"},
+		},
+	}
 
+	// 创建 IOException 类，继承自 Exception
+	ioExceptionClass := &Class{
+		Name:   "IOException",
+		Parent: exceptionClass,
+		Methods: map[string]*ClassMethod{
+			"getMessage": {
+				Name:       "getMessage",
+				Parameters: []interface{}{},
+				ReturnType: []string{"string"},
+				Body:       nil,
+			},
+			"getCode": {
+				Name:       "getCode",
+				Parameters: []interface{}{},
+				ReturnType: []string{"int"},
+				Body:       nil,
+			},
+			"toString": {
+				Name:       "toString",
+				Parameters: []interface{}{},
+				ReturnType: []string{"string"},
+				Body:       nil,
+			},
+		},
+		Variables: map[string]*ClassVariable{
+			"message": {Name: "message", Type: "string", AccessModifier: "private"},
+			"code":    {Name: "code", Type: "int", AccessModifier: "private"},
+		},
+	}
+
+	return &ThrownException{
+		Exception: &Instance{
+			Class: ioExceptionClass,
+			Fields: map[string]Object{
+				"message": &String{Value: message},
+				"code":    &Integer{Value: 0},
+			},
+		},
+	}
+}

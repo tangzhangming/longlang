@@ -1,0 +1,252 @@
+namespace System.Http
+
+use System.Net.TcpListener
+use System.Net.TcpConnection
+
+/**
+ * HttpServer - HTTP 服务器
+ * 
+ * 简单的 HTTP/1.1 服务器实现
+ * 
+ * 使用示例：
+ *   use System.Http.HttpServer
+ *   use System.Http.HttpRequest
+ *   use System.Http.HttpResponse
+ *   
+ *   server := new HttpServer()
+ *   server.port(8080)
+ *   server.handle(function(req: HttpRequest, res: HttpResponse) {
+ *       res.html("<h1>Hello!</h1>")
+ *   })
+ *   server.start()
+ */
+class HttpServer {
+    private _host string
+    private _port int
+    private _listener any
+    private _handler any
+    private _running bool
+    
+    /**
+     * 构造函数（无参数）
+     */
+    public function __construct() {
+        this._host = "0.0.0.0"
+        this._port = 0
+        this._handler = null
+        this._running = false
+    }
+    
+    /**
+     * host 设置监听地址
+     * @param host 监听地址（如 "0.0.0.0" 或 "127.0.0.1"）
+     * @return this 支持链式调用
+     */
+    public function host(host: string) HttpServer {
+        this._host = host
+        return this
+    }
+    
+    /**
+     * port 设置监听端口
+     * @param port 端口号
+     * @return this 支持链式调用
+     */
+    public function port(port: int) HttpServer {
+        this._port = port
+        return this
+    }
+    
+    /**
+     * handle 设置请求处理函数
+     * @param handler 处理函数 function(req: HttpRequest, res: HttpResponse)
+     * @return this 支持链式调用
+     */
+    public function handle(handler: any) HttpServer {
+        this._handler = handler
+        return this
+    }
+    
+    /**
+     * start 启动服务器（阻塞）
+     * @throws IOException 端口被占用或无法监听时抛出
+     */
+    public function start() {
+        if this._handler == null {
+            throw new Exception("未设置请求处理函数，请先调用 handle()")
+        }
+        
+        if this._port == 0 {
+            throw new Exception("未设置端口，请先调用 port()")
+        }
+        
+        // 创建监听器（如果端口被占用会抛出异常）
+        this._listener = new TcpListener(this._host, this._port)
+        this._running = true
+        
+        for this._running {
+            // 接受连接
+            conn := this._listener.accept()
+            
+            // 处理请求
+            this._handleConnection(conn)
+        }
+    }
+    
+    /**
+     * stop 停止服务器
+     */
+    public function stop() {
+        this._running = false
+        if this._listener != null {
+            this._listener.close()
+        }
+    }
+    
+    /**
+     * getHost 获取监听地址
+     */
+    public function getHost() string {
+        return this._host
+    }
+    
+    /**
+     * getPort 获取监听端口
+     */
+    public function getPort() int {
+        return this._port
+    }
+    
+    /**
+     * 静态方法：快速创建服务器
+     * @param port 端口号
+     * @return HttpServer 实例
+     */
+    public static function create(port: int) HttpServer {
+        server := new HttpServer()
+        server._port = port
+        return server
+    }
+    
+    /**
+     * 静态方法：快速创建服务器（指定主机和端口）
+     * @param host 监听地址
+     * @param port 端口号
+     * @return HttpServer 实例
+     */
+    public static function bind(host: string, port: int) HttpServer {
+        server := new HttpServer()
+        server._host = host
+        server._port = port
+        return server
+    }
+    
+    // ========== 私有方法 ==========
+    
+    private function _handleConnection(conn: TcpConnection) {
+        // 创建请求和响应对象
+        req := new HttpRequest()
+        res := new HttpResponse(conn)
+        
+        // 设置客户端地址
+        req._setRemoteAddr(conn.getRemoteAddress())
+        
+        // 解析请求
+        parseOk := this._parseRequest(conn, req)
+        
+        if parseOk {
+            // 调用处理函数
+            try {
+                this._handler(req, res)
+            } catch (e) {
+                // 处理函数异常，返回 500
+                res.status(500).text("Internal Server Error: " + e.getMessage())
+            }
+        } else {
+            // 解析失败，返回 400
+            res.status(400).text("Bad Request")
+        }
+        
+        // 关闭连接
+        conn.close()
+    }
+    
+    private function _parseRequest(conn: TcpConnection, req: HttpRequest) bool {
+        // 读取请求行: GET /path?query HTTP/1.1
+        requestLine := conn.readLine()
+        if requestLine == "" {
+            return false
+        }
+        
+        // 分割请求行
+        parts := requestLine.split(" ")
+        if len(parts) < 3 {
+            return false
+        }
+        
+        req._setMethod(parts[0])
+        req._setFullPath(parts[1])
+        req._setHttpVersion(parts[2])
+        
+        // 解析路径和查询参数
+        fullPath := parts[1]
+        queryIndex := fullPath.indexOf("?")
+        if queryIndex >= 0 {
+            req._setPath(fullPath.substring(0, queryIndex))
+            queryString := fullPath.substring(queryIndex + 1, len(fullPath))
+            this._parseQueryString(queryString, req)
+        } else {
+            req._setPath(fullPath)
+        }
+        
+        // 读取请求头
+        for true {
+            line := conn.readLine()
+            if line == "" {
+                // 空行，请求头结束
+                break
+            }
+            
+            // 解析请求头: Key: Value
+            colonIndex := line.indexOf(":")
+            if colonIndex > 0 {
+                key := line.substring(0, colonIndex).trim()
+                value := line.substring(colonIndex + 1, len(line)).trim()
+                req._setHeader(key, value)
+            }
+        }
+        
+        // 读取请求体（如果有 Content-Length）
+        contentLength := req.contentLength()
+        if contentLength > 0 {
+            bodyBytes := conn.read(contentLength)
+            bodyStr := __bytes_to_string(bodyBytes)
+            req._setBody(bodyStr)
+        }
+        
+        return true
+    }
+    
+    private function _parseQueryString(queryString: string, req: HttpRequest) {
+        if queryString == "" {
+            return
+        }
+        
+        // 分割参数: key1=value1&key2=value2
+        pairs := queryString.split("&")
+        i := 0
+        for i < len(pairs) {
+            pair := pairs[i]
+            eqIndex := pair.indexOf("=")
+            if eqIndex > 0 {
+                key := pair.substring(0, eqIndex)
+                value := pair.substring(eqIndex + 1, len(pair))
+                req._setQueryParam(key, value)
+            } else if len(pair) > 0 {
+                // 没有值的参数
+                req._setQueryParam(pair, "")
+            }
+            i = i + 1
+        }
+    }
+}
