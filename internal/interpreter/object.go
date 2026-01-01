@@ -18,6 +18,7 @@ const (
 	BOOLEAN_OBJ           ObjectType = "BOOLEAN"           // 布尔类型
 	NULL_OBJ              ObjectType = "NULL"              // null 类型
 	ARRAY_OBJ             ObjectType = "ARRAY"             // 数组类型
+	MAP_OBJ               ObjectType = "MAP"               // Map 类型
 	RETURN_VALUE_OBJ      ObjectType = "RETURN_VALUE"      // 返回值类型（用于函数返回）
 	ERROR_OBJ             ObjectType = "ERROR"             // 错误类型
 	FUNCTION_OBJ          ObjectType = "FUNCTION"          // 函数类型
@@ -111,6 +112,104 @@ func (a *Array) Inspect() string {
 	return out.String()
 }
 
+// ========== Map 对象 ==========
+
+// Map Map 对象
+// 表示一个键值对映射，键为字符串
+type Map struct {
+	Pairs     map[string]Object // 键值对（使用 Go 的 map）
+	Keys      []string          // 有序的键列表（保持插入顺序）
+	KeyType   string            // 键类型（目前仅支持 "string"）
+	ValueType string            // 值类型（如 "int", "string" 等）
+}
+
+func (m *Map) Type() ObjectType { return MAP_OBJ }
+func (m *Map) Inspect() string {
+	var out strings.Builder
+	out.WriteString("map[")
+	out.WriteString(m.KeyType)
+	out.WriteString("]")
+	out.WriteString(m.ValueType)
+	out.WriteString("{")
+	for i, key := range m.Keys {
+		if i > 0 {
+			out.WriteString(", ")
+		}
+		out.WriteString("\"")
+		out.WriteString(key)
+		out.WriteString("\": ")
+		out.WriteString(m.Pairs[key].Inspect())
+	}
+	out.WriteString("}")
+	return out.String()
+}
+
+// Get 获取 Map 中的值
+func (m *Map) Get(key string) (Object, bool) {
+	val, ok := m.Pairs[key]
+	return val, ok
+}
+
+// Set 设置 Map 中的值
+func (m *Map) Set(key string, value Object) {
+	if _, exists := m.Pairs[key]; !exists {
+		m.Keys = append(m.Keys, key)
+	}
+	m.Pairs[key] = value
+}
+
+// Delete 删除 Map 中的键值对
+func (m *Map) Delete(key string) bool {
+	if _, exists := m.Pairs[key]; !exists {
+		return false
+	}
+	delete(m.Pairs, key)
+	// 从 Keys 中移除
+	for i, k := range m.Keys {
+		if k == key {
+			m.Keys = append(m.Keys[:i], m.Keys[i+1:]...)
+			break
+		}
+	}
+	return true
+}
+
+// Size 返回 Map 的大小
+func (m *Map) Size() int {
+	return len(m.Pairs)
+}
+
+// IsEmpty 判断 Map 是否为空
+func (m *Map) IsEmpty() bool {
+	return len(m.Pairs) == 0
+}
+
+// Has 判断 Map 是否包含某个键
+func (m *Map) Has(key string) bool {
+	_, ok := m.Pairs[key]
+	return ok
+}
+
+// Clear 清空 Map
+func (m *Map) Clear() {
+	m.Pairs = make(map[string]Object)
+	m.Keys = []string{}
+}
+
+// GetKeys 获取所有键
+func (m *Map) GetKeys() []string {
+	return m.Keys
+}
+
+// GetValues 获取所有值
+func (m *Map) GetValues() []Object {
+	values := make([]Object, len(m.Keys))
+	for i, key := range m.Keys {
+		values[i] = m.Pairs[key]
+	}
+	return values
+}
+
 // ========== 特殊对象 ==========
 
 // ReturnValue 返回值对象
@@ -142,8 +241,9 @@ func (cs *ContinueSignal) Inspect() string  { return "continue" }
 // 用于在解释器中传递被 throw 语句抛出的异常
 // 当解释器遇到这个对象时，会沿着调用栈向上传递，直到被 catch 捕获
 type ThrownException struct {
-	Exception *Instance  // 被抛出的异常对象（必须是 Exception 类或其子类的实例）
-	StackTrace []string  // 调用栈信息
+	Exception    *Instance // 被抛出的异常对象（必须是 Exception 类或其子类的实例）
+	RuntimeError *Error    // 内置运行时错误（用于除零等运行时错误）
+	StackTrace   []string  // 调用栈信息
 }
 
 func (te *ThrownException) Type() ObjectType { return THROWN_EXCEPTION_OBJ }
@@ -154,6 +254,9 @@ func (te *ThrownException) Inspect() string {
 			return "ThrownException: " + msg.Inspect()
 		}
 		return "ThrownException: " + te.Exception.Class.Name
+	}
+	if te.RuntimeError != nil {
+		return "ThrownException: " + te.RuntimeError.Message
 	}
 	return "ThrownException"
 }
@@ -167,6 +270,9 @@ func (te *ThrownException) GetMessage() string {
 			}
 		}
 	}
+	if te.RuntimeError != nil {
+		return te.RuntimeError.Message
+	}
 	return ""
 }
 
@@ -175,20 +281,27 @@ func (te *ThrownException) GetExceptionType() string {
 	if te.Exception != nil {
 		return te.Exception.Class.Name
 	}
+	if te.RuntimeError != nil {
+		return "RuntimeException"
+	}
 	return "Exception"
 }
 
 // IsInstanceOf 检查异常是否是指定类型或其子类
 func (te *ThrownException) IsInstanceOf(className string) bool {
-	if te.Exception == nil {
+	if te.Exception != nil {
+		class := te.Exception.Class
+		for class != nil {
+			if class.Name == className {
+				return true
+			}
+			class = class.Parent
+		}
 		return false
 	}
-	class := te.Exception.Class
-	for class != nil {
-		if class.Name == className {
-			return true
-		}
-		class = class.Parent
+	// 内置运行时错误，匹配 Exception 或 RuntimeException
+	if te.RuntimeError != nil {
+		return className == "Exception" || className == "RuntimeException"
 	}
 	return false
 }
@@ -449,6 +562,28 @@ type BoundStringMethod struct {
 
 func (bsm *BoundStringMethod) Type() ObjectType { return FUNCTION_OBJ }
 func (bsm *BoundStringMethod) Inspect() string  { return "string method " + bsm.Name }
+
+// BoundMapMethod 绑定 Map 方法对象
+// 表示一个绑定了 Map 实例的方法
+type BoundMapMethod struct {
+	Map    *Map                                // 绑定的 Map
+	Method func(m *Map, args ...Object) Object // 方法实现
+	Name   string                              // 方法名
+}
+
+func (bmm *BoundMapMethod) Type() ObjectType { return FUNCTION_OBJ }
+func (bmm *BoundMapMethod) Inspect() string  { return "map method " + bmm.Name }
+
+// BoundArrayMethod 绑定数组方法对象
+// 表示一个绑定了数组实例的方法
+type BoundArrayMethod struct {
+	Array  *Array                                // 绑定的数组
+	Method func(a *Array, args ...Object) Object // 方法实现
+	Name   string                                // 方法名
+}
+
+func (bam *BoundArrayMethod) Type() ObjectType { return FUNCTION_OBJ }
+func (bam *BoundArrayMethod) Inspect() string  { return "array method " + bam.Name }
 
 // ========== 辅助函数 ==========
 

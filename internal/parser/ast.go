@@ -976,3 +976,56 @@ func (ie *IndexExpression) String() string {
 	return "(" + ie.Left.String() + "[" + ie.Index.String() + "])"
 }
 
+// ========== Map 类型 ==========
+
+// MapType Map 类型声明
+// 对应语法：map[KeyType]ValueType
+// 例如：map[string]int, map[string]User
+type MapType struct {
+	Token     lexer.Token // map 关键字的 token
+	KeyType   *Identifier // 键类型（目前仅支持 string）
+	ValueType Expression  // 值类型
+}
+
+func (mt *MapType) expressionNode()      {}
+func (mt *MapType) TokenLiteral() string { return mt.Token.Literal }
+func (mt *MapType) String() string {
+	var out string
+	out += "map["
+	if mt.KeyType != nil {
+		out += mt.KeyType.String()
+	}
+	out += "]"
+	if mt.ValueType != nil {
+		out += mt.ValueType.String()
+	}
+	return out
+}
+
+// MapLiteral Map 字面量
+// 对应语法：map[KeyType]ValueType{key1: value1, key2: value2, ...}
+// 例如：map[string]int{"Alice": 100, "Bob": 90}
+type MapLiteral struct {
+	Token   lexer.Token           // map 关键字的 token
+	Type    *MapType              // Map 类型
+	Pairs   map[Expression]Expression // 键值对（用于保持解析结果）
+	Keys    []Expression          // 有序的键列表（保持插入顺序）
+	Values  []Expression          // 对应的值列表
+}
+
+func (ml *MapLiteral) expressionNode()      {}
+func (ml *MapLiteral) TokenLiteral() string { return ml.Token.Literal }
+func (ml *MapLiteral) String() string {
+	var out string
+	out += ml.Type.String()
+	out += "{"
+	for i, key := range ml.Keys {
+		if i > 0 {
+			out += ", "
+		}
+		out += key.String() + ": " + ml.Values[i].String()
+	}
+	out += "}"
+	return out
+}
+

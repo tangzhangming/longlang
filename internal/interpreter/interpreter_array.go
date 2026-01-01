@@ -132,6 +132,8 @@ func (i *Interpreter) evalIndexOperator(left, index Object) Object {
 		return i.evalArrayIndexExpression(left, index)
 	case left.Type() == STRING_OBJ && index.Type() == INTEGER_OBJ:
 		return i.evalStringIndexExpression(left, index)
+	case left.Type() == MAP_OBJ:
+		return i.evalMapIndexExpression(left.(*Map), index)
 	default:
 		return newError("索引操作不支持类型: %s", left.Type())
 	}
@@ -216,17 +218,24 @@ func (i *Interpreter) checkArrayElementType(element Object, expectedType string)
 	return nil
 }
 
-// evalArrayAssignment 执行数组元素赋值 array[index] = value
-func (i *Interpreter) evalArrayAssignment(array Object, index Object, value Object) Object {
-	if array.Type() != ARRAY_OBJ {
-		return newError("索引赋值只能用于数组类型，得到 %s", array.Type())
+// evalArrayAssignment 执行数组或 Map 元素赋值 array[index] = value / map[key] = value
+func (i *Interpreter) evalArrayAssignment(obj Object, index Object, value Object) Object {
+	switch obj.Type() {
+	case ARRAY_OBJ:
+		return i.evalArrayElementAssignment(obj.(*Array), index, value)
+	case MAP_OBJ:
+		return i.evalMapAssignment(obj.(*Map), index, value)
+	default:
+		return newError("索引赋值只能用于数组或 Map 类型，得到 %s", obj.Type())
 	}
+}
 
+// evalArrayElementAssignment 执行数组元素赋值
+func (i *Interpreter) evalArrayElementAssignment(arrayObject *Array, index Object, value Object) Object {
 	if index.Type() != INTEGER_OBJ {
 		return newError("数组索引必须是整数，得到 %s", index.Type())
 	}
 
-	arrayObject := array.(*Array)
 	idx := index.(*Integer).Value
 	max := int64(len(arrayObject.Elements) - 1)
 

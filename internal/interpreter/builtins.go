@@ -25,8 +25,42 @@ func registerBuiltins(env *Environment) {
 			return &Integer{Value: int64(len(arg.Elements))}
 		case *String:
 			return &Integer{Value: int64(len([]rune(arg.Value)))}
+		case *Map:
+			return &Integer{Value: int64(arg.Size())}
 		default:
 			return newError("len 函数不支持类型 %s", args[0].Type())
+		}
+	}})
+
+	// 注册全局 isset 函数
+	// isset(map, key) - 检查 Map 是否包含指定键
+	// isset(array, index) - 检查数组索引是否有效
+	env.Set("isset", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 2 {
+			return newError("isset 函数需要2个参数，得到 %d 个", len(args))
+		}
+		switch container := args[0].(type) {
+		case *Map:
+			// Map: isset(map, "key")
+			keyStr, ok := args[1].(*String)
+			if !ok {
+				return newError("isset 检查 Map 时，第二个参数必须是字符串，得到 %s", args[1].Type())
+			}
+			return &Boolean{Value: container.Has(keyStr.Value)}
+		case *Array:
+			// Array: isset(array, index)
+			indexInt, ok := args[1].(*Integer)
+			if !ok {
+				return newError("isset 检查数组时，第二个参数必须是整数，得到 %s", args[1].Type())
+			}
+			idx := indexInt.Value
+			// 支持负数索引
+			if idx < 0 {
+				idx = int64(len(container.Elements)) + idx
+			}
+			return &Boolean{Value: idx >= 0 && idx < int64(len(container.Elements))}
+		default:
+			return newError("isset 函数的第一个参数必须是 Map 或数组，得到 %s", args[0].Type())
 		}
 	}})
 	// 注册 fmt 命名空间对象

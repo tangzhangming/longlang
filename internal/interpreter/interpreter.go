@@ -232,6 +232,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalArrayLiteral(node)
 	case *parser.TypedArrayLiteral:
 		return i.evalTypedArrayLiteral(node)
+	case *parser.MapLiteral:
+		return i.evalMapLiteral(node)
 	case *parser.IndexExpression:
 		return i.evalIndexExpression(node)
 	case *parser.ArrayType:
@@ -714,6 +716,12 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 	case *BoundStringMethod:
 		// 处理字符串方法调用
 		return fn.Method(fn.String, args...)
+	case *BoundMapMethod:
+		// 处理 Map 方法调用
+		return fn.Method(fn.Map, args...)
+	case *BoundArrayMethod:
+		// 处理数组方法调用
+		return fn.Method(fn.Array, args...)
 	default:
 		return newError("不是函数: %s", fn.Type())
 	}
@@ -843,16 +851,29 @@ func (i *Interpreter) evalTryStatement(node *parser.TryStatement) Object {
 	var finalResult Object = &Null{}
 	var caughtException *ThrownException = nil
 
-	// 检查是否抛出了异常
+	// 检查是否抛出了异常（ThrownException 或内置 Error）
 	if te, ok := tryResult.(*ThrownException); ok {
 		caughtException = te
+	} else if err, ok := tryResult.(*Error); ok {
+		// 将内置 Error 转换为 ThrownException
+		caughtException = &ThrownException{RuntimeError: err}
+	}
 
-		// 尝试匹配 catch 子句
+	// 如果有异常，尝试匹配 catch 子句
+	if caughtException != nil {
 		for _, catchClause := range node.CatchClauses {
-			if i.matchCatchClause(catchClause, te) {
+			if i.matchCatchClause(catchClause, caughtException) {
 				// 创建新的环境，将异常对象绑定到变量
 				catchEnv := NewEnclosedEnvironment(i.env)
-				catchEnv.Set(catchClause.ExceptionVar.Value, te.Exception)
+
+				// 绑定异常变量 - 优先使用 Exception 实例，否则创建包装对象
+				if caughtException.Exception != nil {
+					catchEnv.Set(catchClause.ExceptionVar.Value, caughtException.Exception)
+				} else if caughtException.RuntimeError != nil {
+					// 创建一个包装对象，提供 getMessage() 方法
+					wrapper := i.createRuntimeExceptionWrapper(caughtException.RuntimeError)
+					catchEnv.Set(catchClause.ExceptionVar.Value, wrapper)
+				}
 
 				// 保存当前环境
 				previousEnv := i.env
@@ -877,19 +898,26 @@ func (i *Interpreter) evalTryStatement(node *parser.TryStatement) Object {
 				break
 			}
 		}
-	} else if isReturnValue(tryResult) {
-		// try 块中有 return 语句
-		finalResult = tryResult
-	} else if !isError(tryResult) {
-		finalResult = tryResult
+	}
+
+	// 处理非异常情况
+	if caughtException == nil && tryResult != nil {
+		if isReturnValue(tryResult) {
+			// try 块中有 return 语句
+			finalResult = tryResult
+		} else if !isError(tryResult) && !isThrownException(tryResult) {
+			finalResult = tryResult
+		}
 	}
 
 	// 执行 finally 块（无论是否有异常都会执行）
 	if node.FinallyBlock != nil {
 		finallyResult := i.Eval(node.FinallyBlock)
 
-		// finally 块中的 return 不影响原有返回值（Java/C# 行为）
-		// 但如果 finally 中抛出了新异常，则该异常会替代原有异常
+		// finally 块中的错误或异常会替代原有的结果
+		if isError(finallyResult) {
+			return finallyResult
+		}
 		if isThrownException(finallyResult) {
 			return finallyResult
 		}
@@ -913,6 +941,56 @@ func (i *Interpreter) matchCatchClause(clause *parser.CatchClause, te *ThrownExc
 	// 类型化 catch，检查异常类型
 	expectedType := clause.ExceptionType.Value
 	return te.IsInstanceOf(expectedType)
+}
+
+// createRuntimeExceptionWrapper 为内置运行时错误创建包装对象
+// 这个包装对象提供与 Exception 类相同的接口（getMessage 等方法）
+func (i *Interpreter) createRuntimeExceptionWrapper(err *Error) *Instance {
+	// 创建一个模拟的 RuntimeException 类
+	class := &Class{
+		Name: "RuntimeException",
+		Methods: map[string]*ClassMethod{
+			"getMessage": {
+				Name:       "getMessage",
+				Parameters: []interface{}{},
+				ReturnType: []string{"string"},
+				Body:       nil, // 内置方法，不需要 Body
+			},
+			"getCode": {
+				Name:       "getCode",
+				Parameters: []interface{}{},
+				ReturnType: []string{"int"},
+				Body:       nil,
+			},
+			"toString": {
+				Name:       "toString",
+				Parameters: []interface{}{},
+				ReturnType: []string{"string"},
+				Body:       nil,
+			},
+			"getStackTrace": {
+				Name:       "getStackTrace",
+				Parameters: []interface{}{},
+				ReturnType: []string{"[]string"},
+				Body:       nil,
+			},
+		},
+		Variables: map[string]*ClassVariable{
+			"message": {Name: "message", Type: "string", AccessModifier: "private"},
+			"code":    {Name: "code", Type: "int", AccessModifier: "private"},
+		},
+	}
+
+	// 创建实例并设置字段
+	instance := &Instance{
+		Class:  class,
+		Fields: make(map[string]Object),
+	}
+	instance.Fields["message"] = &String{Value: err.Message}
+	instance.Fields["code"] = &Integer{Value: 0}
+	instance.Fields["stackTrace"] = &Array{Elements: []Object{}, ElementType: "string"}
+
+	return instance
 }
 
 // evalThrowStatement 执行 throw 语句
@@ -1571,6 +1649,26 @@ func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpres
 			}
 		}
 		return newError("字符串没有方法: %s", memberName)
+	case *Map:
+		// 访问 Map 方法
+		if method, ok := GetMapMethod(memberName); ok {
+			return &BoundMapMethod{
+				Map:    object,
+				Method: method,
+				Name:   memberName,
+			}
+		}
+		return newError("Map 没有方法: %s", memberName)
+	case *Array:
+		// 访问数组方法
+		if method, ok := GetArrayMethod(memberName); ok {
+			return &BoundArrayMethod{
+				Array:  object,
+				Method: method,
+				Name:   memberName,
+			}
+		}
+		return newError("数组没有方法: %s", memberName)
 	default:
 		return newError("无法访问 %s 的成员", obj.Type())
 	}
@@ -1878,6 +1976,12 @@ func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpres
 // applyBoundMethod 执行绑定方法
 func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs []parser.CallArgument) Object {
 	method := bm.Method
+
+	// 处理内置方法（Body 为 nil）
+	if method.Body == nil {
+		return i.applyBuiltinMethod(bm.Instance, method.Name, args)
+	}
+
 	body, ok := method.Body.(*parser.BlockStatement)
 	if !ok {
 		return newError("方法体类型错误")
@@ -1913,6 +2017,34 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 	// 执行方法体
 	evaluated := i.evalBlockStatementWithEnv(body, env)
 	return unwrapReturnValue(evaluated)
+}
+
+// applyBuiltinMethod 执行内置方法（用于运行时异常包装对象）
+func (i *Interpreter) applyBuiltinMethod(instance *Instance, methodName string, args []Object) Object {
+	switch methodName {
+	case "getMessage":
+		if msg, ok := instance.Fields["message"]; ok {
+			return msg
+		}
+		return &String{Value: ""}
+	case "getCode":
+		if code, ok := instance.Fields["code"]; ok {
+			return code
+		}
+		return &Integer{Value: 0}
+	case "toString":
+		if msg, ok := instance.Fields["message"]; ok {
+			return &String{Value: instance.Class.Name + ": " + msg.Inspect()}
+		}
+		return &String{Value: instance.Class.Name}
+	case "getStackTrace":
+		if trace, ok := instance.Fields["stackTrace"]; ok {
+			return trace
+		}
+		return &Array{Elements: []Object{}, ElementType: "string"}
+	default:
+		return newError("未知的内置方法: %s", methodName)
+	}
 }
 
 // evalForStatement 执行 for 循环语句
