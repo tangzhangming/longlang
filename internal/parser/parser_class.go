@@ -175,6 +175,22 @@ func (p *Parser) parseClassMembers() []ClassMember {
 		accessModifier := p.curToken.Literal
 		p.nextToken()
 
+		// 检查是否是常量
+		if p.curTokenIs(lexer.CONST) {
+			constant := p.parseClassConstant(accessModifier)
+			if constant != nil {
+				members = append(members, constant)
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.EOF) {
+					p.nextToken()
+				}
+			} else {
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.EOF) {
+					p.nextToken()
+				}
+			}
+			continue
+		}
+
 		// 检查是否是静态
 		isStatic := false
 		if p.curTokenIs(lexer.STATIC) {
@@ -261,6 +277,57 @@ func (p *Parser) parseClassVariable(accessModifier string) *ClassVariable {
 	}
 
 	return variable
+}
+
+// parseClassConstant 解析类常量
+// 语法：访问修饰符 const 常量名 [类型] = 值
+func (p *Parser) parseClassConstant(accessModifier string) *ClassConstant {
+	constant := &ClassConstant{
+		Token:          p.curToken,
+		AccessModifier: accessModifier,
+	}
+
+	if !p.curTokenIs(lexer.CONST) {
+		p.errors = append(p.errors, fmt.Sprintf("期望 const 关键字 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+
+	p.nextToken()
+
+	if !p.curTokenIs(lexer.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("期望常量名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+
+	constant.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	p.nextToken()
+
+	// 解析类型（可选）
+	if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.FLOAT_TYPE) || p.curTokenIs(lexer.ANY) ||
+		p.curTokenIs(lexer.I8_TYPE) || p.curTokenIs(lexer.I16_TYPE) || p.curTokenIs(lexer.I32_TYPE) || p.curTokenIs(lexer.I64_TYPE) ||
+		p.curTokenIs(lexer.UINT_TYPE) || p.curTokenIs(lexer.U8_TYPE) || p.curTokenIs(lexer.U16_TYPE) || p.curTokenIs(lexer.U32_TYPE) || p.curTokenIs(lexer.U64_TYPE) ||
+		p.curTokenIs(lexer.F32_TYPE) || p.curTokenIs(lexer.F64_TYPE) || p.curTokenIs(lexer.IDENT) {
+		constant.Type = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		p.nextToken()
+	}
+
+	// 必须有 = 赋值
+	if !p.curTokenIs(lexer.ASSIGN) {
+		p.errors = append(p.errors, fmt.Sprintf("常量必须有初始值，期望 = (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+
+	p.nextToken()
+
+	// 常量值必须是字面量（整数、浮点数、字符串、布尔、null）
+	if !p.curTokenIs(lexer.INT) && !p.curTokenIs(lexer.FLOAT) && !p.curTokenIs(lexer.STRING) && !p.curTokenIs(lexer.TRUE) && !p.curTokenIs(lexer.FALSE) && !p.curTokenIs(lexer.NULL) {
+		p.errors = append(p.errors, fmt.Sprintf("常量值必须是字面量（整数、浮点数、字符串、布尔、null），得到 %s (行 %d, 列 %d)", p.curToken.Type, p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+
+	constant.Value = p.parseExpression(LOWEST)
+
+	return constant
 }
 
 // parseClassMethod 解析类方法
@@ -358,35 +425,44 @@ func (p *Parser) parseNewExpression() Expression {
 	return exp
 }
 
-// parseStaticCallExpression 解析静态方法调用
+// parseStaticCallExpression 解析静态方法调用或常量访问
+// 通过检查是否有括号来区分：ClassName::method() 或 ClassName::CONST
 func (p *Parser) parseStaticCallExpression(left Expression) Expression {
 	className, ok := left.(*Identifier)
 	if !ok {
-		p.errors = append(p.errors, fmt.Sprintf("静态方法调用左侧必须是类名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		p.errors = append(p.errors, fmt.Sprintf("静态访问左侧必须是类名或 self (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
-	}
-
-	exp := &StaticCallExpression{
-		Token:     p.curToken,
-		ClassName: className,
 	}
 
 	p.nextToken()
 
 	if !p.curTokenIs(lexer.IDENT) {
-		p.errors = append(p.errors, fmt.Sprintf("期望方法名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		p.errors = append(p.errors, fmt.Sprintf("期望方法名或常量名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
 	}
 
-	exp.Method = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	name := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 
-	if !p.expectPeek(lexer.LPAREN) {
-		return nil
+	// 检查是否有括号：如果有括号，是方法调用；否则是常量访问
+	if p.peekTokenIs(lexer.LPAREN) {
+		// 静态方法调用
+		exp := &StaticCallExpression{
+			Token:     p.curToken,
+			ClassName: className,
+			Method:    name,
+		}
+		p.nextToken() // 跳过 (
+		exp.Arguments = p.parseCallArguments()
+		return exp
+	} else {
+		// 常量访问
+		exp := &StaticAccessExpression{
+			Token:     p.curToken,
+			ClassName: className,
+			Name:      name,
+		}
+		return exp
 	}
-
-	exp.Arguments = p.parseCallArguments()
-
-	return exp
 }
 
 // parseMemberAccessExpression 解析成员访问表达式

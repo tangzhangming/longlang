@@ -109,6 +109,7 @@ const (
 	PRIVATE    TokenType = "PRIVATE"    // private - 私有访问修饰符
 	PROTECTED  TokenType = "PROTECTED"  // protected - 受保护访问修饰符
 	STATIC     TokenType = "STATIC"     // static - 静态关键字
+	CONST      TokenType = "CONST"      // const - 常量关键字
 	THIS       TokenType = "THIS"       // this - 当前对象关键字
 	SUPER      TokenType = "SUPER"      // super - 父类关键字
 	NEW        TokenType = "NEW"        // new - 创建对象关键字
@@ -170,6 +171,7 @@ var keywords = map[string]TokenType{
 	"private":    PRIVATE,
 	"protected":  PROTECTED,
 	"static":     STATIC,
+	"const":      CONST,
 	"this":       THIS,
 	"super":      SUPER,
 	"new":        NEW,

@@ -222,6 +222,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalSuperExpression()
 	case *parser.StaticCallExpression:
 		return i.evalStaticCallExpression(node)
+	case *parser.StaticAccessExpression:
+		return i.evalStaticAccessExpression(node)
 	}
 
 	return newError("未知节点类型: %T", node)
@@ -1112,6 +1114,7 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 	class := &Class{
 		Name:          node.Name.Value,
 		Variables:     make(map[string]*ClassVariable),
+		Constants:     make(map[string]*ClassConstant),
 		Methods:       make(map[string]*ClassMethod),
 		StaticMethods: make(map[string]*ClassMethod),
 		Env:           i.env,
@@ -1147,9 +1150,25 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 		}
 	}
 
-	// 遍历类成员，分别处理变量和方法
+	// 遍历类成员，分别处理常量、变量和方法
 	for _, member := range node.Members {
 		switch m := member.(type) {
+		case *parser.ClassConstant:
+			// 处理常量
+			constValue := i.Eval(m.Value)
+			if isError(constValue) {
+				return constValue
+			}
+			constType := ""
+			if m.Type != nil {
+				constType = m.Type.Value
+			}
+			class.Constants[m.Name.Value] = &ClassConstant{
+				Name:           m.Name.Value,
+				Type:           constType,
+				AccessModifier: m.AccessModifier,
+				Value:          constValue,
+			}
 		case *parser.ClassVariable:
 			// 处理成员变量
 			var defaultValue Object
@@ -1524,6 +1543,62 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 
 	evaluated := i.evalBlockStatementWithEnv(body, env)
 	return unwrapReturnValue(evaluated)
+}
+
+// evalStaticAccessExpression 执行静态访问（常量访问）
+func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpression) Object {
+	className := node.ClassName.Value
+	constName := node.Name.Value
+
+	var class *Class
+	var ok bool
+
+	// 处理 self:: 的情况
+	if className == "self" {
+		// 从环境中获取 self（应该在类方法内部）
+		selfObj, found := i.env.Get("self")
+		if !found {
+			return newError("self 只能在类方法内部使用")
+		}
+		class, ok = selfObj.(*Class)
+		if !ok {
+			return newError("self 必须指向一个类")
+		}
+	} else {
+		// 获取类定义
+		classObj, found := i.env.Get(className)
+		if !found && i.currentNamespace != nil {
+			if c, f := i.currentNamespace.GetClass(className); f {
+				classObj = c
+				found = true
+			}
+		}
+		if !found {
+			for _, ns := range i.namespaceMgr.namespaces {
+				if c, f := ns.GetClass(className); f {
+					classObj = c
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			return newError("未定义的类: %s", className)
+		}
+		class, ok = classObj.(*Class)
+		if !ok {
+			return newError("%s 不是一个类", className)
+		}
+	}
+
+	// 获取常量
+	constant, ok := class.GetConstant(constName)
+	if !ok {
+		return newError("类 %s 没有常量: %s", class.Name, constName)
+	}
+
+	// 检查访问权限（暂时所有常量都可以访问，后续可以添加访问控制）
+	return constant.Value
 }
 
 // applyBoundMethod 执行绑定方法

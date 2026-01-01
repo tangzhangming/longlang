@@ -633,6 +633,29 @@ func (cv *ClassVariable) String() string {
 	return out
 }
 
+// ClassConstant 类常量
+// 对应语法：访问修饰符 const 常量名 [类型] = 值
+// 例如：public const PI = 3.14159 或 public const PORT i16 = 8080
+type ClassConstant struct {
+	Token          lexer.Token // const 关键字对应的 token
+	AccessModifier string      // 访问修饰符：public, private, protected
+	Name           *Identifier // 常量名
+	Type           *Identifier // 类型（可选，nil 表示类型推导）
+	Value          Expression  // 常量值（必须是字面量）
+}
+
+func (cc *ClassConstant) classMemberNode()      {}
+func (cc *ClassConstant) TokenLiteral() string { return cc.Token.Literal }
+func (cc *ClassConstant) String() string {
+	var out string
+	out += cc.AccessModifier + " const " + cc.Name.String()
+	if cc.Type != nil {
+		out += " " + cc.Type.String()
+	}
+	out += " = " + cc.Value.String()
+	return out
+}
+
 // ClassMethod 类方法
 // 对应语法：访问修饰符 [static] function 方法名(参数): 返回类型 { ... }
 type ClassMethod struct {
@@ -748,6 +771,21 @@ func (sce *StaticCallExpression) String() string {
 	}
 	out += ")"
 	return out
+}
+
+// StaticAccessExpression 静态访问表达式（常量访问）
+// 对应语法：ClassName::CONST_NAME 或 self::CONST_NAME
+// 例如：MyClass::MAX_SIZE 或 self::PI
+type StaticAccessExpression struct {
+	Token     lexer.Token // :: 对应的 token
+	ClassName *Identifier // 类名或 self
+	Name      *Identifier // 常量名
+}
+
+func (sae *StaticAccessExpression) expressionNode()      {}
+func (sae *StaticAccessExpression) TokenLiteral() string { return sae.Token.Literal }
+func (sae *StaticAccessExpression) String() string {
+	return sae.ClassName.String() + "::" + sae.Name.String()
 }
 
 // MemberAccessExpression 成员访问表达式

@@ -52,6 +52,7 @@ longlang.exe run test/test1_basic.long
 |------|------|
 | [类基础](docs/class-basics.md) | 类定义、实例化、this、静态方法 |
 | [类继承](docs/class-inheritance.md) | extends、方法重写、super |
+| [类常量](docs/class-constants.md) | 常量定义、访问、类型声明 |
 | [接口](docs/class-interface.md) | interface、implements、多接口 |
 
 ### 进阶文档

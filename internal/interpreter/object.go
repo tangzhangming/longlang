@@ -195,6 +195,7 @@ type Class struct {
 	Parent        *Class                    // 父类（用于继承）
 	Interfaces    []*Interface              // 实现的接口列表
 	Variables     map[string]*ClassVariable // 成员变量定义
+	Constants     map[string]*ClassConstant // 常量定义
 	Methods       map[string]*ClassMethod   // 实例方法
 	StaticMethods map[string]*ClassMethod   // 静态方法
 	Env           *Environment              // 类定义时的环境（用于闭包）
@@ -275,12 +276,32 @@ func (c *Class) GetVariable(name string) (*ClassVariable, bool) {
 	return nil, false
 }
 
+// GetConstant 获取常量（包括继承的常量，但子类同名常量会覆盖父类）
+func (c *Class) GetConstant(name string) (*ClassConstant, bool) {
+	if constant, ok := c.Constants[name]; ok {
+		return constant, true
+	}
+	// 从父类查找
+	if c.Parent != nil {
+		return c.Parent.GetConstant(name)
+	}
+	return nil, false
+}
+
 // ClassVariable 类成员变量定义
 type ClassVariable struct {
 	Name           string      // 变量名
 	Type           string      // 变量类型
 	AccessModifier string      // 访问修饰符：public, private, protected
 	DefaultValue   Object       // 默认值（可选）
+}
+
+// ClassConstant 类常量定义
+type ClassConstant struct {
+	Name           string      // 常量名
+	Type           string      // 常量类型（空字符串表示类型推导）
+	AccessModifier string      // 访问修饰符：public, private, protected
+	Value          Object      // 常量值
 }
 
 // ClassMethod 类方法定义
