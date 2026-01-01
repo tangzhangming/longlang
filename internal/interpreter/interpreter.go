@@ -55,6 +55,8 @@ func New() *Interpreter {
 	env := NewEnvironment()
 	// 注册内置函数（如 fmt.Println）
 	registerBuiltins(env)
+	// 注册文件操作内置函数
+	registerIOBuiltins(env)
 	return &Interpreter{
 		env:              env,
 		stdlibPath:       "stdlib", // 默认标准库路径
