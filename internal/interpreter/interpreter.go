@@ -1386,11 +1386,30 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 		StaticMethods: make(map[string]*ClassMethod),
 		Env:           i.env,
 		IsExported:    isExported,
+		IsAbstract:    node.IsAbstract,
 	}
 
 	// 处理继承
 	if node.Parent != nil {
+		// 首先从当前环境查找
 		parentObj, ok := i.env.Get(node.Parent.Value)
+		// 如果环境中找不到，从当前命名空间查找
+		if !ok && i.currentNamespace != nil {
+			if parentClass, found := i.currentNamespace.GetClass(node.Parent.Value); found {
+				parentObj = parentClass
+				ok = true
+			}
+		}
+		// 如果还是找不到，从所有命名空间中查找
+		if !ok {
+			for _, ns := range i.namespaceMgr.namespaces {
+				if parentClass, found := ns.GetClass(node.Parent.Value); found {
+					parentObj = parentClass
+					ok = true
+					break
+				}
+			}
+		}
 		if !ok {
 			return newError("未定义的父类: %s", node.Parent.Value)
 		}
@@ -1458,11 +1477,18 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 				Name:           m.Name.Value,
 				AccessModifier: m.AccessModifier,
 				IsStatic:       m.IsStatic,
+				IsAbstract:     m.IsAbstract,
 				Parameters:     toInterfaceSlice(m.Parameters),
 				ReturnType:     returnTypes,
 				Body:           m.Body,
 				Env:            i.env,
 			}
+
+			// 非抽象类不能有抽象方法
+			if m.IsAbstract && !node.IsAbstract {
+				return newError("非抽象类 %s 不能包含抽象方法 %s", node.Name.Value, m.Name.Value)
+			}
+
 			if m.IsStatic {
 				class.StaticMethods[m.Name.Value] = method
 			} else {
@@ -1478,13 +1504,20 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 		}
 	}
 
-	// 如果有当前命名空间，将类注册到命名空间，否则注册到环境（兼容旧代码）
+	// 非抽象类必须实现父类的所有抽象方法
+	if !node.IsAbstract && class.Parent != nil {
+		unimplemented := i.getUnimplementedAbstractMethods(class)
+		if len(unimplemented) > 0 {
+			return newError("类 %s 必须实现以下抽象方法: %v", node.Name.Value, unimplemented)
+		}
+	}
+
+	// 如果有当前命名空间，将类注册到命名空间
 	if i.currentNamespace != nil {
 		i.currentNamespace.SetClass(node.Name.Value, class)
-	} else {
-		// 如果没有命名空间，也注册到环境（向后兼容）
-		i.env.Set(node.Name.Value, class)
 	}
+	// 同时注册到当前环境，使同一文件中的其他类可以访问
+	i.env.Set(node.Name.Value, class)
 
 	return class
 }
@@ -1496,6 +1529,36 @@ func toInterfaceSlice(params []*parser.FunctionParameter) []interface{} {
 		result[i] = p
 	}
 	return result
+}
+
+// getUnimplementedAbstractMethods 获取未实现的抽象方法列表
+// 遍历父类链，收集所有抽象方法，检查当前类是否已实现
+func (i *Interpreter) getUnimplementedAbstractMethods(class *Class) []string {
+	unimplemented := []string{}
+
+	// 收集当前类已实现的方法（非抽象方法）
+	implementedMethods := make(map[string]bool)
+	for name, method := range class.Methods {
+		if !method.IsAbstract {
+			implementedMethods[name] = true
+		}
+	}
+
+	// 遍历父类链，收集所有抽象方法
+	parent := class.Parent
+	for parent != nil {
+		for name, method := range parent.Methods {
+			if method.IsAbstract {
+				// 检查是否已实现
+				if !implementedMethods[name] {
+					unimplemented = append(unimplemented, name)
+				}
+			}
+		}
+		parent = parent.Parent
+	}
+
+	return unimplemented
 }
 
 // evalNewExpression 执行 new 表达式，创建类实例
@@ -1532,6 +1595,11 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 	class, ok := classObj.(*Class)
 	if !ok {
 		return newError("%s 不是一个类", className)
+	}
+
+	// 检查是否是抽象类
+	if class.IsAbstract {
+		return newError("不能实例化抽象类: %s", className)
 	}
 
 	// 创建实例

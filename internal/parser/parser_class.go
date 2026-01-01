@@ -9,9 +9,19 @@ import (
 // ========== 类解析 ==========
 
 // parseClassStatement 解析类声明语句
-// 语法: class ClassName extends ParentClass implements Interface1, Interface2 { ... }
+// 语法: [abstract] class ClassName extends ParentClass implements Interface1, Interface2 { ... }
 func (p *Parser) parseClassStatement() *ClassStatement {
 	stmt := &ClassStatement{Token: p.curToken}
+
+	// 检查是否是抽象类（当前 token 是 abstract）
+	if p.curTokenIs(lexer.ABSTRACT) {
+		stmt.IsAbstract = true
+		p.nextToken() // 跳过 abstract，现在应该是 class
+		if !p.curTokenIs(lexer.CLASS) {
+			p.errors = append(p.errors, fmt.Sprintf("abstract 后面必须是 class 关键字 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+			return nil
+		}
+	}
 
 	if !p.expectPeek(lexer.IDENT) {
 		return nil
@@ -166,25 +176,46 @@ func (p *Parser) parseClassMembers() []ClassMember {
 			continue
 		}
 
+		// 检查是否是抽象方法
+		isAbstract := false
+		if p.curTokenIs(lexer.ABSTRACT) {
+			isAbstract = true
+			p.nextToken()
+		}
+
 		// 解析访问修饰符
 		if !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) {
+			if isAbstract {
+				p.errors = append(p.errors, fmt.Sprintf("abstract 后面必须是访问修饰符 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+			}
 			p.nextToken()
 			continue
 		}
 
 		accessModifier := p.curToken.Literal
+
+		// 抽象方法不能是 private
+		if isAbstract && accessModifier == "private" {
+			p.errors = append(p.errors, fmt.Sprintf("抽象方法不能是 private (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+			p.nextToken()
+			continue
+		}
+
 		p.nextToken()
 
 		// 检查是否是常量
 		if p.curTokenIs(lexer.CONST) {
+			if isAbstract {
+				p.errors = append(p.errors, fmt.Sprintf("常量不能是抽象的 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+			}
 			constant := p.parseClassConstant(accessModifier)
 			if constant != nil {
 				members = append(members, constant)
-				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.EOF) {
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.EOF) {
 					p.nextToken()
 				}
 			} else {
-				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.EOF) {
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.EOF) {
 					p.nextToken()
 				}
 			}
@@ -200,17 +231,20 @@ func (p *Parser) parseClassMembers() []ClassMember {
 
 		// 方法
 		if p.curTokenIs(lexer.FUNCTION) {
-			method := p.parseClassMethod(accessModifier, isStatic)
+			method := p.parseClassMethod(accessModifier, isStatic, isAbstract)
 			if method != nil {
 				members = append(members, method)
-				// 方法解析完成后，curToken 是方法体的 }，需要跳过它
-				// 但只有当下一个 token 不是类的 } 时才跳过（避免跳过类的 }）
-				if p.curTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.EOF) {
-					// 检查是否还有更多成员
-					if p.peekTokenIs(lexer.PUBLIC) || p.peekTokenIs(lexer.PRIVATE) || p.peekTokenIs(lexer.PROTECTED) {
-						p.nextToken() // 跳过方法体的 }
+				// 抽象方法没有方法体，不需要跳过 }
+				if !isAbstract {
+					// 方法解析完成后，curToken 是方法体的 }，需要跳过它
+					// 但只有当下一个 token 不是类的 } 时才跳过（避免跳过类的 }）
+					if p.curTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.EOF) {
+						// 检查是否还有更多成员
+						if p.peekTokenIs(lexer.PUBLIC) || p.peekTokenIs(lexer.PRIVATE) || p.peekTokenIs(lexer.PROTECTED) || p.peekTokenIs(lexer.ABSTRACT) {
+							p.nextToken() // 跳过方法体的 }
+						}
+						// 如果 peekToken 是 }，说明到达类的末尾，不跳过
 					}
-					// 如果 peekToken 是 }，说明到达类的末尾，不跳过
 				}
 			} else {
 				// 错误恢复
@@ -218,20 +252,24 @@ func (p *Parser) parseClassMembers() []ClassMember {
 					!p.curTokenIs(lexer.RBRACE) &&
 					!p.curTokenIs(lexer.PUBLIC) &&
 					!p.curTokenIs(lexer.PRIVATE) &&
-					!p.curTokenIs(lexer.PROTECTED) {
+					!p.curTokenIs(lexer.PROTECTED) &&
+					!p.curTokenIs(lexer.ABSTRACT) {
 					p.nextToken()
 				}
 			}
 		} else if p.curTokenIs(lexer.IDENT) {
+			if isAbstract {
+				p.errors = append(p.errors, fmt.Sprintf("成员变量不能是抽象的 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+			}
 			// 成员变量
 			variable := p.parseClassVariable(accessModifier)
 			if variable != nil {
 				members = append(members, variable)
-				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.EOF) {
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.EOF) {
 					p.nextToken()
 				}
 			} else {
-				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.EOF) {
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.EOF) {
 					p.nextToken()
 				}
 			}
@@ -331,11 +369,12 @@ func (p *Parser) parseClassConstant(accessModifier string) *ClassConstant {
 }
 
 // parseClassMethod 解析类方法
-func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMethod {
+func (p *Parser) parseClassMethod(accessModifier string, isStatic bool, isAbstract bool) *ClassMethod {
 	method := &ClassMethod{
 		Token:          p.curToken,
 		AccessModifier: accessModifier,
 		IsStatic:       isStatic,
+		IsAbstract:     isAbstract,
 	}
 
 	if !p.curTokenIs(lexer.FUNCTION) {
@@ -385,6 +424,13 @@ func (p *Parser) parseClassMethod(accessModifier string, isStatic bool) *ClassMe
 	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.FLOAT_TYPE) || p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.VOID) || p.peekTokenIs(lexer.IDENT) {
 		p.nextToken()
 		method.ReturnType = []*Identifier{{Token: p.curToken, Value: p.curToken.Literal}}
+	}
+
+	// 抽象方法没有方法体
+	if isAbstract {
+		// 抽象方法以换行或分号结束，不需要 { }
+		method.Body = nil
+		return method
 	}
 
 	if !p.expectPeek(lexer.LBRACE) {

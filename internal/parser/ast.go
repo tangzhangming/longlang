@@ -645,12 +645,16 @@ type ClassStatement struct {
 	Parent     *Identifier     // 父类名（可选，用于继承）
 	Interfaces []*Identifier   // 实现的接口列表
 	Members    []ClassMember   // 类成员（变量、方法）
+	IsAbstract bool            // 是否是抽象类
 }
 
 func (cs *ClassStatement) statementNode()       {}
 func (cs *ClassStatement) TokenLiteral() string { return cs.Token.Literal }
 func (cs *ClassStatement) String() string {
 	var out string
+	if cs.IsAbstract {
+		out += "abstract "
+	}
 	out += "class " + cs.Name.String()
 	if cs.Parent != nil {
 		out += " extends " + cs.Parent.String()
@@ -728,16 +732,20 @@ type ClassMethod struct {
 	Token          lexer.Token          // 访问修饰符对应的 token
 	AccessModifier string               // 访问修饰符：public, private, protected
 	IsStatic       bool                 // 是否是静态方法
+	IsAbstract     bool                 // 是否是抽象方法
 	Name           *Identifier         // 方法名（__construct 表示构造方法）
 	Parameters     []*FunctionParameter // 参数列表
 	ReturnType     []*Identifier       // 返回类型列表
-	Body           *BlockStatement     // 方法体
+	Body           *BlockStatement     // 方法体（抽象方法时为 nil）
 }
 
 func (cm *ClassMethod) classMemberNode()      {}
 func (cm *ClassMethod) TokenLiteral() string { return cm.Token.Literal }
 func (cm *ClassMethod) String() string {
 	var out string
+	if cm.IsAbstract {
+		out += "abstract "
+	}
 	out += cm.AccessModifier + " "
 	if cm.IsStatic {
 		out += "static "

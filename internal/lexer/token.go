@@ -103,6 +103,7 @@ const (
 	
 	// ========== 类相关关键字 ==========
 	CLASS      TokenType = "CLASS"      // class - 类定义关键字
+	ABSTRACT   TokenType = "ABSTRACT"   // abstract - 抽象类/方法关键字
 	INTERFACE  TokenType = "INTERFACE"  // interface - 接口定义关键字
 	EXTENDS    TokenType = "EXTENDS"    // extends - 继承关键字
 	IMPLEMENTS TokenType = "IMPLEMENTS" // implements - 实现接口关键字
@@ -174,6 +175,7 @@ var keywords = map[string]TokenType{
 	"namespace":  NAMESPACE,
 	"use":        USE,
 	"class":      CLASS,
+	"abstract":   ABSTRACT,
 	"interface":  INTERFACE,
 	"extends":    EXTENDS,
 	"implements": IMPLEMENTS,

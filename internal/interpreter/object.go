@@ -394,11 +394,16 @@ type Class struct {
 	StaticMethods map[string]*ClassMethod   // 静态方法
 	Env           *Environment              // 类定义时的环境（用于闭包）
 	IsExported    bool                      // 是否为导出类（与文件名相同）
+	IsAbstract    bool                      // 是否是抽象类
 }
 
 func (c *Class) Type() ObjectType { return CLASS_OBJ }
 func (c *Class) Inspect() string {
-	result := "class " + c.Name
+	result := ""
+	if c.IsAbstract {
+		result += "abstract "
+	}
+	result += "class " + c.Name
 	if c.Parent != nil {
 		result += " extends " + c.Parent.Name
 	}
@@ -503,9 +508,10 @@ type ClassMethod struct {
 	Name           string                    // 方法名
 	AccessModifier string                    // 访问修饰符
 	IsStatic       bool                      // 是否是静态方法
+	IsAbstract     bool                      // 是否是抽象方法
 	Parameters     []interface{}             // 参数列表（*parser.FunctionParameter）
 	ReturnType     []string                  // 返回类型
-	Body           interface{}               // 方法体（*parser.BlockStatement）
+	Body           interface{}               // 方法体（*parser.BlockStatement，抽象方法时为 nil）
 	Env            *Environment              // 方法定义时的环境
 }
 
