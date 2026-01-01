@@ -215,6 +215,63 @@ class CustomException extends Exception {
 }
 ```
 
+## 运行时错误捕获
+
+LongLang 的 `try-catch` 不仅能捕获通过 `throw` 抛出的异常，还能捕获运行时错误（如除以零、Map 键不存在等）。
+
+### 除以零
+
+```longlang
+try {
+    result := 100 / 0
+} catch (Exception e) {
+    fmt.println("错误: " + e.getMessage())
+    // 输出: 错误: 除以零
+}
+```
+
+### Map 键不存在
+
+```longlang
+scores := map[string]int{"Alice": 100}
+
+try {
+    x := scores["Unknown"]
+} catch (Exception e) {
+    fmt.println("错误: " + e.getMessage())
+    // 输出: 错误: Map 键不存在: Unknown
+}
+```
+
+### 数组索引越界
+
+```longlang
+arr := []int{1, 2, 3}
+
+try {
+    x := arr[10]
+} catch (Exception e) {
+    fmt.println("错误: " + e.getMessage())
+    // 输出: 错误: 数组索引越界：索引 10 超出范围 [0, 2]
+}
+```
+
+### 使用 isset 预防错误
+
+更推荐的做法是在访问前检查，避免异常：
+
+```longlang
+// Map 安全访问
+if isset(scores, "Alice") {
+    fmt.println(scores["Alice"])
+}
+
+// 数组安全访问
+if isset(arr, 5) {
+    fmt.println(arr[5])
+}
+```
+
 ## 最佳实践
 
 1. **使用具体的异常类型**: 尽可能使用具体的异常类型，而不是通用的 `Exception`。
@@ -226,4 +283,41 @@ class CustomException extends Exception {
 4. **不要捕获所有异常后忽略**: 如果捕获异常，应该进行适当的处理（记录日志、转换为用户友好的消息等）。
 
 5. **异常消息要有意义**: 抛出异常时，提供清晰、有意义的错误消息。
+
+6. **优先使用 isset 检查**: 对于 Map 和数组访问，优先使用 `isset()` 检查，而不是依赖异常捕获。
+
+7. **finally 块不能访问 catch 变量**: `finally` 块无法访问 `catch` 块中声明的异常变量。
+
+## 注意事项
+
+### finally 块作用域
+
+`finally` 块无法访问 `catch` 块中的异常变量：
+
+```longlang
+try {
+    throw new Exception("错误")
+} catch (Exception e) {
+    fmt.println(e.getMessage())  // ✅ 正确
+} finally {
+    // fmt.println(e.getMessage())  // ❌ 错误: 未定义的标识符 e
+    fmt.println("清理完成")
+}
+```
+
+### catch 块顺序
+
+更具体的异常类型必须放在前面：
+
+```longlang
+try {
+    // ...
+} catch (ArithmeticException e) {
+    // 具体类型在前
+} catch (RuntimeException e) {
+    // 父类类型在后
+} catch (Exception e) {
+    // 最通用的在最后
+}
+```
 

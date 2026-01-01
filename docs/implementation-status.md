@@ -1,4 +1,35 @@
-# 包系统和类系统实现状态
+# LongLang 实现状态
+
+**最后更新**: 2026-01-01
+
+## 最新实现功能
+
+### Map 类型 ✅（2026-01-01）
+- ✅ `map` 关键字
+- ✅ `map[KeyType]ValueType{...}` 语法
+- ✅ 键值访问和赋值
+- ✅ 方法：`size()`, `isEmpty()`, `delete()`, `keys()`, `values()`, `clear()`
+- ✅ 全局函数：`isset(map, key)`, `len(map)`
+- ✅ 文档：`docs/map.md`
+
+### 异常处理 ✅（2026-01-01）
+- ✅ `try-catch-finally` 语法
+- ✅ `throw` 语句
+- ✅ 多 catch 块支持
+- ✅ 运行时错误捕获（除以零、Map 键不存在等）
+- ✅ 异常类层次结构（Exception、RuntimeException 等）
+- ✅ 文档：`docs/exception-handling.md`
+
+### 数组方法 ✅（2026-01-01）
+- ✅ `length()`, `isEmpty()`
+- ✅ `push()`, `pop()`, `shift()`
+- ✅ `contains()`, `indexOf()`
+- ✅ `join()`, `reverse()`, `slice()`
+- ✅ `clear()`
+- ✅ `isset(array, index)` 支持
+- ✅ 文档更新：`docs/array.md`
+
+---
 
 ## 已完成的工作
 

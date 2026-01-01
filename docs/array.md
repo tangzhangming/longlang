@@ -85,14 +85,113 @@ fmt.println(arr)  // 输出: {10, 200, 30}
 
 ### 获取长度
 
-使用内置函数 `len()` 获取数组长度：
+使用内置函数 `len()` 或方法 `length()` 获取数组长度：
 
 ```longlang
 var arr = {1, 2, 3, 4, 5}
-fmt.println(len(arr))  // 输出: 5
+fmt.println(len(arr))       // 输出: 5
+fmt.println(arr.length())   // 输出: 5
 
 var str = "Hello"
 fmt.println(len(str))  // 输出: 5 (字符串也支持 len)
+```
+
+## 数组方法
+
+### 基本信息
+
+| 方法 | 说明 | 示例 | 返回值 |
+|------|------|------|--------|
+| `length()` | 获取数组长度 | `arr.length()` | `int` |
+| `isEmpty()` | 判断是否为空 | `arr.isEmpty()` | `bool` |
+
+```longlang
+arr := []int{1, 2, 3}
+fmt.println(arr.length())   // 3
+fmt.println(arr.isEmpty())  // false
+
+empty := []int{}
+fmt.println(empty.isEmpty())  // true
+```
+
+### 添加和删除
+
+| 方法 | 说明 | 示例 | 返回值 |
+|------|------|------|--------|
+| `push(value)` | 在末尾添加元素 | `arr.push(5)` | - |
+| `pop()` | 删除并返回最后一个元素 | `arr.pop()` | 元素值 |
+| `shift()` | 删除并返回第一个元素 | `arr.shift()` | 元素值 |
+| `clear()` | 清空数组 | `arr.clear()` | - |
+
+```longlang
+arr := []int{1, 2, 3}
+
+arr.push(4)           // arr = {1, 2, 3, 4}
+last := arr.pop()     // last = 4, arr = {1, 2, 3}
+first := arr.shift()  // first = 1, arr = {2, 3}
+
+arr.clear()           // arr = {}
+```
+
+### 查找
+
+| 方法 | 说明 | 示例 | 返回值 |
+|------|------|------|--------|
+| `contains(value)` | 判断是否包含元素 | `arr.contains(2)` | `bool` |
+| `indexOf(value)` | 返回元素第一次出现的索引 | `arr.indexOf(2)` | `int`（不存在返回 -1） |
+
+```longlang
+arr := []int{10, 20, 30, 20}
+
+fmt.println(arr.contains(20))   // true
+fmt.println(arr.contains(99))   // false
+fmt.println(arr.indexOf(20))    // 1
+fmt.println(arr.indexOf(99))    // -1
+```
+
+### 转换
+
+| 方法 | 说明 | 示例 | 返回值 |
+|------|------|------|--------|
+| `join(separator)` | 用分隔符连接元素 | `arr.join(",")` | `string` |
+| `reverse()` | 反转数组（返回新数组） | `arr.reverse()` | 新数组 |
+| `slice(start, end)` | 截取数组片段 | `arr.slice(1, 3)` | 新数组 |
+
+```longlang
+arr := []int{1, 2, 3, 4, 5}
+
+// join - 连接成字符串
+fmt.println(arr.join(","))    // "1,2,3,4,5"
+fmt.println(arr.join(" - "))  // "1 - 2 - 3 - 4 - 5"
+
+// reverse - 反转
+reversed := arr.reverse()     // {5, 4, 3, 2, 1}
+
+// slice - 截取
+part1 := arr.slice(1)         // {2, 3, 4, 5} (从索引1到末尾)
+part2 := arr.slice(1, 3)      // {2, 3} (从索引1到3，不包含3)
+```
+
+## isset 函数
+
+使用全局函数 `isset()` 检查数组索引是否有效：
+
+```longlang
+arr := []int{10, 20, 30, 40, 50}
+
+fmt.println(isset(arr, 0))    // true
+fmt.println(isset(arr, 4))    // true
+fmt.println(isset(arr, 5))    // false (越界)
+fmt.println(isset(arr, -1))   // true (负数索引有效)
+fmt.println(isset(arr, -5))   // true
+fmt.println(isset(arr, -6))   // false (越界)
+
+// 安全访问
+if isset(arr, 10) {
+    fmt.println(arr[10])
+} else {
+    fmt.println("索引不存在")
+}
 ```
 
 ## 多维数组
