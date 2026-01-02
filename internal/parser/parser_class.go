@@ -8,13 +8,19 @@ import (
 
 // ========== 类解析 ==========
 
-// parseClassStatement 解析类声明语句
-// 语法: [public|internal] [abstract] class ClassName extends ParentClass implements Interface1, Interface2 { ... }
+// parseClassStatement 解析类声明语句（无注解版本，为兼容保留）
+func (p *Parser) parseClassStatement(isPublic bool, isInternal bool) *ClassStatement {
+	return p.parseClassStatementWithAnnotations(isPublic, isInternal, nil)
+}
+
+// parseClassStatementWithAnnotations 解析类声明语句（带注解）
+// 语法: [@Annotation] [public|internal] [abstract] class ClassName extends ParentClass implements Interface1, Interface2 { ... }
 // isPublic: 是否显式声明为 public
 // isInternal: 是否显式声明为 internal
 // 如果两者都为 false，则默认为 internal
-func (p *Parser) parseClassStatement(isPublic bool, isInternal bool) *ClassStatement {
-	stmt := &ClassStatement{Token: p.curToken}
+// annotations: 类上的注解列表
+func (p *Parser) parseClassStatementWithAnnotations(isPublic bool, isInternal bool, annotations []*Annotation) *ClassStatement {
+	stmt := &ClassStatement{Token: p.curToken, Annotations: annotations}
 
 	// 设置可见性
 	if isPublic {
@@ -86,13 +92,19 @@ func (p *Parser) parseInterfaceList() []*Identifier {
 	return interfaces
 }
 
-// parseInterfaceStatement 解析接口声明语句
-// 语法: [public|internal] interface InterfaceName { function method1(); function method2():type; }
+// parseInterfaceStatement 解析接口声明语句（无注解版本，为兼容保留）
+func (p *Parser) parseInterfaceStatement(isPublic bool, isInternal bool) *InterfaceStatement {
+	return p.parseInterfaceStatementWithAnnotations(isPublic, isInternal, nil)
+}
+
+// parseInterfaceStatementWithAnnotations 解析接口声明语句（带注解）
+// 语法: [@Annotation] [public|internal] interface InterfaceName { function method1(); function method2():type; }
 // isPublic: 是否显式声明为 public
 // isInternal: 是否显式声明为 internal
 // 如果两者都为 false，则默认为 internal
-func (p *Parser) parseInterfaceStatement(isPublic bool, isInternal bool) *InterfaceStatement {
-	stmt := &InterfaceStatement{Token: p.curToken}
+// annotations: 接口上的注解列表
+func (p *Parser) parseInterfaceStatementWithAnnotations(isPublic bool, isInternal bool, annotations []*Annotation) *InterfaceStatement {
+	stmt := &InterfaceStatement{Token: p.curToken, Annotations: annotations}
 
 	// 设置可见性
 	if isPublic {
@@ -202,6 +214,12 @@ func (p *Parser) parseClassMembers() []ClassMember {
 			continue
 		}
 
+		// 检查成员上的注解
+		var memberAnnotations []*Annotation
+		if p.curTokenIs(lexer.AT) {
+			memberAnnotations = p.parseAnnotations()
+		}
+
 		// 检查是否是抽象方法
 		isAbstract := false
 		if p.curTokenIs(lexer.ABSTRACT) {
@@ -259,14 +277,15 @@ func (p *Parser) parseClassMembers() []ClassMember {
 		if p.curTokenIs(lexer.FUNCTION) {
 			method := p.parseClassMethod(accessModifier, isStatic, isAbstract)
 			if method != nil {
+				method.Annotations = memberAnnotations
 				members = append(members, method)
 				// 抽象方法没有方法体，不需要跳过 }
 				if !isAbstract {
 					// 方法解析完成后，curToken 是方法体的 }，需要跳过它
 					// 但只有当下一个 token 不是类的 } 时才跳过（避免跳过类的 }）
 					if p.curTokenIs(lexer.RBRACE) && !p.peekTokenIs(lexer.EOF) {
-						// 检查是否还有更多成员
-						if p.peekTokenIs(lexer.PUBLIC) || p.peekTokenIs(lexer.PRIVATE) || p.peekTokenIs(lexer.PROTECTED) || p.peekTokenIs(lexer.ABSTRACT) {
+						// 检查是否还有更多成员（包括带注解的成员）
+						if p.peekTokenIs(lexer.PUBLIC) || p.peekTokenIs(lexer.PRIVATE) || p.peekTokenIs(lexer.PROTECTED) || p.peekTokenIs(lexer.ABSTRACT) || p.peekTokenIs(lexer.AT) {
 							p.nextToken() // 跳过方法体的 }
 						}
 						// 如果 peekToken 是 }，说明到达类的末尾，不跳过
@@ -279,7 +298,8 @@ func (p *Parser) parseClassMembers() []ClassMember {
 					!p.curTokenIs(lexer.PUBLIC) &&
 					!p.curTokenIs(lexer.PRIVATE) &&
 					!p.curTokenIs(lexer.PROTECTED) &&
-					!p.curTokenIs(lexer.ABSTRACT) {
+					!p.curTokenIs(lexer.ABSTRACT) &&
+					!p.curTokenIs(lexer.AT) {
 					p.nextToken()
 				}
 			}
@@ -290,6 +310,7 @@ func (p *Parser) parseClassMembers() []ClassMember {
 			// 成员变量
 			variable := p.parseClassVariable(accessModifier)
 			if variable != nil {
+				variable.Annotations = memberAnnotations
 				members = append(members, variable)
 				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.EOF) {
 					p.nextToken()

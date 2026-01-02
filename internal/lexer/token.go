@@ -167,6 +167,10 @@ const (
 	
 	// ========== 字符串插值 ==========
 	INTERP_STRING TokenType = "INTERP_STRING" // $"..." - 插值字符串
+	
+	// ========== 注解 ==========
+	AT         TokenType = "@"          // @ - 注解标记符
+	ANNOTATION TokenType = "ANNOTATION" // annotation - 注解定义关键字
 )
 
 // Token 表示一个词法单元
@@ -250,6 +254,8 @@ var keywords = map[string]TokenType{
 	"range":   RANGE,
 	// 类型断言
 	"as": AS,
+	// 注解
+	"annotation": ANNOTATION,
 }
 
 // LookupIdent 检查标识符是否是关键字

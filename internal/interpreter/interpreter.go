@@ -32,17 +32,18 @@ func newParser(l *lexer.Lexer) *parser.Parser {
 
 // Interpreter 解释器，负责执行 AST 节点
 type Interpreter struct {
-	env               *Environment          // 当前作用域环境
-	stdlibPath        string                // 标准库目录路径
-	loadedModules     map[string]*Module    // 已加载的模块缓存（已废弃，保留以兼容）
-	currentFileName   string                // 当前正在处理的文件名（不含扩展名），用于判断导出类
-	namespaceMgr      *NamespaceManager     // 命名空间管理器
-	currentNamespace  *Namespace            // 当前命名空间
-	projectRoot       string                // 项目根目录
-	projectConfig     *config.ProjectConfig // 项目配置
-	loadedNamespaces  map[string]bool       // 已加载的命名空间文件缓存
-	loadingNamespaces map[string]bool       // 正在加载中的命名空间（用于循环依赖检测）
-	callStack         []StackFrame          // 调用栈（用于堆栈跟踪）
+	env               *Environment              // 当前作用域环境
+	stdlibPath        string                    // 标准库目录路径
+	loadedModules     map[string]*Module        // 已加载的模块缓存（已废弃，保留以兼容）
+	currentFileName   string                    // 当前正在处理的文件名（不含扩展名），用于判断导出类
+	namespaceMgr      *NamespaceManager         // 命名空间管理器
+	currentNamespace  *Namespace                // 当前命名空间
+	projectRoot       string                    // 项目根目录
+	projectConfig     *config.ProjectConfig     // 项目配置
+	loadedNamespaces  map[string]bool           // 已加载的命名空间文件缓存
+	loadingNamespaces map[string]bool           // 正在加载中的命名空间（用于循环依赖检测）
+	callStack         []StackFrame              // 调用栈（用于堆栈跟踪）
+	annotationDefs    map[string]*AnnotationDef // 已定义的注解
 }
 
 // StackFrame 调用栈帧
@@ -74,6 +75,10 @@ func New() *Interpreter {
 	registerBytesBuiltins(env)
 	// 注册正则表达式内置函数
 	registerRegexBuiltins(env)
+	// 注册注解相关内置函数
+	registerAnnotationBuiltins(env)
+	// 设置全局环境引用（用于注解内置函数）
+	globalEnv = env
 	// 注册异常类
 	registerExceptionClasses(env)
 	return &Interpreter{
@@ -116,6 +121,9 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 	case *parser.UseStatement:
 		// 处理 use 导入语句
 		return i.evalUseStatement(node)
+	case *parser.AnnotationDefinition:
+		// 注解定义
+		return i.evalAnnotationDefinition(node)
 	case *parser.ClassStatement:
 		// 类定义，注册到环境中
 		return i.evalClassStatement(node)
@@ -1782,6 +1790,7 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 		IsPublic:      node.IsPublic,
 		IsInternal:    node.IsInternal,
 		Namespace:     currentNS,
+		Annotations:   i.convertAnnotationsToInstances(node.Annotations),
 	}
 
 	// 处理继承
@@ -1861,6 +1870,7 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 				Type:           m.Type.Value,
 				AccessModifier: m.AccessModifier,
 				DefaultValue:   defaultValue,
+				Annotations:    i.convertAnnotationsToInstances(m.Annotations),
 			}
 		case *parser.ClassMethod:
 			// 处理方法
@@ -1880,6 +1890,7 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 				FileName:       i.currentFileName,
 				Line:           m.Token.Line,
 				Column:         m.Token.Column,
+				Annotations:    i.convertAnnotationsToInstances(m.Annotations),
 			}
 
 			// 非抽象类不能有抽象方法

@@ -658,11 +658,12 @@ func (us *UseStatement) String() string {
 // InterfaceStatement 接口声明语句
 // 对应语法：interface InterfaceName { ... }
 type InterfaceStatement struct {
-	Token      lexer.Token         // interface 关键字对应的 token
-	Name       *Identifier         // 接口名
-	Methods    []*InterfaceMethod  // 接口方法签名
-	IsPublic   bool                // 是否是公开接口（可被其他命名空间访问）
-	IsInternal bool                // 是否是内部接口（仅命名空间树内可访问，默认）
+	Token       lexer.Token         // interface 关键字对应的 token
+	Name        *Identifier         // 接口名
+	Methods     []*InterfaceMethod  // 接口方法签名
+	IsPublic    bool                // 是否是公开接口（可被其他命名空间访问）
+	IsInternal  bool                // 是否是内部接口（仅命名空间树内可访问，默认）
+	Annotations []*Annotation       // 接口上的注解列表
 }
 
 func (is *InterfaceStatement) statementNode()       {}
@@ -713,14 +714,15 @@ func (im *InterfaceMethod) String() string {
 // ClassStatement 类声明语句
 // 对应语法：class ClassName extends Parent implements Interface1, Interface2 { ... }
 type ClassStatement struct {
-	Token      lexer.Token     // class 关键字对应的 token
-	Name       *Identifier     // 类名
-	Parent     *Identifier     // 父类名（可选，用于继承）
-	Interfaces []*Identifier   // 实现的接口列表
-	Members    []ClassMember   // 类成员（变量、方法）
-	IsAbstract bool            // 是否是抽象类
-	IsPublic   bool            // 是否是公开类（可被其他命名空间访问）
-	IsInternal bool            // 是否是内部类（仅命名空间树内可访问，默认）
+	Token       lexer.Token     // class 关键字对应的 token
+	Name        *Identifier     // 类名
+	Parent      *Identifier     // 父类名（可选，用于继承）
+	Interfaces  []*Identifier   // 实现的接口列表
+	Members     []ClassMember   // 类成员（变量、方法）
+	IsAbstract  bool            // 是否是抽象类
+	IsPublic    bool            // 是否是公开类（可被其他命名空间访问）
+	IsInternal  bool            // 是否是内部类（仅命名空间树内可访问，默认）
+	Annotations []*Annotation   // 类上的注解列表
 }
 
 func (cs *ClassStatement) statementNode()       {}
@@ -760,11 +762,12 @@ type ClassMember interface {
 // ClassVariable 类成员变量
 // 对应语法：访问修饰符 变量名 类型 或 访问修饰符 变量名 类型 = 值
 type ClassVariable struct {
-	Token         lexer.Token // 访问修饰符对应的 token
-	AccessModifier string     // 访问修饰符：public, private, protected
-	Name          *Identifier // 变量名
-	Type          *Identifier // 变量类型
-	Value         Expression  // 初始值（可选）
+	Token          lexer.Token   // 访问修饰符对应的 token
+	AccessModifier string        // 访问修饰符：public, private, protected
+	Name           *Identifier   // 变量名
+	Type           *Identifier   // 变量类型
+	Value          Expression    // 初始值（可选）
+	Annotations    []*Annotation // 字段上的注解列表
 }
 
 func (cv *ClassVariable) classMemberNode()      {}
@@ -808,10 +811,11 @@ type ClassMethod struct {
 	AccessModifier string               // 访问修饰符：public, private, protected
 	IsStatic       bool                 // 是否是静态方法
 	IsAbstract     bool                 // 是否是抽象方法
-	Name           *Identifier         // 方法名（__construct 表示构造方法）
+	Name           *Identifier          // 方法名（__construct 表示构造方法）
 	Parameters     []*FunctionParameter // 参数列表
-	ReturnType     []*Identifier       // 返回类型列表
-	Body           *BlockStatement     // 方法体（抽象方法时为 nil）
+	ReturnType     []*Identifier        // 返回类型列表
+	Body           *BlockStatement      // 方法体（抽象方法时为 nil）
+	Annotations    []*Annotation        // 方法上的注解列表
 }
 
 func (cm *ClassMethod) classMemberNode()      {}
@@ -1169,6 +1173,7 @@ type EnumStatement struct {
 	Variables   []*ClassVariable // 枚举字段（用于复杂枚举）
 	IsPublic    bool             // 是否是公开枚举（可被其他命名空间访问）
 	IsInternal  bool             // 是否是内部枚举（仅命名空间树内可访问，默认）
+	Annotations []*Annotation    // 枚举上的注解列表
 }
 
 func (es *EnumStatement) statementNode()       {}
@@ -1388,6 +1393,83 @@ func (ma *MatchArm) String() string {
 		out += "{ ... }"
 	} else if ma.Result != nil {
 		out += ma.Result.String()
+	}
+	return out
+}
+
+// ========== 注解相关节点 ==========
+
+// Annotation 注解使用
+// 对应语法：@AnnotationName 或 @AnnotationName(param1: value1, param2: value2)
+// 例如：@Entity、@Column(name: "user_id", nullable: false)
+type Annotation struct {
+	Token      lexer.Token           // @ 符号对应的 token
+	Name       *Identifier           // 注解名称
+	Arguments  map[string]Expression // 注解参数（命名参数）
+	ArgOrder   []string              // 参数顺序（保持定义顺序）
+}
+
+func (a *Annotation) expressionNode()      {}
+func (a *Annotation) TokenLiteral() string { return a.Token.Literal }
+func (a *Annotation) String() string {
+	out := "@" + a.Name.String()
+	if len(a.Arguments) > 0 {
+		out += "("
+		for i, key := range a.ArgOrder {
+			if i > 0 {
+				out += ", "
+			}
+			out += key + ": " + a.Arguments[key].String()
+		}
+		out += ")"
+	}
+	return out
+}
+
+// AnnotationDefinition 注解定义语句
+// 对应语法：annotation AnnotationName { field1 type = default, ... }
+// 例如：
+//   annotation Entity {
+//       table string = ""
+//   }
+type AnnotationDefinition struct {
+	Token       lexer.Token          // annotation 关键字对应的 token
+	Name        *Identifier          // 注解名称
+	Fields      []*AnnotationField   // 注解字段列表
+	Annotations []*Annotation        // 元注解（如 @Target, @Retention）
+}
+
+func (ad *AnnotationDefinition) statementNode()       {}
+func (ad *AnnotationDefinition) TokenLiteral() string { return ad.Token.Literal }
+func (ad *AnnotationDefinition) String() string {
+	var out string
+	for _, ann := range ad.Annotations {
+		out += ann.String() + "\n"
+	}
+	out += "annotation " + ad.Name.String() + " {\n"
+	for _, field := range ad.Fields {
+		out += "    " + field.String() + "\n"
+	}
+	out += "}"
+	return out
+}
+
+// AnnotationField 注解字段定义
+// 对应语法：fieldName type = defaultValue
+// 例如：table string = ""
+type AnnotationField struct {
+	Token        lexer.Token // 字段名对应的 token
+	Name         *Identifier // 字段名
+	Type         Expression  // 字段类型
+	DefaultValue Expression  // 默认值（可选）
+}
+
+func (af *AnnotationField) expressionNode()      {}
+func (af *AnnotationField) TokenLiteral() string { return af.Token.Literal }
+func (af *AnnotationField) String() string {
+	out := af.Name.String() + " " + af.Type.String()
+	if af.DefaultValue != nil {
+		out += " = " + af.DefaultValue.String()
 	}
 	return out
 }

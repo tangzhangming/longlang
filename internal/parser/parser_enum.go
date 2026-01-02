@@ -8,13 +8,19 @@ import (
 
 // ========== 枚举解析 ==========
 
-// parseEnumStatement 解析枚举声明语句
-// 语法: [public|internal] enum EnumName [: BackingType] [implements Interface1, Interface2] { Members }
+// parseEnumStatement 解析枚举声明语句（无注解版本，为兼容保留）
+func (p *Parser) parseEnumStatement(isPublic bool, isInternal bool) *EnumStatement {
+	return p.parseEnumStatementWithAnnotations(isPublic, isInternal, nil)
+}
+
+// parseEnumStatementWithAnnotations 解析枚举声明语句（带注解）
+// 语法: [@Annotation] [public|internal] enum EnumName [: BackingType] [implements Interface1, Interface2] { Members }
 // isPublic: 是否显式声明为 public
 // isInternal: 是否显式声明为 internal
 // 如果两者都为 false，则默认为 internal
-func (p *Parser) parseEnumStatement(isPublic bool, isInternal bool) *EnumStatement {
-	stmt := &EnumStatement{Token: p.curToken}
+// annotations: 枚举上的注解列表
+func (p *Parser) parseEnumStatementWithAnnotations(isPublic bool, isInternal bool, annotations []*Annotation) *EnumStatement {
+	stmt := &EnumStatement{Token: p.curToken, Annotations: annotations}
 
 	// 设置可见性
 	if isPublic {

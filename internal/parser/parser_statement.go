@@ -20,6 +20,12 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseNamespaceStatement()
 	case lexer.USE:
 		return p.parseUseStatement()
+	case lexer.AT:
+		// 注解 @Annotation，后面可能跟着 class/interface/enum/annotation
+		return p.parseAnnotatedDeclaration()
+	case lexer.ANNOTATION:
+		// annotation 定义
+		return p.parseAnnotationDefinition(nil)
 	case lexer.PUBLIC:
 		// public class/interface/enum ...
 		return p.parsePublicDeclaration()
@@ -28,13 +34,13 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseInternalDeclaration()
 	case lexer.ABSTRACT:
 		// abstract class ...
-		return p.parseClassStatement(false, false)
+		return p.parseClassStatementWithAnnotations(false, false, nil)
 	case lexer.CLASS:
-		return p.parseClassStatement(false, false)
+		return p.parseClassStatementWithAnnotations(false, false, nil)
 	case lexer.INTERFACE:
-		return p.parseInterfaceStatement(false, false)
+		return p.parseInterfaceStatementWithAnnotations(false, false, nil)
 	case lexer.ENUM:
-		return p.parseEnumStatement(false, false)
+		return p.parseEnumStatementWithAnnotations(false, false, nil)
 	case lexer.VAR:
 		return p.parseLetStatement()
 	case lexer.RETURN:
@@ -70,20 +76,51 @@ func (p *Parser) parseStatement() Statement {
 	}
 }
 
+// parseAnnotatedDeclaration 解析带注解的声明
+// 注解可以应用于：class, interface, enum, annotation
+func (p *Parser) parseAnnotatedDeclaration() Statement {
+	annotations := p.parseAnnotations()
+
+	switch p.curToken.Type {
+	case lexer.PUBLIC:
+		return p.parsePublicDeclarationWithAnnotations(annotations)
+	case lexer.INTERNAL:
+		return p.parseInternalDeclarationWithAnnotations(annotations)
+	case lexer.ABSTRACT:
+		return p.parseClassStatementWithAnnotations(false, false, annotations)
+	case lexer.CLASS:
+		return p.parseClassStatementWithAnnotations(false, false, annotations)
+	case lexer.INTERFACE:
+		return p.parseInterfaceStatementWithAnnotations(false, false, annotations)
+	case lexer.ENUM:
+		return p.parseEnumStatementWithAnnotations(false, false, annotations)
+	case lexer.ANNOTATION:
+		return p.parseAnnotationDefinition(annotations)
+	default:
+		p.errors = append(p.errors, fmt.Sprintf("注解后面必须是 class、interface、enum 或 annotation (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+}
+
 // parsePublicDeclaration 解析 public 开头的声明
 // 支持：public class, public abstract class, public interface, public enum
 func (p *Parser) parsePublicDeclaration() Statement {
+	return p.parsePublicDeclarationWithAnnotations(nil)
+}
+
+// parsePublicDeclarationWithAnnotations 解析 public 开头的声明（带注解）
+func (p *Parser) parsePublicDeclarationWithAnnotations(annotations []*Annotation) Statement {
 	p.nextToken() // 跳过 public
 
 	switch p.curToken.Type {
 	case lexer.CLASS:
-		return p.parseClassStatement(true, false)
+		return p.parseClassStatementWithAnnotations(true, false, annotations)
 	case lexer.ABSTRACT:
-		return p.parseClassStatement(true, false)
+		return p.parseClassStatementWithAnnotations(true, false, annotations)
 	case lexer.INTERFACE:
-		return p.parseInterfaceStatement(true, false)
+		return p.parseInterfaceStatementWithAnnotations(true, false, annotations)
 	case lexer.ENUM:
-		return p.parseEnumStatement(true, false)
+		return p.parseEnumStatementWithAnnotations(true, false, annotations)
 	default:
 		p.errors = append(p.errors, fmt.Sprintf("public 后面必须是 class、abstract、interface 或 enum (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
@@ -93,17 +130,22 @@ func (p *Parser) parsePublicDeclaration() Statement {
 // parseInternalDeclaration 解析 internal 开头的声明
 // 支持：internal class, internal abstract class, internal interface, internal enum
 func (p *Parser) parseInternalDeclaration() Statement {
+	return p.parseInternalDeclarationWithAnnotations(nil)
+}
+
+// parseInternalDeclarationWithAnnotations 解析 internal 开头的声明（带注解）
+func (p *Parser) parseInternalDeclarationWithAnnotations(annotations []*Annotation) Statement {
 	p.nextToken() // 跳过 internal
 
 	switch p.curToken.Type {
 	case lexer.CLASS:
-		return p.parseClassStatement(false, true)
+		return p.parseClassStatementWithAnnotations(false, true, annotations)
 	case lexer.ABSTRACT:
-		return p.parseClassStatement(false, true)
+		return p.parseClassStatementWithAnnotations(false, true, annotations)
 	case lexer.INTERFACE:
-		return p.parseInterfaceStatement(false, true)
+		return p.parseInterfaceStatementWithAnnotations(false, true, annotations)
 	case lexer.ENUM:
-		return p.parseEnumStatement(false, true)
+		return p.parseEnumStatementWithAnnotations(false, true, annotations)
 	default:
 		p.errors = append(p.errors, fmt.Sprintf("internal 后面必须是 class、abstract、interface 或 enum (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil

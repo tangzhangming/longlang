@@ -324,6 +324,9 @@ func (l *Lexer) NextToken() Token {
 		}
 		// 单独的 $ 是非法字符
 		tok = newToken(ILLEGAL, l.ch, l.line, l.column)
+	case '@':
+		// 注解标记符 @
+		tok = newToken(AT, l.ch, l.line, l.column)
 	case '"':
 		// 双引号字符串字面量
 		tok.Type = STRING

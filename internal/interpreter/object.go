@@ -443,6 +443,7 @@ type Class struct {
 	IsPublic      bool                      // 是否是公开类（可被其他命名空间访问）
 	IsInternal    bool                      // 是否是内部类（仅命名空间树内可访问，默认）
 	Namespace     string                    // 所属命名空间
+	Annotations   []*AnnotationInstance     // 类上的注解列表
 }
 
 func (c *Class) Type() ObjectType { return CLASS_OBJ }
@@ -537,10 +538,11 @@ func (c *Class) GetConstant(name string) (*ClassConstant, bool) {
 
 // ClassVariable 类成员变量定义
 type ClassVariable struct {
-	Name           string      // 变量名
-	Type           string      // 变量类型
-	AccessModifier string      // 访问修饰符：public, private, protected
-	DefaultValue   Object       // 默认值（可选）
+	Name           string                // 变量名
+	Type           string                // 变量类型
+	AccessModifier string                // 访问修饰符：public, private, protected
+	DefaultValue   Object                // 默认值（可选）
+	Annotations    []*AnnotationInstance // 字段上的注解列表
 }
 
 // ClassConstant 类常量定义
@@ -564,6 +566,7 @@ type ClassMethod struct {
 	FileName       string                    // 定义方法的文件名（用于堆栈跟踪）
 	Line           int                       // 方法定义的行号
 	Column         int                       // 方法定义的列号
+	Annotations    []*AnnotationInstance     // 方法上的注解列表
 }
 
 // Instance 类实例对象
