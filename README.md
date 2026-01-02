@@ -37,17 +37,25 @@ longlang.exe run test/test1_basic.long
 
 详细文档请参阅 `docs/` 目录：
 
+### 基础语法
+
 | 文档 | 说明 |
 |------|------|
 | [变量](docs/variables.md) | 变量声明、作用域、赋值 |
-| [控制结构](docs/control-structures.md) | if/else、for 循环、break/continue |
-| [函数](docs/functions.md) | 函数定义、参数、返回值 |
-| [注释](docs/comments.md) | 单行注释用法 |
 | [类型系统](docs/types.md) | 整数、浮点数、字符串、布尔类型 |
-| [数组](docs/array.md) | 固定长度数组、动态数组、多维数组 |
+| [控制结构](docs/control-structures.md) | if/else、for 循环、break/continue、三目运算符 |
+| [函数](docs/functions.md) | 函数定义、参数、返回值、闭包 |
 | [运算符](docs/operators.md) | 算术、比较、逻辑运算符 |
-| [命名空间](docs/namespace.md) | namespace、use、项目结构 |
+| [注释](docs/comments.md) | 单行注释、块注释用法 |
 | [关键字](docs/keywords.md) | 语言保留关键字列表 |
+
+### 数据结构
+
+| 文档 | 说明 |
+|------|------|
+| [数组](docs/array.md) | 固定长度数组、动态数组、多维数组 |
+| [Map](docs/map.md) | Map 数据结构和方法 |
+| [字符串](docs/string.md) | 字符串方法和操作 |
 
 ### 面向对象
 
@@ -57,130 +65,27 @@ longlang.exe run test/test1_basic.long
 | [类继承](docs/class-inheritance.md) | extends、方法重写、super |
 | [类常量](docs/class-constants.md) | 常量定义、访问、类型声明 |
 | [接口](docs/class-interface.md) | interface、implements、多接口 |
+| [枚举](docs/enum.md) | enum、枚举值、枚举方法 |
 
-### 进阶文档
+### 高级特性
 
 | 文档 | 说明 |
 |------|------|
-| [标准库](docs/stdlib.md) | System.IO、System.Exception 等标准库 |
-| [三目运算符](docs/ternary.md) | 三目运算符使用规范 |
+| [命名空间](docs/namespace.md) | namespace、use、项目结构 |
+| [异常处理](docs/exception-handling.md) | try-catch-finally、throw、异常类 |
+| [协程](docs/coroutine.md) | go 关键字、Channel、WaitGroup、Mutex、Atomic |
+
+### 标准库
+
+| 文档 | 说明 |
+|------|------|
+| [标准库](docs/stdlib.md) | System.IO、System.Net、System.Http 等 |
 
 ### 开发者文档
 
 | 文档 | 说明 |
 |------|------|
 | [开发者指南](docs/developer-guide.md) | 架构、调试、添加新特性 |
-
-## 快速入门
-
-### Hello World
-
-```longlang
-namespace App
-
-class Application {
-    public static function main() {
-        fmt.println("Hello, World!")
-    }
-}
-```
-
-### 变量和运算
-
-```longlang
-namespace App
-
-class Application {
-    public static function main() {
-        // 变量声明
-        name := "LongLang"
-        version := 1.0
-        
-        // 算术运算
-        a := 10
-        b := 3
-        fmt.println("a + b =", a + b)
-        fmt.println("a * b =", a * b)
-        
-        // 字符串拼接
-        greeting := "Hello, " + name
-        fmt.println(greeting)
-    }
-}
-```
-
-### 控制流
-
-```longlang
-namespace App
-
-class Application {
-    public static function main() {
-        score := 85
-        
-        // if-else
-        if score >= 90 {
-            fmt.println("优秀")
-        } else if score >= 60 {
-            fmt.println("及格")
-        } else {
-            fmt.println("不及格")
-        }
-        
-        // for 循环
-        for i := 0; i < 5; i++ {
-            fmt.println("i =", i)
-        }
-    }
-}
-```
-
-### 函数
-
-```longlang
-namespace App
-
-class MathUtils {
-    public static function add(a:int, b:int) int {
-        return a + b
-    }
-}
-
-class Application {
-    public static function main() {
-        result := MathUtils::add(10, 20)
-        fmt.println("10 + 20 =", result)
-    }
-}
-```
-
-### 类和对象
-
-```longlang
-namespace App
-
-class Person {
-    public name string
-    public age int
-    
-    public function __construct(name:string, age:int) {
-        this.name = name
-        this.age = age
-    }
-    
-    public function greet() string {
-        return "Hello, I am " + this.name
-    }
-}
-
-class Application {
-    public static function main() {
-        person := new Person("Alice", 25)
-        fmt.println(person.greet())
-        fmt.println("Age:", person.age)
-    }
-}
-```
 
 ## 测试用例
 

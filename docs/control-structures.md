@@ -59,10 +59,11 @@ if age >= 18 {
 
 ## 三目运算符
 
-简洁的条件表达式：
+三目运算符（`?:`）提供简洁的条件表达式。为了提升可读性，LongLang 对三目运算符有特定的书写规范。
+
+### 基本语法
 
 ```longlang
-// 单行写法
 result := condition ? trueValue : falseValue
 
 // 示例
@@ -70,23 +71,58 @@ max := a > b ? a : b
 status := age >= 18 ? "成年" : "未成年"
 ```
 
-多行写法（`?` 和 `:` 必须各自换行）：
+### 允许的写法
+
+#### 1. 单行写法
+
+单行时要求 `?` 和 `:` 都在同一行：
 
 ```longlang
+value := (x > y) ? true : false
+max := a > b ? a : b
+```
+
+#### 2. 多行写法
+
+多行时要求 `?` 和 `:` **各自单独换行**（`?` 提行、`:` 也提行）：
+
+```longlang
+value := (x > y)
+    ? true
+    : false
+
 result := condition
     ? trueValue
     : falseValue
 ```
 
-> ⚠️ **注意**：三目运算符不能作为函数参数使用
+### 禁止的写法
+
+#### 1. 混写格式（`?` 提行但 `:` 不提行）
+
+下面这种写法会被判定为不可读，因此禁止：
+
+```longlang
+// ❌ 禁止
+value := (x > y)
+    ? true : false
+```
+
+#### 2. 作为函数/方法参数
+
+禁止把三目运算符当作参数传入函数/方法/构造：
 
 ```longlang
 // ❌ 禁止
 fmt.println(a > b ? a : b)
+get_xxx(age > 20 ? true : false)
 
-// ✅ 正确
+// ✅ 正确：先赋值再使用
 max := a > b ? a : b
 fmt.println(max)
+
+flag := (age > 20) ? true : false
+get_xxx(flag)
 ```
 
 ## for 循环
