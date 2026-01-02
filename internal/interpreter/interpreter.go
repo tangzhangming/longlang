@@ -157,6 +157,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalTryStatement(node)
 	case *parser.ThrowStatement:
 		return i.evalThrowStatement(node)
+	case *parser.GoStatement:
+		return i.evalGoStatement(node)
 	case *parser.IncrementStatement:
 		return i.evalIncrementStatement(node)
 	case *parser.IntegerLiteral:
@@ -755,6 +757,18 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 			// 静态方法
 			return i.evalEnumStaticMethodCall(fn.Enum, fn.MethodName, args)
 		}
+	case *BoundChannelMethod:
+		// 处理 Channel 方法调用
+		return i.evalChannelMethodCall(fn.Channel, fn.MethodName, args)
+	case *BoundWaitGroupMethod:
+		// 处理 WaitGroup 方法调用
+		return i.evalWaitGroupMethodCall(fn.WaitGroup, fn.MethodName, args)
+	case *BoundMutexMethod:
+		// 处理 Mutex 方法调用
+		return i.evalMutexMethodCall(fn.Mutex, fn.MethodName, args)
+	case *BoundAtomicMethod:
+		// 处理 Atomic 方法调用
+		return i.evalAtomicMethodCall(fn.Atomic, fn.MethodName, args)
 	default:
 		return newError("不是函数: %s", fn.Type())
 	}
@@ -1639,6 +1653,38 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 	// 获取类定义
 	className := node.ClassName.Value
 
+	// 处理内置并发类型
+	switch className {
+	case "Channel":
+		capacity := 0
+		if len(node.Arguments) > 0 {
+			arg := i.Eval(node.Arguments[0].Value)
+			if isError(arg) {
+				return arg
+			}
+			if intArg, ok := arg.(*Integer); ok {
+				capacity = int(intArg.Value)
+			}
+		}
+		return NewChannel(capacity)
+
+	case "WaitGroup":
+		return NewWaitGroup()
+
+	case "Mutex":
+		return NewMutex()
+
+	case "Atomic":
+		var initialValue Object = &Null{}
+		if len(node.Arguments) > 0 {
+			initialValue = i.Eval(node.Arguments[0].Value)
+			if isError(initialValue) {
+				return initialValue
+			}
+		}
+		return NewAtomic(initialValue)
+	}
+
 	// 首先从当前环境查找（向后兼容）
 	classObj, ok := i.env.Get(className)
 
@@ -1822,6 +1868,30 @@ func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpres
 			}
 		}
 		return newError("数组没有方法: %s", memberName)
+	case *ChannelObject:
+		// Channel 方法
+		return &BoundChannelMethod{
+			Channel:    object,
+			MethodName: memberName,
+		}
+	case *WaitGroupObject:
+		// WaitGroup 方法
+		return &BoundWaitGroupMethod{
+			WaitGroup:  object,
+			MethodName: memberName,
+		}
+	case *MutexObject:
+		// Mutex 方法
+		return &BoundMutexMethod{
+			Mutex:      object,
+			MethodName: memberName,
+		}
+	case *AtomicObject:
+		// Atomic 方法
+		return &BoundAtomicMethod{
+			Atomic:     object,
+			MethodName: memberName,
+		}
 	case *EnumValue:
 		// 访问枚举值方法或字段
 		// 内置方法

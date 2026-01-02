@@ -67,3 +67,24 @@ func (e *Environment) Set(name string, val Object) Object {
 	e.store[name] = val
 	return val
 }
+
+// Clone 克隆环境（用于协程）
+// 创建当前环境的深拷贝，包括所有外部作用域
+// 协程需要独立的环境副本，以避免数据竞争
+func (e *Environment) Clone() *Environment {
+	newEnv := &Environment{
+		store: make(map[string]Object),
+	}
+
+	// 复制当前作用域的变量
+	for k, v := range e.store {
+		newEnv.store[k] = v
+	}
+
+	// 递归克隆外部作用域
+	if e.outer != nil {
+		newEnv.outer = e.outer.Clone()
+	}
+
+	return newEnv
+}

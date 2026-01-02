@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // registerBuiltins 注册内置函数
@@ -123,6 +124,20 @@ func registerBuiltins(env *Environment) {
 			return newError("byteLen 参数必须是字符串，得到 %s", args[0].Type())
 		}
 		return &Integer{Value: int64(len(str.Value))}
+	}})
+
+	// 注册全局 sleep 函数
+	// sleep(ms) - 休眠指定毫秒数
+	env.Set("sleep", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("sleep 函数需要1个参数，得到 %d 个", len(args))
+		}
+		ms, ok := args[0].(*Integer)
+		if !ok {
+			return newError("sleep 参数必须是整数（毫秒），得到 %s", args[0].Type())
+		}
+		time.Sleep(time.Duration(ms.Value) * time.Millisecond)
+		return &Null{}
 	}})
 
 	// 注册 fmt 命名空间对象

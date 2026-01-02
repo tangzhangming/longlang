@@ -45,6 +45,8 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseTryStatement()
 	case lexer.THROW:
 		return p.parseThrowStatement()
+	case lexer.GO:
+		return p.parseGoStatement()
 	case lexer.FUNCTION:
 		return p.parseFunctionStatement()
 	case lexer.RBRACE:
@@ -388,6 +390,23 @@ func (p *Parser) parseThrowStatement() *ThrowStatement {
 
 	// 解析要抛出的异常表达式
 	stmt.Value = p.parseExpression(LOWEST)
+
+	return stmt
+}
+
+// parseGoStatement 解析 go 语句（启动协程）
+// 语法：go expression
+// 支持：go fn() { ... }
+// 支持：go handler()
+// 支持：go this.process()
+// 支持：go Worker::run()
+func (p *Parser) parseGoStatement() *GoStatement {
+	stmt := &GoStatement{Token: p.curToken}
+
+	p.nextToken() // 跳过 go
+
+	// 解析要执行的表达式
+	stmt.Call = p.parseExpression(LOWEST)
 
 	return stmt
 }

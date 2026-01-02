@@ -125,6 +125,9 @@ const (
 	// ========== 复合类型关键字 ==========
 	MAP  TokenType = "MAP"  // map - Map 类型关键字
 	ENUM TokenType = "ENUM" // enum - 枚举类型关键字
+	
+	// ========== 并发关键字 ==========
+	GO TokenType = "GO" // go - 启动协程关键字
 )
 
 // Token 表示一个词法单元
@@ -196,6 +199,8 @@ var keywords = map[string]TokenType{
 	// 复合类型
 	"map":  MAP,
 	"enum": ENUM,
+	// 并发
+	"go": GO,
 }
 
 // LookupIdent 检查标识符是否是关键字

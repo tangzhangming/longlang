@@ -1122,3 +1122,22 @@ func (eae *EnumAccessExpression) String() string {
 	return eae.EnumName.String() + "::" + eae.Member.String()
 }
 
+// ========== 并发相关 ==========
+
+// GoStatement go 语句（启动协程）
+// 对应语法：go expression
+// 例如：go fn() { ... }
+// 例如：go handler()
+// 例如：go this.process()
+// 例如：go Worker::run()
+type GoStatement struct {
+	Token lexer.Token // go 关键字对应的 token
+	Call  Expression  // 要执行的表达式（通常是函数调用或闭包）
+}
+
+func (gs *GoStatement) statementNode()       {}
+func (gs *GoStatement) TokenLiteral() string { return gs.Token.Literal }
+func (gs *GoStatement) String() string {
+	return "go " + gs.Call.String()
+}
+
