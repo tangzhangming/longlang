@@ -2,7 +2,7 @@ namespace System.IO
 
 // FileStream 文件流类
 // 用于逐步读写大文件
-class FileStream {
+public class FileStream {
     private handle any
     private path string
     private mode string

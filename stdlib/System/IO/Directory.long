@@ -2,7 +2,7 @@ namespace System.IO
 
 // Directory 目录操作静态工具类
 // 提供目录操作的各种方法
-class Directory {
+public class Directory {
     
     // create 创建目录
     // @param path 目录路径

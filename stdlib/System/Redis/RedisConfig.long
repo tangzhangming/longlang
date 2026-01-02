@@ -14,7 +14,7 @@ namespace System.Redis
  *   
  *   client := RedisClient::connectWithConfig(config)
  */
-class RedisConfig {
+public class RedisConfig {
     private _host string
     private _port int
     private _username string

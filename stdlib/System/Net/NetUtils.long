@@ -2,7 +2,7 @@ namespace System.Net
 
 // NetUtils 网络工具类
 // 提供网络相关的工具方法
-class NetUtils {
+public class NetUtils {
     
     // parseAddress 解析地址字符串为 host 和 port
     // @param address 地址字符串（如 "127.0.0.1:8080"）

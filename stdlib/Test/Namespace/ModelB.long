@@ -1,7 +1,7 @@
 namespace Test.Namespace
 
 // ModelB 引用同命名空间的 ModelA（不需要 use）
-class ModelB {
+public class ModelB {
     private value int
     
     public function __construct(value: int) {

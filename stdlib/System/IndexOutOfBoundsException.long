@@ -4,7 +4,7 @@ use System.RuntimeException
 
 // IndexOutOfBoundsException 索引越界异常
 // 当数组或字符串索引超出范围时抛出
-class IndexOutOfBoundsException extends RuntimeException {
+public class IndexOutOfBoundsException extends RuntimeException {
     private index int
     private size int
     

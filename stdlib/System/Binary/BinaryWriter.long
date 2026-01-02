@@ -2,7 +2,7 @@ namespace System.Binary
 
 // BinaryWriter 二进制写入器
 // 用于构建二进制数据，支持各种数据类型的写入
-class BinaryWriter {
+public class BinaryWriter {
     private buffer any
     
     // 构造函数

@@ -2,7 +2,7 @@ namespace System.Binary
 
 // Bytes 字节操作工具类
 // 提供字节数组的创建、转换和操作方法
-class Bytes {
+public class Bytes {
     
     // ===== 创建方法 =====
     

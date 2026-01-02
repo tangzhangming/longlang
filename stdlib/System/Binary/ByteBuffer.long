@@ -2,7 +2,7 @@ namespace System.Binary
 
 // ByteBuffer 字节缓冲区类
 // 用于读写二进制数据，支持自动扩容和位置管理
-class ByteBuffer {
+public class ByteBuffer {
     private buffer any
     
     // 构造函数

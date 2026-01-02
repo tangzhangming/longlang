@@ -20,7 +20,7 @@ use System.Net.TcpConnection
  *   })
  *   server.start()
  */
-class HttpServer {
+public class HttpServer {
     private _host string
     private _port int
     private _listener any

@@ -2,7 +2,7 @@ namespace System.IO
 
 // FileInfo 文件信息类
 // 提供文件元数据信息
-class FileInfo {
+public class FileInfo {
     private path string
     private info any
     

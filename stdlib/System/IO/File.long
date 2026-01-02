@@ -2,7 +2,7 @@ namespace System.IO
 
 // File 文件操作静态工具类
 // 提供常用的文件读写操作
-class File {
+public class File {
     
     // readAllText 读取文件全部内容为字符串
     // @param path 文件路径

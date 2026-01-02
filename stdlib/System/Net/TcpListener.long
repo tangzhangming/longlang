@@ -4,7 +4,7 @@ use System.IOException
 
 // TcpListener TCP 监听器类
 // 用于创建 TCP 服务器，监听和接受客户端连接
-class TcpListener {
+public class TcpListener {
     private listener any
     private host string
     private port int

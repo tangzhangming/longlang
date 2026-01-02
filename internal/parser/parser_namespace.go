@@ -81,7 +81,8 @@ func (p *Parser) parseUseStatement() *UseStatement {
 	}
 
 	// 检查是否有别名（as Alias）
-	if p.peekTokenIs(lexer.IDENT) && p.peekToken.Literal == "as" {
+	// 注意：as 现在是关键字（用于类型断言），所以需要检查 lexer.AS
+	if p.peekTokenIs(lexer.AS) {
 		p.nextToken() // 跳过 "as"
 		if !p.expectPeek(lexer.IDENT) {
 			return nil

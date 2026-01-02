@@ -14,7 +14,7 @@ namespace System
  * 注意：String 对象是引用类型，赋值时传递引用
  *       如需值语义，请使用原始 string 类型
  */
-class String {
+public class String {
     
     // 内部存储的原始字符串
     private value string

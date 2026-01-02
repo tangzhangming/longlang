@@ -8,7 +8,7 @@ use System.Net.TcpConnection
  * 用于构建并发送 HTTP 响应
  * 由 HttpServer 自动创建并传递给处理函数
  */
-class HttpResponse {
+public class HttpResponse {
     private _conn any  // TcpConnection
     private _statusCode int
     private _headers any  // map[string]string

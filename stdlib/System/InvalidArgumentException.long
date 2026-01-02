@@ -4,7 +4,7 @@ use System.Exception
 
 // InvalidArgumentException 无效参数异常
 // 当传递给方法的参数无效时抛出
-class InvalidArgumentException extends Exception {
+public class InvalidArgumentException extends Exception {
     private argumentName string
     
     // 构造函数

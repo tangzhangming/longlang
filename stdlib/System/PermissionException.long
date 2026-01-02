@@ -4,7 +4,7 @@ use System.IOException
 
 // PermissionException 权限异常
 // 当没有足够权限执行操作时抛出
-class PermissionException extends IOException {
+public class PermissionException extends IOException {
     private path string
     private operation string
     

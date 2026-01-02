@@ -2,7 +2,7 @@ namespace System.IO
 
 // DirectoryInfo 目录信息类
 // 提供目录元数据信息
-class DirectoryInfo {
+public class DirectoryInfo {
     private path string
     
     // 构造函数

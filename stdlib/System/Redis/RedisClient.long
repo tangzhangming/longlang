@@ -40,7 +40,7 @@ use System.Net.TcpClient
  *   name := client.get("name")
  *   client.close()
  */
-class RedisClient {
+public class RedisClient {
     private _tcp any
     private _host string
     private _port int

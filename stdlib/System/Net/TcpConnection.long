@@ -2,7 +2,7 @@ namespace System.Net
 
 // TcpConnection TCP 连接类
 // 表示一个 TCP 连接，可用于读写数据
-class TcpConnection {
+public class TcpConnection {
     private conn any
     
     // 构造函数（通常由 TcpListener.accept() 或 TcpClient 创建）

@@ -2,7 +2,7 @@ namespace System
 
 // Exception 异常基类
 // 所有异常都继承自此类
-class Exception {
+public class Exception {
     private message string
     private code int
     

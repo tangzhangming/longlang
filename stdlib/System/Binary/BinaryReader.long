@@ -2,7 +2,7 @@ namespace System.Binary
 
 // BinaryReader 二进制读取器
 // 从字节数组顺序读取各种数据类型
-class BinaryReader {
+public class BinaryReader {
     private buffer any
     private position int
     private length int

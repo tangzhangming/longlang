@@ -4,7 +4,7 @@ use System.IOException
 
 // DirectoryNotFoundException 目录未找到异常
 // 当尝试访问不存在的目录时抛出
-class DirectoryNotFoundException extends IOException {
+public class DirectoryNotFoundException extends IOException {
     private directory string
     
     // 构造函数

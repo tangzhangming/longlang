@@ -2,7 +2,7 @@ namespace System.IO
 
 // Path 路径操作静态工具类
 // 提供路径操作的各种方法
-class Path {
+public class Path {
     
     // join 组合路径
     // @param path1 第一个路径

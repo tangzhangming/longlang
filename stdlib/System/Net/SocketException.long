@@ -4,7 +4,7 @@ use System.IOException
 
 // SocketException 套接字异常
 // 当网络操作失败时抛出
-class SocketException extends IOException {
+public class SocketException extends IOException {
     
     // 构造函数
     public function __construct(message: string) {

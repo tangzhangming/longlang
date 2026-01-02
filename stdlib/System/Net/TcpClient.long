@@ -2,7 +2,7 @@ namespace System.Net
 
 // TcpClient TCP 客户端类
 // 用于连接到 TCP 服务器
-class TcpClient {
+public class TcpClient {
     private conn any
     private host string
     private port int

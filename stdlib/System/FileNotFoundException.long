@@ -4,7 +4,7 @@ use System.Exception
 
 // FileNotFoundException 文件未找到异常
 // 当尝试访问不存在的文件时抛出
-class FileNotFoundException extends Exception {
+public class FileNotFoundException extends Exception {
     private filename string
     
     // 构造函数

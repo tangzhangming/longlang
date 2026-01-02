@@ -4,7 +4,7 @@ use System.Exception
 
 // IOException IO异常
 // 当发生输入/输出错误时抛出
-class IOException extends Exception {
+public class IOException extends Exception {
     
     // 构造函数
     public function __construct(message: string = "IO error") {

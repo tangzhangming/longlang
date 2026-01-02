@@ -10,7 +10,7 @@ namespace System
  *   Str::length("hello")  // 5
  *   Str::upper("hello")   // "HELLO"
  */
-class Str {
+public class Str {
 
     // ========== 基本信息 ==========
 

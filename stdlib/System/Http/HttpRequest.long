@@ -6,7 +6,7 @@ namespace System.Http
  * 表示一个传入的 HTTP 请求
  * 由 HttpServer 自动创建并传递给处理函数
  */
-class HttpRequest {
+public class HttpRequest {
     private _method string
     private _path string
     private _fullPath string
