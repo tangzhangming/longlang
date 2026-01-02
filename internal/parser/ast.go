@@ -967,6 +967,21 @@ func (ae *AssignmentExpression) String() string {
 	return "(" + ae.Left.String() + " = " + ae.Right.String() + ")"
 }
 
+// CompoundAssignmentExpression 复合赋值表达式
+// 对应语法：a += b, a -= b, a *= b, a /= b, a %= b, a &= b, a |= b, a ^= b, a <<= b, a >>= b
+type CompoundAssignmentExpression struct {
+	Token    lexer.Token // +=, -=, *=, /=, %=, &=, |=, ^=, <<=, >>= 对应的 token
+	Operator string      // 运算符字符串
+	Left     Expression  // 左边的表达式（通常是标识符或成员访问表达式）
+	Right    Expression  // 右边的值
+}
+
+func (cae *CompoundAssignmentExpression) expressionNode()      {}
+func (cae *CompoundAssignmentExpression) TokenLiteral() string { return cae.Token.Literal }
+func (cae *CompoundAssignmentExpression) String() string {
+	return "(" + cae.Left.String() + " " + cae.Operator + " " + cae.Right.String() + ")"
+}
+
 // ========== 数组相关 ==========
 
 // ArrayType 数组类型

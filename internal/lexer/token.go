@@ -39,6 +39,26 @@ const (
 	AND TokenType = "&&" // 逻辑与 &&
 	OR  TokenType = "||" // 逻辑或 ||
 
+	// 位运算符
+	BIT_AND TokenType = "&"  // 按位与 &
+	BIT_OR  TokenType = "|"  // 按位或 |
+	BIT_XOR TokenType = "^"  // 按位异或 ^
+	BIT_NOT TokenType = "~"  // 按位取反 ~
+	LSHIFT  TokenType = "<<" // 左移 <<
+	RSHIFT  TokenType = ">>" // 右移 >>
+
+	// 复合赋值运算符
+	PLUS_ASSIGN    TokenType = "+="  // 加法赋值 +=
+	MINUS_ASSIGN   TokenType = "-="  // 减法赋值 -=
+	ASTERISK_ASSIGN TokenType = "*=" // 乘法赋值 *=
+	SLASH_ASSIGN   TokenType = "/="  // 除法赋值 /=
+	MOD_ASSIGN     TokenType = "%="  // 取模赋值 %=
+	BIT_AND_ASSIGN TokenType = "&="  // 按位与赋值 &=
+	BIT_OR_ASSIGN  TokenType = "|="  // 按位或赋值 |=
+	BIT_XOR_ASSIGN TokenType = "^="  // 按位异或赋值 ^=
+	LSHIFT_ASSIGN  TokenType = "<<=" // 左移赋值 <<=
+	RSHIFT_ASSIGN  TokenType = ">>=" // 右移赋值 >>=
+
 	// ========== 分隔符 ==========
 	COMMA     TokenType = "," // 逗号，用于分隔参数、元素等
 	SEMICOLON TokenType = ";" // 分号，语句结束符（可选）

@@ -254,6 +254,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalMemberAccessExpression(node)
 	case *parser.AssignmentExpression:
 		return i.evalAssignmentExpression(node)
+	case *parser.CompoundAssignmentExpression:
+		return i.evalCompoundAssignmentExpression(node)
 	case *parser.ThisExpression:
 		return i.evalThisExpression()
 	case *parser.SuperExpression:
@@ -485,9 +487,20 @@ func (i *Interpreter) evalPrefixExpression(operator string, right Object) Object
 		return i.evalBangOperatorExpression(right)
 	case "-":
 		return i.evalMinusPrefixOperatorExpression(right)
+	case "~":
+		return i.evalBitNotOperatorExpression(right)
 	default:
 		return newError("未知运算符: %s%s", operator, right.Type())
 	}
+}
+
+// evalBitNotOperatorExpression 执行按位取反运算符 ~
+func (i *Interpreter) evalBitNotOperatorExpression(right Object) Object {
+	if right.Type() != INTEGER_OBJ {
+		return newError("按位取反运算符 ~ 只能用于整数类型，得到 %s", right.Type())
+	}
+	value := right.(*Integer).Value
+	return &Integer{Value: ^value}
 }
 
 // evalInfixExpression 执行中缀表达式
@@ -601,6 +614,23 @@ func (i *Interpreter) evalIntegerInfixExpression(operator string, left, right Ob
 		return &Boolean{Value: leftVal == rightVal}
 	case "!=":
 		return &Boolean{Value: leftVal != rightVal}
+	// 位运算符
+	case "&":
+		return &Integer{Value: leftVal & rightVal}
+	case "|":
+		return &Integer{Value: leftVal | rightVal}
+	case "^":
+		return &Integer{Value: leftVal ^ rightVal}
+	case "<<":
+		if rightVal < 0 {
+			return newError("移位位数不能为负数")
+		}
+		return &Integer{Value: leftVal << uint64(rightVal)}
+	case ">>":
+		if rightVal < 0 {
+			return newError("移位位数不能为负数")
+		}
+		return &Integer{Value: leftVal >> uint64(rightVal)}
 	default:
 		return newError("未知运算符: %s %s %s", left.Type(), operator, right.Type())
 	}
@@ -2304,6 +2334,115 @@ func (i *Interpreter) evalAssignmentExpression(node *parser.AssignmentExpression
 		return i.evalArrayAssignment(arrayObj, indexObj, val)
 	default:
 		return newError("无效的赋值目标")
+	}
+}
+
+// evalCompoundAssignmentExpression 执行复合赋值表达式
+// 支持：+=, -=, *=, /=, %=, &=, |=, ^=, <<=, >>=
+func (i *Interpreter) evalCompoundAssignmentExpression(node *parser.CompoundAssignmentExpression) Object {
+	// 计算右侧的值
+	rightVal := i.Eval(node.Right)
+	if isError(rightVal) || isThrownException(rightVal) {
+		return rightVal
+	}
+
+	// 获取基础运算符（去掉 = 后缀）
+	op := node.Operator[:len(node.Operator)-1] // "+=" -> "+", "<<=" -> "<<"
+
+	switch left := node.Left.(type) {
+	case *parser.Identifier:
+		// 检查标识符是否包含点号（如 this.name）
+		parts := splitIdentifier(left.Value)
+		if len(parts) >= 2 {
+			// 这是成员访问赋值
+			obj, ok := i.env.Get(parts[0])
+			if !ok {
+				return newError("未定义的标识符: %s", parts[0])
+			}
+			// 逐层访问到倒数第二层
+			for idx := 1; idx < len(parts)-1; idx++ {
+				if instance, ok := obj.(*Instance); ok {
+					if field, ok := instance.Fields[parts[idx]]; ok {
+						obj = field
+					} else {
+						return newError("实例没有成员: %s", parts[idx])
+					}
+				} else {
+					return newError("无法访问 %s 的成员", obj.Type())
+				}
+			}
+			// 获取并更新最后一个成员
+			lastMember := parts[len(parts)-1]
+			if instance, ok := obj.(*Instance); ok {
+				leftVal, ok := instance.Fields[lastMember]
+				if !ok {
+					return newError("实例没有成员: %s", lastMember)
+				}
+				result := i.evalInfixExpression(op, leftVal, rightVal)
+				if isError(result) {
+					return result
+				}
+				instance.Fields[lastMember] = result
+				return result
+			}
+			return newError("无法给 %s 的成员赋值", obj.Type())
+		}
+		// 普通标识符
+		leftVal, ok := i.env.Get(left.Value)
+		if !ok {
+			return newError("未定义的标识符: %s", left.Value)
+		}
+		result := i.evalInfixExpression(op, leftVal, rightVal)
+		if isError(result) {
+			return result
+		}
+		i.env.Set(left.Value, result)
+		return result
+
+	case *parser.MemberAccessExpression:
+		obj := i.Eval(left.Object)
+		if isError(obj) {
+			return obj
+		}
+		if instance, ok := obj.(*Instance); ok {
+			leftVal, ok := instance.Fields[left.Member.Value]
+			if !ok {
+				return newError("实例没有成员: %s", left.Member.Value)
+			}
+			result := i.evalInfixExpression(op, leftVal, rightVal)
+			if isError(result) {
+				return result
+			}
+			instance.Fields[left.Member.Value] = result
+			return result
+		}
+		return newError("无法给 %s 的成员赋值", obj.Type())
+
+	case *parser.IndexExpression:
+		// 数组索引复合赋值：array[index] += value
+		arrayObj := i.Eval(left.Left)
+		if isError(arrayObj) {
+			return arrayObj
+		}
+		indexObj := i.Eval(left.Index)
+		if isError(indexObj) {
+			return indexObj
+		}
+		// 获取当前值
+		leftVal := i.evalIndexOperator(arrayObj, indexObj)
+		if isError(leftVal) {
+			return leftVal
+		}
+		// 计算新值
+		result := i.evalInfixExpression(op, leftVal, rightVal)
+		if isError(result) {
+			return result
+		}
+		// 赋值
+		return i.evalArrayAssignment(arrayObj, indexObj, result)
+
+	default:
+		return newError("无效的复合赋值目标")
 	}
 }
 

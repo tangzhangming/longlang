@@ -284,6 +284,21 @@ func (p *Parser) parseAssignmentExpression(left Expression) Expression {
 	return exp
 }
 
+// parseCompoundAssignmentExpression 解析复合赋值表达式
+// 对应语法：a += b, a -= b, a *= b, a /= b, a %= b, a &= b, a |= b, a ^= b, a <<= b, a >>= b
+func (p *Parser) parseCompoundAssignmentExpression(left Expression) Expression {
+	exp := &CompoundAssignmentExpression{
+		Token:    p.curToken,
+		Operator: p.curToken.Literal,
+		Left:     left,
+	}
+
+	p.nextToken()
+	exp.Right = p.parseExpression(LOWEST)
+
+	return exp
+}
+
 // parseTypeAssertionExpression 解析类型断言表达式
 // 对应语法：value as Type（强制断言）或 value as? Type（安全断言）
 // 例如：x as string, obj as User, value as? int

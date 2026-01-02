@@ -101,20 +101,28 @@ func (l *Lexer) NextToken() Token {
 			tok = newToken(ASSIGN, l.ch, l.line, l.column)
 		}
 	case '+':
-		// 可能是 + 或 ++
+		// 可能是 + 或 ++ 或 +=
 		if l.peekChar() == '+' {
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: INCREMENT, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: PLUS_ASSIGN, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
 		} else {
 			tok = newToken(PLUS, l.ch, l.line, l.column)
 		}
 	case '-':
-		// 可能是 - 或 --
+		// 可能是 - 或 -- 或 -=
 		if l.peekChar() == '-' {
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: DECREMENT, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: MINUS_ASSIGN, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
 		} else {
 			tok = newToken(MINUS, l.ch, l.line, l.column)
 		}
@@ -130,9 +138,16 @@ func (l *Lexer) NextToken() Token {
 			tok = newToken(BANG, l.ch, l.line, l.column)
 		}
 	case '*':
-		tok = newToken(ASTERISK, l.ch, l.line, l.column)
+		// 可能是 * 或 *=
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: ASTERISK_ASSIGN, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(ASTERISK, l.ch, l.line, l.column)
+		}
 	case '/':
-		// 可能是 / 或单行注释 // 或块注释 /*
+		// 可能是 / 或 /= 或单行注释 // 或块注释 /*
 		if l.peekChar() == '/' {
 			// 单行注释，跳过注释内容
 			l.skipLineComment()
@@ -143,55 +158,109 @@ func (l *Lexer) NextToken() Token {
 			l.skipBlockComment()
 			// 递归调用，返回注释后的下一个 token
 			return l.NextToken()
+		} else if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: SLASH_ASSIGN, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			// 是除法运算符
+			tok = newToken(SLASH, l.ch, l.line, l.column)
 		}
-		// 是除法运算符
-		tok = newToken(SLASH, l.ch, l.line, l.column)
 	case '%':
-		tok = newToken(MOD, l.ch, l.line, l.column)
+		// 可能是 % 或 %=
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: MOD_ASSIGN, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(MOD, l.ch, l.line, l.column)
+		}
 	case '<':
-		// 可能是 < 或 <=
+		// 可能是 < 或 <= 或 << 或 <<=
 		if l.peekChar() == '=' {
 			// 是 <=
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: LE, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '<' {
+			// 可能是 << 或 <<=
+			ch := l.ch
+			l.readChar()
+			if l.peekChar() == '=' {
+				l.readChar()
+				tok = Token{Type: LSHIFT_ASSIGN, Literal: "<<=", Line: l.line, Column: l.column - 2}
+			} else {
+				tok = Token{Type: LSHIFT, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+			}
 		} else {
 			// 是 <
 			tok = newToken(LT, l.ch, l.line, l.column)
 		}
 	case '>':
-		// 可能是 > 或 >=
+		// 可能是 > 或 >= 或 >> 或 >>=
 		if l.peekChar() == '=' {
 			// 是 >=
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: GE, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '>' {
+			// 可能是 >> 或 >>=
+			ch := l.ch
+			l.readChar()
+			if l.peekChar() == '=' {
+				l.readChar()
+				tok = Token{Type: RSHIFT_ASSIGN, Literal: ">>=", Line: l.line, Column: l.column - 2}
+			} else {
+				tok = Token{Type: RSHIFT, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+			}
 		} else {
 			// 是 >
 			tok = newToken(GT, l.ch, l.line, l.column)
 		}
 	case '&':
-		// 可能是 & 或 &&
+		// 可能是 & 或 && 或 &=
 		if l.peekChar() == '&' {
-			// 是 &&
+			// 是 && 逻辑与
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: AND, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '=' {
+			// 是 &= 按位与赋值
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: BIT_AND_ASSIGN, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
 		} else {
-			// 单独的 & 是非法字符
-			tok = newToken(ILLEGAL, l.ch, l.line, l.column)
+			// 是 & 按位与
+			tok = newToken(BIT_AND, l.ch, l.line, l.column)
 		}
 	case '|':
-		// 可能是 | 或 ||
+		// 可能是 | 或 || 或 |=
 		if l.peekChar() == '|' {
-			// 是 ||
+			// 是 || 逻辑或
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: OR, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '=' {
+			// 是 |= 按位或赋值
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: BIT_OR_ASSIGN, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
 		} else {
-			// 单独的 | 是非法字符
-			tok = newToken(ILLEGAL, l.ch, l.line, l.column)
+			// 是 | 按位或
+			tok = newToken(BIT_OR, l.ch, l.line, l.column)
 		}
+	case '^':
+		// 可能是 ^ 或 ^=
+		if l.peekChar() == '=' {
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: BIT_XOR_ASSIGN, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else {
+			tok = newToken(BIT_XOR, l.ch, l.line, l.column)
+		}
+	case '~':
+		// 按位取反
+		tok = newToken(BIT_NOT, l.ch, l.line, l.column)
 	case '?':
 		// 三目运算符的 ?
 		tok = newToken(QUESTION, l.ch, l.line, l.column)
