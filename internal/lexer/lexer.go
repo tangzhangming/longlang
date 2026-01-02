@@ -85,12 +85,17 @@ func (l *Lexer) NextToken() Token {
 	// 根据当前字符生成对应的 token
 	switch l.ch {
 	case '=':
-		// 可能是 = 或 ==
+		// 可能是 = 或 == 或 =>
 		if l.peekChar() == '=' {
 			// 是 ==
 			ch := l.ch
 			l.readChar()
 			tok = Token{Type: EQ, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
+		} else if l.peekChar() == '>' {
+			// 是 => (match 箭头)
+			ch := l.ch
+			l.readChar()
+			tok = Token{Type: ARROW, Literal: string(ch) + string(l.ch), Line: l.line, Column: l.column - 1}
 		} else {
 			// 是 =
 			tok = newToken(ASSIGN, l.ch, l.line, l.column)

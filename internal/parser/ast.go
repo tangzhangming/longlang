@@ -1145,3 +1145,136 @@ func (gs *GoStatement) String() string {
 	return "go " + gs.Call.String()
 }
 
+// ========== Switch/Match 相关 ==========
+
+// SwitchStatement switch 语句
+// 对应语法：switch [init;] [expr] { case ... default ... }
+// 例如：switch x { case 1: ... case 2, 3: ... default: ... }
+// 例如：switch { case x > 0: ... default: ... }
+// 例如：switch x := getValue(); x { case 1: ... }
+type SwitchStatement struct {
+	Token      lexer.Token      // switch 关键字对应的 token
+	Init       Statement        // 初始化语句（可选）
+	Value      Expression       // 要匹配的值（可选，省略时为条件 switch）
+	Cases      []*CaseClause    // case 分支列表
+	Default    *BlockStatement  // default 分支（可选）
+}
+
+func (ss *SwitchStatement) statementNode()       {}
+func (ss *SwitchStatement) TokenLiteral() string { return ss.Token.Literal }
+func (ss *SwitchStatement) String() string {
+	var out string
+	out += "switch "
+	if ss.Init != nil {
+		out += ss.Init.String() + "; "
+	}
+	if ss.Value != nil {
+		out += ss.Value.String() + " "
+	}
+	out += "{\n"
+	for _, c := range ss.Cases {
+		out += c.String() + "\n"
+	}
+	if ss.Default != nil {
+		out += "default:\n" + ss.Default.String() + "\n"
+	}
+	out += "}"
+	return out
+}
+
+// CaseClause switch 的 case 分支
+// 对应语法：case expr1, expr2, ...: statements
+// 或条件形式：case condition: statements
+type CaseClause struct {
+	Token       lexer.Token     // case 关键字对应的 token
+	Values      []Expression    // 要匹配的值列表（普通 case）
+	Condition   Expression      // 条件表达式（条件 switch 时使用）
+	IsCondition bool            // 是否是条件 case（无 switch 表达式时）
+	Body        *BlockStatement // case 体
+}
+
+func (cc *CaseClause) statementNode()       {}
+func (cc *CaseClause) TokenLiteral() string { return cc.Token.Literal }
+func (cc *CaseClause) String() string {
+	var out string
+	out += "case "
+	if cc.IsCondition {
+		out += cc.Condition.String()
+	} else {
+		for i, v := range cc.Values {
+			if i > 0 {
+				out += ", "
+			}
+			out += v.String()
+		}
+	}
+	out += ":\n"
+	if cc.Body != nil {
+		out += cc.Body.String()
+	}
+	return out
+}
+
+// MatchExpression match 表达式
+// 对应语法：match expr { pattern => result, ... }
+// 例如：match x { 1 => "one", 2, 3 => "few", _ => "many" }
+// 例如：match score { s if s >= 90 => "A", _ => "F" }
+type MatchExpression struct {
+	Token   lexer.Token  // match 关键字对应的 token
+	Value   Expression   // 要匹配的值
+	Arms    []*MatchArm  // 匹配分支列表
+}
+
+func (me *MatchExpression) expressionNode()      {}
+func (me *MatchExpression) TokenLiteral() string { return me.Token.Literal }
+func (me *MatchExpression) String() string {
+	var out string
+	out += "match " + me.Value.String() + " {\n"
+	for _, arm := range me.Arms {
+		out += "    " + arm.String() + "\n"
+	}
+	out += "}"
+	return out
+}
+
+// MatchArm match 的匹配分支
+// 对应语法：pattern [if guard] => result
+// pattern 可以是：值列表、标识符（用于守卫）、_ (通配符)
+type MatchArm struct {
+	Token      lexer.Token    // 分支开始的 token
+	Patterns   []Expression   // 要匹配的模式/值列表
+	Binding    *Identifier    // 绑定变量（用于守卫条件，如 n if n > 0）
+	Guard      Expression     // 守卫条件（可选）
+	IsWildcard bool           // 是否是通配符 _ (默认分支)
+	Result     Expression     // 匹配成功时的结果表达式
+	Body       *BlockStatement // 匹配成功时的代码块（与 Result 二选一）
+}
+
+func (ma *MatchArm) expressionNode()      {}
+func (ma *MatchArm) TokenLiteral() string { return ma.Token.Literal }
+func (ma *MatchArm) String() string {
+	var out string
+	if ma.IsWildcard {
+		out += "_"
+	} else if ma.Binding != nil {
+		out += ma.Binding.String()
+	} else {
+		for i, p := range ma.Patterns {
+			if i > 0 {
+				out += ", "
+			}
+			out += p.String()
+		}
+	}
+	if ma.Guard != nil {
+		out += " if " + ma.Guard.String()
+	}
+	out += " => "
+	if ma.Body != nil {
+		out += "{ ... }"
+	} else if ma.Result != nil {
+		out += ma.Result.String()
+	}
+	return out
+}
+

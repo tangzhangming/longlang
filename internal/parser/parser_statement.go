@@ -47,6 +47,8 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseThrowStatement()
 	case lexer.GO:
 		return p.parseGoStatement()
+	case lexer.SWITCH:
+		return p.parseSwitchStatement()
 	case lexer.FUNCTION:
 		return p.parseFunctionStatement()
 	case lexer.RBRACE:

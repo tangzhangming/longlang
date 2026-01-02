@@ -1,6 +1,6 @@
 # 控制结构
 
-LongLang 提供了完整的控制流语句，包括条件判断和循环结构。
+LongLang 提供了完整的控制流语句，包括条件判断、分支选择和循环结构。
 
 ## 条件语句
 
@@ -125,6 +125,210 @@ flag := (age > 20) ? true : false
 get_xxx(flag)
 ```
 
+## switch 语句
+
+`switch` 语句用于多分支条件判断，是 `if-else if-else` 链的更清晰替代方案。
+
+### 基本语法
+
+```longlang
+x := 2
+switch x {
+    case 1:
+        fmt.println("one")
+    case 2:
+        fmt.println("two")
+    case 3:
+        fmt.println("three")
+    default:
+        fmt.println("other")
+}
+```
+
+### 带括号形式
+
+```longlang
+switch (x) {
+    case 1:
+        fmt.println("one")
+    default:
+        fmt.println("other")
+}
+```
+
+### 多值匹配
+
+一个 `case` 可以匹配多个值：
+
+```longlang
+day := 6
+switch day {
+    case 1, 2, 3, 4, 5:
+        fmt.println("工作日")
+    case 6, 7:
+        fmt.println("周末")
+    default:
+        fmt.println("无效日期")
+}
+```
+
+### 条件 switch
+
+省略 switch 表达式时，可以在 case 中使用条件表达式（类似 Go）：
+
+```longlang
+score := 85
+switch {
+    case score >= 90:
+        fmt.println("A")
+    case score >= 80:
+        fmt.println("B")
+    case score >= 70:
+        fmt.println("C")
+    case score >= 60:
+        fmt.println("D")
+    default:
+        fmt.println("F")
+}
+```
+
+### 重要特性
+
+- **无 fallthrough**：LongLang 的 switch 不支持 fallthrough，每个 case 执行完后自动跳出
+- **不支持类型匹配**：当前版本不支持类型匹配，后续版本将支持
+
+## match 表达式
+
+`match` 是一个**表达式**（有返回值），用于值映射，语法灵感来自 Rust 和 PHP 8。
+
+### 基本语法
+
+```longlang
+result := match x {
+    1 => "one"
+    2 => "two"
+    3 => "three"
+    _ => "other"
+}
+```
+
+### 带括号形式
+
+```longlang
+result := match (x) {
+    1 => "one"
+    _ => "other"
+}
+```
+
+### 多值模式
+
+```longlang
+result := match statusCode {
+    200, 201 => "success"
+    400, 401, 403 => "client error"
+    500, 502, 503 => "server error"
+    _ => "unknown"
+}
+```
+
+### 守卫条件
+
+使用 `if` 添加守卫条件：
+
+```longlang
+grade := match score {
+    s if s >= 90 => "A"
+    s if s >= 80 => "B"
+    s if s >= 70 => "C"
+    s if s >= 60 => "D"
+    _ => "F"
+}
+```
+
+在守卫条件中，`s` 绑定了被匹配的值，可以在条件和结果中使用。
+
+### 代码块结果
+
+使用代码块作为结果（需要 return 返回值）：
+
+```longlang
+result := match value {
+    42 => {
+        fmt.println("The answer!")
+        return "answer"
+    }
+    _ => {
+        fmt.println("Not the answer")
+        return "other"
+    }
+}
+```
+
+### 通配符 `_`
+
+`_` 是通配符，匹配所有未明确匹配的值（类似 default）：
+
+```longlang
+result := match x {
+    1 => "one"
+    2 => "two"
+    _ => "unknown"  // 匹配所有其他值
+}
+```
+
+### 穷尽性检查
+
+> **当前实现**：运行时检查。如果没有匹配到任何分支且没有通配符，会产生运行时错误。
+> 
+> **未来改进**：编译器实现后，将支持编译时穷尽性检查（针对枚举类型等）。
+
+### switch vs match
+
+| 特性 | switch | match |
+|------|--------|-------|
+| 类型 | 语句 | 表达式 |
+| 返回值 | 无 | 有 |
+| 分支符号 | `case:` | `=>` |
+| 默认分支 | `default:` | `_` |
+| 条件分支 | 支持 | 通过守卫支持 |
+| 用途 | 复杂控制流 | 值映射 |
+
+### 实际应用示例
+
+```longlang
+// HTTP 状态码处理
+fn getStatusText(code: int) string {
+    return match code {
+        200 => "OK"
+        201 => "Created"
+        400 => "Bad Request"
+        401 => "Unauthorized"
+        403 => "Forbidden"
+        404 => "Not Found"
+        500 => "Internal Server Error"
+        _ => "Unknown Status"
+    }
+}
+
+// 奇偶判断
+fn isEven(n: int) bool {
+    return match n % 2 {
+        0 => true
+        _ => false
+    }
+}
+
+// 星期处理
+fn getDayType(day: int) string {
+    return match day {
+        1, 2, 3, 4, 5 => "工作日"
+        6, 7 => "周末"
+        _ => "无效日期"
+    }
+}
+```
+
 ## for 循环
 
 LongLang 的 for 循环语法与 Go 语言一致，支持三种形式：
@@ -198,6 +402,8 @@ for i := 0; i < 5; i++ {
 | `if-else` | 二选一 | `if cond { ... } else { ... }` |
 | `if-else if` | 多条件 | `if cond1 { } else if cond2 { }` |
 | `? :` | 三目运算 | `cond ? a : b` |
+| `switch` | 多分支语句 | `switch expr { case v: ... }` |
+| `match` | 值映射表达式 | `match expr { v => result }` |
 | `for` | 循环 | `for cond { ... }` |
 | `for` | 传统循环 | `for init; cond; post { ... }` |
 | `for` | 无限循环 | `for { ... }` |

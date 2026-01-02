@@ -97,6 +97,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.LBRACE, p.parseArrayLiteral)
 	p.registerPrefix(lexer.LBRACKET, p.parseArrayTypeOrLiteral)
 	p.registerPrefix(lexer.MAP, p.parseMapLiteral)
+	p.registerPrefix(lexer.MATCH, p.parseMatchExpression)
 
 	// 注册中缀解析函数
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)

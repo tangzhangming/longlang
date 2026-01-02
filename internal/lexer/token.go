@@ -129,6 +129,15 @@ const (
 	
 	// ========== 并发关键字 ==========
 	GO TokenType = "GO" // go - 启动协程关键字
+	
+	// ========== 控制流关键字 ==========
+	SWITCH  TokenType = "SWITCH"  // switch - 分支语句关键字
+	MATCH   TokenType = "MATCH"   // match - 模式匹配表达式关键字
+	CASE    TokenType = "CASE"    // case - 分支条件关键字
+	DEFAULT TokenType = "DEFAULT" // default - 默认分支关键字
+	
+	// ========== 特殊运算符 ==========
+	ARROW TokenType = "=>" // => - 匹配箭头运算符
 )
 
 // Token 表示一个词法单元
@@ -203,6 +212,11 @@ var keywords = map[string]TokenType{
 	"enum": ENUM,
 	// 并发
 	"go": GO,
+	// 控制流
+	"switch":  SWITCH,
+	"match":   MATCH,
+	"case":    CASE,
+	"default": DEFAULT,
 }
 
 // LookupIdent 检查标识符是否是关键字

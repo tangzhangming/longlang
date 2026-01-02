@@ -161,6 +161,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalThrowStatement(node)
 	case *parser.GoStatement:
 		return i.evalGoStatement(node)
+	case *parser.SwitchStatement:
+		return i.evalSwitchStatement(node)
 	case *parser.IncrementStatement:
 		return i.evalIncrementStatement(node)
 	case *parser.IntegerLiteral:
@@ -193,6 +195,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalInfixExpression(node.Operator, left, right)
 	case *parser.TernaryExpression:
 		return i.evalTernaryExpression(node)
+	case *parser.MatchExpression:
+		return i.evalMatchExpression(node)
 	case *parser.FunctionLiteral:
 		return i.evalFunctionLiteral(node)
 	case *parser.CallExpression:
