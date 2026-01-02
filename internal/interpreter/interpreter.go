@@ -173,6 +173,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return &Float{Value: node.Value}
 	case *parser.StringLiteral:
 		return &String{Value: node.Value}
+	case *parser.InterpolatedStringLiteral:
+		return i.evalInterpolatedString(node)
 	case *parser.BooleanLiteral:
 		return &Boolean{Value: node.Value}
 	case *parser.NullLiteral:
@@ -2701,6 +2703,29 @@ func (i *Interpreter) evalForRangeString(str *String, keyName, valueName string,
 		}
 	}
 	return nil
+}
+
+// evalInterpolatedString 执行插值字符串
+// 将各部分拼接成最终字符串
+func (i *Interpreter) evalInterpolatedString(node *parser.InterpolatedStringLiteral) Object {
+	var result string
+	
+	for _, part := range node.Parts {
+		if part.IsExpr {
+			// 执行表达式
+			val := i.Eval(part.Expr)
+			if isError(val) {
+				return val
+			}
+			// 将结果转换为字符串
+			result += objectToString(val)
+		} else {
+			// 字符串片段
+			result += part.Text
+		}
+	}
+	
+	return &String{Value: result}
 }
 
 // evalIncrementStatement 执行自增/自减语句

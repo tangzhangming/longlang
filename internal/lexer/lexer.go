@@ -243,6 +243,18 @@ func (l *Lexer) NextToken() Token {
 			// 单独的点号，用于成员访问运算符
 			tok = newToken(DOT, l.ch, l.line, l.column)
 		}
+	case '$':
+		// 检查是否是插值字符串 $"..."
+		if l.peekChar() == '"' {
+			tok.Line = l.line
+			tok.Column = l.column
+			l.readChar() // 跳过 $
+			tok.Type = INTERP_STRING
+			tok.Literal = l.readInterpolatedString()
+			return tok
+		}
+		// 单独的 $ 是非法字符
+		tok = newToken(ILLEGAL, l.ch, l.line, l.column)
 	case '"':
 		// 双引号字符串字面量
 		tok.Type = STRING
@@ -451,6 +463,102 @@ func (l *Lexer) readRawString() string {
 		l.readChar()
 	}
 	return result
+}
+
+// readInterpolatedString 读取插值字符串字面量
+// 格式：$"...{expr}..."
+// 返回整个字符串内容（包括 {} 标记），由解析器负责解析插值表达式
+// 支持：
+//   - {{ 转义为字面 {（使用 \x01 占位符）
+//   - }} 转义为字面 }（使用 \x02 占位符）
+//   - 嵌套的 {} 会被正确处理（用于表达式中的 map/对象字面量）
+// 占位符 \x01 和 \x02 在解析器中会被还原为 { 和 }
+func (l *Lexer) readInterpolatedString() string {
+	var result []byte
+	l.readChar() // 跳过开始的引号 "
+	
+	for l.ch != '"' && l.ch != 0 {
+		if l.ch == '\\' {
+			// 处理转义字符
+			l.readChar()
+			switch l.ch {
+			case 'n':
+				result = append(result, '\n')
+			case 'r':
+				result = append(result, '\r')
+			case 't':
+				result = append(result, '\t')
+			case '\\':
+				result = append(result, '\\')
+			case '"':
+				result = append(result, '"')
+			case '{':
+				// \{ 转义为字面 {，使用占位符
+				result = append(result, 0x01)
+			case '}':
+				// \} 转义为字面 }，使用占位符
+				result = append(result, 0x02)
+			default:
+				result = append(result, '\\')
+				result = append(result, l.ch)
+			}
+		} else if l.ch == '{' {
+			// 检查是否是 {{ 转义
+			if l.peekChar() == '{' {
+				// {{ 转义为字面 {，使用占位符 \x01
+				result = append(result, 0x01)
+				l.readChar() // 跳过第二个 {
+			} else {
+				// 插值开始标记，保留 { 让解析器处理
+				result = append(result, l.ch)
+				// 读取直到匹配的 }，处理嵌套
+				braceCount := 1
+				l.readChar()
+				for braceCount > 0 && l.ch != 0 {
+					if l.ch == '{' {
+						braceCount++
+					} else if l.ch == '}' {
+						braceCount--
+					} else if l.ch == '"' {
+						// 处理表达式中的字符串
+						result = append(result, l.ch)
+						l.readChar()
+						for l.ch != '"' && l.ch != 0 {
+							if l.ch == '\\' {
+								result = append(result, l.ch)
+								l.readChar()
+							}
+							result = append(result, l.ch)
+							l.readChar()
+						}
+					}
+					result = append(result, l.ch)
+					if braceCount > 0 {
+						l.readChar()
+					}
+				}
+			}
+		} else if l.ch == '}' {
+			// 检查是否是 }} 转义
+			if l.peekChar() == '}' {
+				// }} 转义为字面 }，使用占位符 \x02
+				result = append(result, 0x02)
+				l.readChar() // 跳过第二个 }
+			} else {
+				// 单独的 } 保留
+				result = append(result, l.ch)
+			}
+		} else {
+			result = append(result, l.ch)
+		}
+		l.readChar()
+	}
+	
+	if l.ch == '"' {
+		l.readChar() // 跳过结束引号
+	}
+	
+	return string(result)
 }
 
 // skipWhitespace 跳过空白字符

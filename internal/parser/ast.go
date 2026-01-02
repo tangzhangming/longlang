@@ -496,6 +496,37 @@ func (sl *StringLiteral) expressionNode()      {}
 func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
 func (sl *StringLiteral) String() string       { return sl.Token.Literal }
 
+// InterpolatedStringLiteral 插值字符串字面量
+// 对应语法：$"Hello, {name}! Sum is {a + b}."
+// Parts 包含交替的字符串片段和表达式
+type InterpolatedStringLiteral struct {
+	Token lexer.Token           // $" 对应的 token
+	Parts []InterpolatedPart    // 字符串片段和表达式交替
+}
+
+// InterpolatedPart 插值字符串的一部分（字符串或表达式）
+type InterpolatedPart struct {
+	IsExpr bool       // 是否是表达式
+	Text   string     // 字符串片段（当 IsExpr 为 false）
+	Expr   Expression // 表达式（当 IsExpr 为 true）
+}
+
+func (isl *InterpolatedStringLiteral) expressionNode()      {}
+func (isl *InterpolatedStringLiteral) TokenLiteral() string { return isl.Token.Literal }
+func (isl *InterpolatedStringLiteral) String() string {
+	var out string
+	out += "$\""
+	for _, part := range isl.Parts {
+		if part.IsExpr {
+			out += "{" + part.Expr.String() + "}"
+		} else {
+			out += part.Text
+		}
+	}
+	out += "\""
+	return out
+}
+
 // BooleanLiteral 布尔字面量
 // 对应语法：true 或 false
 type BooleanLiteral struct {

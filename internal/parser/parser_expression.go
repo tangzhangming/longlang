@@ -79,6 +79,101 @@ func (p *Parser) parseStringLiteral() Expression {
 	return &StringLiteral{Token: p.curToken, Value: p.curToken.Literal}
 }
 
+// parseInterpolatedStringLiteral 解析插值字符串
+// 格式：$"Hello, {name}! Sum is {a + b}."
+// 插值表达式不支持三元表达式
+// 占位符处理：\x01 -> {，\x02 -> }
+func (p *Parser) parseInterpolatedStringLiteral() Expression {
+	lit := &InterpolatedStringLiteral{Token: p.curToken}
+	literal := p.curToken.Literal
+	
+	// 解析字符串，找出 {} 中的表达式
+	var parts []InterpolatedPart
+	var currentText []byte
+	i := 0
+	
+	for i < len(literal) {
+		if literal[i] == 0x01 {
+			// 占位符 \x01 -> 字面 {
+			currentText = append(currentText, '{')
+			i++
+		} else if literal[i] == 0x02 {
+			// 占位符 \x02 -> 字面 }
+			currentText = append(currentText, '}')
+			i++
+		} else if literal[i] == '{' {
+			// 保存之前的文本部分
+			if len(currentText) > 0 {
+				parts = append(parts, InterpolatedPart{
+					IsExpr: false,
+					Text:   string(currentText),
+				})
+				currentText = nil
+			}
+			
+			// 提取 {} 中的表达式文本
+			braceCount := 1
+			exprStart := i + 1
+			i++
+			for i < len(literal) && braceCount > 0 {
+				if literal[i] == '{' {
+					braceCount++
+				} else if literal[i] == '}' {
+					braceCount--
+				} else if literal[i] == '"' {
+					// 跳过字符串中的内容
+					i++
+					for i < len(literal) && literal[i] != '"' {
+						if literal[i] == '\\' {
+							i++
+						}
+						i++
+					}
+				}
+				if braceCount > 0 {
+					i++
+				}
+			}
+			
+			exprText := literal[exprStart:i]
+			i++ // 跳过 }
+			
+			// 解析表达式
+			exprLexer := lexer.New(exprText)
+			exprParser := New(exprLexer)
+			expr := exprParser.ParseExpression()
+			
+			if len(exprParser.Errors()) > 0 {
+				for _, err := range exprParser.Errors() {
+					p.errors = append(p.errors, "插值表达式错误: "+err)
+				}
+				continue
+			}
+			
+			if expr != nil {
+				parts = append(parts, InterpolatedPart{
+					IsExpr: true,
+					Expr:   expr,
+				})
+			}
+		} else {
+			currentText = append(currentText, literal[i])
+			i++
+		}
+	}
+	
+	// 保存最后的文本部分
+	if len(currentText) > 0 {
+		parts = append(parts, InterpolatedPart{
+			IsExpr: false,
+			Text:   string(currentText),
+		})
+	}
+	
+	lit.Parts = parts
+	return lit
+}
+
 // parseBoolean 解析布尔字面量
 func (p *Parser) parseBoolean() Expression {
 	return &BooleanLiteral{Token: p.curToken, Value: p.curToken.Type == lexer.TRUE}

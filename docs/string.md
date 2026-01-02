@@ -1,6 +1,81 @@
 # 字符串系统
 
-LongLang 提供了三种使用字符串的方式，满足不同场景的需求。
+LongLang 提供了三种使用字符串的方式，满足不同场景的需求，并支持强大的字符串插值语法。
+
+## 字符串插值
+
+字符串插值使用 `$"..."` 语法，可以在字符串中嵌入表达式：
+
+```longlang
+name := "World"
+greeting := $"Hello, {name}!"  // "Hello, World!"
+```
+
+### 支持的表达式
+
+```longlang
+// 变量
+name := "LongLang"
+fmt.println($"Welcome to {name}!")
+
+// 算术表达式
+a := 10
+b := 20
+fmt.println($"Sum: {a + b}")           // "Sum: 30"
+fmt.println($"Result: {a * b + 5}")    // "Result: 205"
+
+// 方法调用
+text := "hello"
+fmt.println($"Upper: {text.upper()}")  // "Upper: HELLO"
+fmt.println($"Length: {text.length()}") // "Length: 5"
+
+// 函数调用
+fmt.println($"Len: {len(text)}")       // "Len: 5"
+
+// 数组索引
+arr := []int{10, 20, 30}
+fmt.println($"First: {arr[0]}")        // "First: 10"
+
+// match 表达式（不含字符串字面量时）
+status := 200
+fmt.println($"Code: {match status { 200 => 1, _ => 0 }}")
+```
+
+### 转义
+
+```longlang
+// {{ 转义为字面 {
+// }} 转义为字面 }
+fmt.println($"Syntax: {{expression}}")  // "Syntax: {expression}"
+
+// \{ 和 \} 也可以用于转义
+fmt.println($"Use \{braces\}")          // "Use {braces}"
+```
+
+### 自动类型转换
+
+插值表达式的结果会自动转换为字符串：
+
+| 类型 | 转换结果 |
+|------|---------|
+| `int/float` | 数字字符串 |
+| `bool` | `"true"` / `"false"` |
+| `null` | `"null"` |
+| 数组/Map | `Inspect()` 格式 |
+
+### 限制
+
+- **不支持三元表达式**：`$"{a > b ? a : b}"` 不允许，请先计算后插值
+- **不支持格式说明符**：如 `{price:F2}`（后续版本可能支持）
+
+```longlang
+// ❌ 不允许
+result := $"Max: {a > b ? a : b}"
+
+// ✅ 正确做法
+max := a > b ? a : b
+result := $"Max: {max}"
+```
 
 ## 字符串类型
 

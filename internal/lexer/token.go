@@ -139,6 +139,9 @@ const (
 	
 	// ========== 特殊运算符 ==========
 	ARROW TokenType = "=>" // => - 匹配箭头运算符
+	
+	// ========== 字符串插值 ==========
+	INTERP_STRING TokenType = "INTERP_STRING" // $"..." - 插值字符串
 )
 
 // Token 表示一个词法单元

@@ -84,6 +84,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.INT, p.parseIntegerLiteral)
 	p.registerPrefix(lexer.FLOAT, p.parseFloatLiteral)
 	p.registerPrefix(lexer.STRING, p.parseStringLiteral)
+	p.registerPrefix(lexer.INTERP_STRING, p.parseInterpolatedStringLiteral)
 	p.registerPrefix(lexer.TRUE, p.parseBoolean)
 	p.registerPrefix(lexer.FALSE, p.parseBoolean)
 	p.registerPrefix(lexer.NULL, p.parseNull)
@@ -147,4 +148,9 @@ func (p *Parser) ParseProgram() *Program {
 // Errors 返回解析错误列表
 func (p *Parser) Errors() []string {
 	return p.errors
+}
+
+// ParseExpression 解析单个表达式（用于插值字符串等场景）
+func (p *Parser) ParseExpression() Expression {
+	return p.parseExpression(LOWEST)
 }
