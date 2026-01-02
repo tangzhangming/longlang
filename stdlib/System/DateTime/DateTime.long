@@ -1,0 +1,595 @@
+namespace System.DateTime
+
+/**
+ * DateTime 日期时间类
+ * 
+ * 提供日期时间的创建、操作、格式化和比较功能
+ * 设计参考 C# DateTime 和 PHP Carbon
+ * 
+ * 示例：
+ *   now := DateTime::now()
+ *   fmt.println(now.format("yyyy-MM-dd HH:mm:ss"))
+ *   
+ *   future := now.addDays(30).addHours(2)
+ *   fmt.println(future.diffForHumans())  // "in 30 days"
+ */
+public class DateTime {
+    private millis int  // 毫秒时间戳
+
+    // ========== 构造函数 ==========
+    
+    public function __construct(ms: int = 0) {
+        this.millis = ms
+    }
+
+    // ========== 静态创建方法 ==========
+
+    /**
+     * 获取当前本地时间
+     */
+    public static function now() DateTime {
+        return new DateTime(__datetime_now())
+    }
+
+    /**
+     * 获取当前 UTC 时间
+     */
+    public static function utcNow() DateTime {
+        return new DateTime(__datetime_now_utc())
+    }
+
+    /**
+     * 获取今天 00:00:00
+     */
+    public static function today() DateTime {
+        return DateTime::now().startOfDay()
+    }
+
+    /**
+     * 获取明天 00:00:00
+     */
+    public static function tomorrow() DateTime {
+        return DateTime::now().addDays(1).startOfDay()
+    }
+
+    /**
+     * 获取昨天 00:00:00
+     */
+    public static function yesterday() DateTime {
+        return DateTime::now().subDays(1).startOfDay()
+    }
+
+    /**
+     * 创建指定日期时间
+     */
+    public static function create(year: int, month: int = 1, day: int = 1, hour: int = 0, minute: int = 0, second: int = 0, millisecond: int = 0) DateTime {
+        ms := __datetime_create(year, month, day, hour, minute, second, millisecond)
+        return new DateTime(ms)
+    }
+
+    /**
+     * 解析日期字符串（自动检测格式）
+     */
+    public static function parse(str: string) DateTime {
+        ms := __datetime_parse(str)
+        return new DateTime(ms)
+    }
+
+    /**
+     * 精确格式解析
+     */
+    public static function parseExact(str: string, format: string) DateTime {
+        ms := __datetime_parse_exact(str, format)
+        return new DateTime(ms)
+    }
+
+    /**
+     * 从 Unix 时间戳（秒）创建
+     */
+    public static function fromTimestamp(ts: int) DateTime {
+        return new DateTime(ts * 1000)
+    }
+
+    /**
+     * 从毫秒时间戳创建
+     */
+    public static function fromMillis(ms: int) DateTime {
+        return new DateTime(ms)
+    }
+
+    // ========== 属性获取 ==========
+
+    public function getYear() int {
+        parts := __datetime_from_millis(this.millis)
+        return parts["year"]
+    }
+
+    public function getMonth() int {
+        parts := __datetime_from_millis(this.millis)
+        return parts["month"]
+    }
+
+    public function getDay() int {
+        parts := __datetime_from_millis(this.millis)
+        return parts["day"]
+    }
+
+    public function getHour() int {
+        parts := __datetime_from_millis(this.millis)
+        return parts["hour"]
+    }
+
+    public function getMinute() int {
+        parts := __datetime_from_millis(this.millis)
+        return parts["minute"]
+    }
+
+    public function getSecond() int {
+        parts := __datetime_from_millis(this.millis)
+        return parts["second"]
+    }
+
+    public function getMillisecond() int {
+        parts := __datetime_from_millis(this.millis)
+        return parts["millisecond"]
+    }
+
+    public function getDayOfWeek() int {
+        return __datetime_day_of_week(this.millis)
+    }
+
+    public function getDayOfYear() int {
+        return __datetime_day_of_year(this.millis)
+    }
+
+    public function getWeekOfYear() int {
+        return __datetime_week_of_year(this.millis)
+    }
+
+    public function getTimestamp() int {
+        return this.millis / 1000
+    }
+
+    public function getTimestampMillis() int {
+        return this.millis
+    }
+
+    // ========== 加法操作（返回新实例）==========
+
+    public function addYears(n: int) DateTime {
+        ms := __datetime_add(this.millis, n, 0, 0, 0, 0, 0, 0)
+        return new DateTime(ms)
+    }
+
+    public function addMonths(n: int) DateTime {
+        ms := __datetime_add(this.millis, 0, n, 0, 0, 0, 0, 0)
+        return new DateTime(ms)
+    }
+
+    public function addDays(n: int) DateTime {
+        ms := __datetime_add(this.millis, 0, 0, n, 0, 0, 0, 0)
+        return new DateTime(ms)
+    }
+
+    public function addHours(n: int) DateTime {
+        ms := __datetime_add(this.millis, 0, 0, 0, n, 0, 0, 0)
+        return new DateTime(ms)
+    }
+
+    public function addMinutes(n: int) DateTime {
+        ms := __datetime_add(this.millis, 0, 0, 0, 0, n, 0, 0)
+        return new DateTime(ms)
+    }
+
+    public function addSeconds(n: int) DateTime {
+        ms := __datetime_add(this.millis, 0, 0, 0, 0, 0, n, 0)
+        return new DateTime(ms)
+    }
+
+    public function addMilliseconds(n: int) DateTime {
+        ms := __datetime_add(this.millis, 0, 0, 0, 0, 0, 0, n)
+        return new DateTime(ms)
+    }
+
+    // ========== 减法操作（返回新实例）==========
+
+    public function subYears(n: int) DateTime {
+        return this.addYears(-n)
+    }
+
+    public function subMonths(n: int) DateTime {
+        return this.addMonths(-n)
+    }
+
+    public function subDays(n: int) DateTime {
+        return this.addDays(-n)
+    }
+
+    public function subHours(n: int) DateTime {
+        return this.addHours(-n)
+    }
+
+    public function subMinutes(n: int) DateTime {
+        return this.addMinutes(-n)
+    }
+
+    public function subSeconds(n: int) DateTime {
+        return this.addSeconds(-n)
+    }
+
+    // ========== 设置操作（返回新实例）==========
+
+    public function setYear(year: int) DateTime {
+        return DateTime::create(year, this.getMonth(), this.getDay(), this.getHour(), this.getMinute(), this.getSecond(), this.getMillisecond())
+    }
+
+    public function setMonth(month: int) DateTime {
+        return DateTime::create(this.getYear(), month, this.getDay(), this.getHour(), this.getMinute(), this.getSecond(), this.getMillisecond())
+    }
+
+    public function setDay(day: int) DateTime {
+        return DateTime::create(this.getYear(), this.getMonth(), day, this.getHour(), this.getMinute(), this.getSecond(), this.getMillisecond())
+    }
+
+    public function setHour(hour: int) DateTime {
+        return DateTime::create(this.getYear(), this.getMonth(), this.getDay(), hour, this.getMinute(), this.getSecond(), this.getMillisecond())
+    }
+
+    public function setMinute(minute: int) DateTime {
+        return DateTime::create(this.getYear(), this.getMonth(), this.getDay(), this.getHour(), minute, this.getSecond(), this.getMillisecond())
+    }
+
+    public function setSecond(second: int) DateTime {
+        return DateTime::create(this.getYear(), this.getMonth(), this.getDay(), this.getHour(), this.getMinute(), second, this.getMillisecond())
+    }
+
+    // ========== 边界操作 ==========
+
+    public function startOfDay() DateTime {
+        return DateTime::create(this.getYear(), this.getMonth(), this.getDay(), 0, 0, 0, 0)
+    }
+
+    public function endOfDay() DateTime {
+        return DateTime::create(this.getYear(), this.getMonth(), this.getDay(), 23, 59, 59, 999)
+    }
+
+    public function startOfMonth() DateTime {
+        return DateTime::create(this.getYear(), this.getMonth(), 1, 0, 0, 0, 0)
+    }
+
+    public function endOfMonth() DateTime {
+        days := __datetime_days_in_month(this.getYear(), this.getMonth())
+        return DateTime::create(this.getYear(), this.getMonth(), days, 23, 59, 59, 999)
+    }
+
+    public function startOfYear() DateTime {
+        return DateTime::create(this.getYear(), 1, 1, 0, 0, 0, 0)
+    }
+
+    public function endOfYear() DateTime {
+        return DateTime::create(this.getYear(), 12, 31, 23, 59, 59, 999)
+    }
+
+    public function startOfWeek() DateTime {
+        dayOfWeek := this.getDayOfWeek()
+        // 0=Sunday, 转换为周一为起始
+        daysToSubtract := dayOfWeek
+        if dayOfWeek == 0 {
+            daysToSubtract = 6
+        } else {
+            daysToSubtract = dayOfWeek - 1
+        }
+        return this.subDays(daysToSubtract).startOfDay()
+    }
+
+    public function endOfWeek() DateTime {
+        return this.startOfWeek().addDays(6).endOfDay()
+    }
+
+    // ========== 比较方法 ==========
+
+    public function equals(other: DateTime) bool {
+        return this.millis == other.getTimestampMillis()
+    }
+
+    public function isBefore(other: DateTime) bool {
+        return this.millis < other.getTimestampMillis()
+    }
+
+    public function isAfter(other: DateTime) bool {
+        return this.millis > other.getTimestampMillis()
+    }
+
+    public function isBeforeOrEqual(other: DateTime) bool {
+        return this.millis <= other.getTimestampMillis()
+    }
+
+    public function isAfterOrEqual(other: DateTime) bool {
+        return this.millis >= other.getTimestampMillis()
+    }
+
+    public function isBetween(start: DateTime, end: DateTime) bool {
+        return this.isAfterOrEqual(start) && this.isBeforeOrEqual(end)
+    }
+
+    public function isSameDay(other: DateTime) bool {
+        return this.getYear() == other.getYear() && this.getMonth() == other.getMonth() && this.getDay() == other.getDay()
+    }
+
+    public function isSameMonth(other: DateTime) bool {
+        return this.getYear() == other.getYear() && this.getMonth() == other.getMonth()
+    }
+
+    public function isSameYear(other: DateTime) bool {
+        return this.getYear() == other.getYear()
+    }
+
+    // ========== 周期判断 ==========
+
+    public function isPast() bool {
+        return this.isBefore(DateTime::now())
+    }
+
+    public function isFuture() bool {
+        return this.isAfter(DateTime::now())
+    }
+
+    public function isToday() bool {
+        return this.isSameDay(DateTime::now())
+    }
+
+    public function isYesterday() bool {
+        return this.isSameDay(DateTime::yesterday())
+    }
+
+    public function isTomorrow() bool {
+        return this.isSameDay(DateTime::tomorrow())
+    }
+
+    public function isWeekend() bool {
+        dow := this.getDayOfWeek()
+        return dow == 0 || dow == 6
+    }
+
+    public function isWeekday() bool {
+        return !this.isWeekend()
+    }
+
+    public function isMonday() bool {
+        return this.getDayOfWeek() == 1
+    }
+
+    public function isTuesday() bool {
+        return this.getDayOfWeek() == 2
+    }
+
+    public function isWednesday() bool {
+        return this.getDayOfWeek() == 3
+    }
+
+    public function isThursday() bool {
+        return this.getDayOfWeek() == 4
+    }
+
+    public function isFriday() bool {
+        return this.getDayOfWeek() == 5
+    }
+
+    public function isSaturday() bool {
+        return this.getDayOfWeek() == 6
+    }
+
+    public function isSunday() bool {
+        return this.getDayOfWeek() == 0
+    }
+
+    public function isLeapYear() bool {
+        return __datetime_is_leap_year(this.getYear())
+    }
+
+    // ========== 差异计算 ==========
+
+    public function diff(other: DateTime) Duration {
+        diffMs := __datetime_diff(this.millis, other.getTimestampMillis())
+        return Duration::fromMilliseconds(diffMs)
+    }
+
+    public function diffInYears(other: DateTime) int {
+        return other.getYear() - this.getYear()
+    }
+
+    public function diffInMonths(other: DateTime) int {
+        years := this.diffInYears(other)
+        months := other.getMonth() - this.getMonth()
+        return years * 12 + months
+    }
+
+    public function diffInDays(other: DateTime) int {
+        diffMs := __datetime_diff(this.millis, other.getTimestampMillis())
+        return diffMs / (24 * 60 * 60 * 1000)
+    }
+
+    public function diffInHours(other: DateTime) int {
+        diffMs := __datetime_diff(this.millis, other.getTimestampMillis())
+        return diffMs / (60 * 60 * 1000)
+    }
+
+    public function diffInMinutes(other: DateTime) int {
+        diffMs := __datetime_diff(this.millis, other.getTimestampMillis())
+        return diffMs / (60 * 1000)
+    }
+
+    public function diffInSeconds(other: DateTime) int {
+        diffMs := __datetime_diff(this.millis, other.getTimestampMillis())
+        return diffMs / 1000
+    }
+
+    // ========== 人性化输出 ==========
+
+    /**
+     * 不带参数版本
+     */
+    public function diffForHumans() string {
+        return this.diffForHumansWithLocale(null, "en")
+    }
+
+    /**
+     * 带 locale 参数版本
+     */
+    public function diffForHumansLocale(locale: string) string {
+        return this.diffForHumansWithLocale(null, locale)
+    }
+
+    /**
+     * 完整版本
+     */
+    public function diffForHumansWithLocale(other: any, locale: string) string {
+        otherMs := 0
+        if other == null {
+            otherMs = __datetime_now()
+        } else {
+            otherMs = (other as DateTime).getTimestampMillis()
+        }
+
+        diffMs := otherMs - this.millis
+        // 如果 diffMs > 0，表示 other（现在）> this（过去），即 this 在过去
+        // 所以 isPast = diffMs > 0, isFuture = diffMs < 0
+        isPast := diffMs > 0
+        if diffMs < 0 {
+            diffMs = -diffMs
+        }
+
+        seconds := diffMs / 1000
+        minutes := seconds / 60
+        hours := minutes / 60
+        days := hours / 24
+        months := days / 30
+        years := days / 365
+
+        unit := ""
+        value := 0
+
+        if years > 0 {
+            value = years
+            if locale == "zh" {
+                unit = "年"
+            } else if years == 1 {
+                unit = "year"
+            } else {
+                unit = "years"
+            }
+        } else if months > 0 {
+            value = months
+            if locale == "zh" {
+                unit = "个月"
+            } else if months == 1 {
+                unit = "month"
+            } else {
+                unit = "months"
+            }
+        } else if days > 0 {
+            value = days
+            if locale == "zh" {
+                unit = "天"
+            } else if days == 1 {
+                unit = "day"
+            } else {
+                unit = "days"
+            }
+        } else if hours > 0 {
+            value = hours
+            if locale == "zh" {
+                unit = "小时"
+            } else if hours == 1 {
+                unit = "hour"
+            } else {
+                unit = "hours"
+            }
+        } else if minutes > 0 {
+            value = minutes
+            if locale == "zh" {
+                unit = "分钟"
+            } else if minutes == 1 {
+                unit = "minute"
+            } else {
+                unit = "minutes"
+            }
+        } else if seconds > 0 {
+            value = seconds
+            if locale == "zh" {
+                unit = "秒"
+            } else if seconds == 1 {
+                unit = "second"
+            } else {
+                unit = "seconds"
+            }
+        } else {
+            if locale == "zh" {
+                return "刚刚"
+            }
+            return "just now"
+        }
+
+        if locale == "zh" {
+            if isPast {
+                return toString(value) + " " + unit + "前"
+            }
+            return toString(value) + " " + unit + "后"
+        }
+
+        if isPast {
+            return toString(value) + " " + unit + " ago"
+        }
+        return "in " + toString(value) + " " + unit
+    }
+
+    // ========== 格式化 ==========
+
+    public function format(pattern: string) string {
+        return __datetime_format(this.millis, pattern)
+    }
+
+    public function toDateString() string {
+        return this.format("yyyy-MM-dd")
+    }
+
+    public function toTimeString() string {
+        return this.format("HH:mm:ss")
+    }
+
+    public function toDateTimeString() string {
+        return this.format("yyyy-MM-dd HH:mm:ss")
+    }
+
+    public function toISOString() string {
+        return this.format("s") + ".000Z"
+    }
+
+    public function toRFC3339() string {
+        return this.format("yyyy-MM-ddTHH:mm:sszzz")
+    }
+
+    public function toString() string {
+        return this.toDateTimeString()
+    }
+
+    // ========== 时区 ==========
+
+    public function getTimezone() string {
+        return __datetime_get_timezone(this.millis)
+    }
+
+    public function setTimezone(tz: string) DateTime {
+        ms := __datetime_set_timezone(this.millis, tz)
+        return new DateTime(ms)
+    }
+
+    public function toUTC() DateTime {
+        ms := __datetime_to_utc(this.millis)
+        return new DateTime(ms)
+    }
+
+    public function toLocal() DateTime {
+        return this.setTimezone("Local")
+    }
+}

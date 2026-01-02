@@ -1,0 +1,128 @@
+namespace System.DateTime
+
+/**
+ * Stopwatch 计时器类
+ * 
+ * 用于测量代码执行时间
+ * 
+ * 示例：
+ *   sw := Stopwatch::startNew()
+ *   // 执行一些操作...
+ *   sw.stop()
+ *   fmt.println("耗时: " + toString(sw.getElapsedMilliseconds()) + " ms")
+ */
+public class Stopwatch {
+    private startNano int    // 开始时间（纳秒）
+    private elapsedNano int  // 累计经过时间（纳秒）
+    private running bool     // 是否正在运行
+
+    public function __construct() {
+        this.startNano = 0
+        this.elapsedNano = 0
+        this.running = false
+    }
+
+    // ========== 静态方法 ==========
+
+    /**
+     * 创建并启动一个新的计时器
+     */
+    public static function startNew() Stopwatch {
+        sw := new Stopwatch()
+        sw.start()
+        return sw
+    }
+
+    // ========== 控制方法 ==========
+
+    /**
+     * 启动计时器
+     */
+    public function start() {
+        if !this.running {
+            this.startNano = __stopwatch_start()
+            this.running = true
+        }
+    }
+
+    /**
+     * 停止计时器
+     */
+    public function stop() {
+        if this.running {
+            elapsed := __stopwatch_elapsed_nanos(this.startNano)
+            this.elapsedNano = this.elapsedNano + elapsed
+            this.running = false
+        }
+    }
+
+    /**
+     * 重置计时器
+     */
+    public function reset() {
+        this.startNano = 0
+        this.elapsedNano = 0
+        this.running = false
+    }
+
+    /**
+     * 重新启动计时器（重置并启动）
+     */
+    public function restart() {
+        this.reset()
+        this.start()
+    }
+
+    // ========== 状态查询 ==========
+
+    /**
+     * 是否正在运行
+     */
+    public function isRunning() bool {
+        return this.running
+    }
+
+    /**
+     * 获取经过的时间
+     */
+    public function getElapsed() Duration {
+        return Duration::fromMilliseconds(this.getElapsedMilliseconds())
+    }
+
+    /**
+     * 获取经过的毫秒数
+     */
+    public function getElapsedMilliseconds() int {
+        total := this.elapsedNano
+        if this.running {
+            total = total + __stopwatch_elapsed_nanos(this.startNano)
+        }
+        return total / 1000000
+    }
+
+    /**
+     * 获取经过的微秒数
+     */
+    public function getElapsedMicroseconds() int {
+        total := this.elapsedNano
+        if this.running {
+            total = total + __stopwatch_elapsed_nanos(this.startNano)
+        }
+        return total / 1000
+    }
+
+    /**
+     * 获取经过的纳秒数
+     */
+    public function getElapsedNanoseconds() int {
+        total := this.elapsedNano
+        if this.running {
+            total = total + __stopwatch_elapsed_nanos(this.startNano)
+        }
+        return total
+    }
+
+    public function toString() string {
+        return this.getElapsed().toString()
+    }
+}

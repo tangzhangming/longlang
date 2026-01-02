@@ -1,0 +1,136 @@
+namespace System.DateTime
+
+/**
+ * DateRange 日期范围类
+ * 
+ * 表示一个时间范围，提供范围检查和遍历功能
+ * 
+ * 示例：
+ *   range := new DateRange(DateTime::create(2026, 1, 1), DateTime::create(2026, 1, 31))
+ *   if range.contains(DateTime::now()) {
+ *       fmt.println("在范围内")
+ *   }
+ */
+public class DateRange {
+    private startDt any
+    private endDt any
+
+    public function __construct(start: any, end: any) {
+        this.startDt = start
+        this.endDt = end
+    }
+
+    // ========== 属性获取 ==========
+
+    public function getStart() any {
+        return this.startDt
+    }
+
+    public function getEnd() any {
+        return this.endDt
+    }
+
+    public function getDuration() Duration {
+        s := this.startDt as DateTime
+        e := this.endDt as DateTime
+        return Duration::between(s, e)
+    }
+
+    // ========== 检查方法 ==========
+
+    /**
+     * 检查日期时间是否在范围内
+     */
+    public function contains(dt: any) bool {
+        d := dt as DateTime
+        s := this.startDt as DateTime
+        e := this.endDt as DateTime
+        return d.isAfterOrEqual(s) && d.isBeforeOrEqual(e)
+    }
+
+    /**
+     * 检查是否与另一个范围重叠
+     */
+    public function overlaps(other: DateRange) bool {
+        s := this.startDt as DateTime
+        e := this.endDt as DateTime
+        os := other.getStart() as DateTime
+        oe := other.getEnd() as DateTime
+        return s.isBeforeOrEqual(oe) && e.isAfterOrEqual(os)
+    }
+
+    /**
+     * 检查是否完全包含另一个范围
+     */
+    public function includes(other: DateRange) bool {
+        s := this.startDt as DateTime
+        e := this.endDt as DateTime
+        os := other.getStart() as DateTime
+        oe := other.getEnd() as DateTime
+        return s.isBeforeOrEqual(os) && e.isAfterOrEqual(oe)
+    }
+
+    // ========== 遍历方法 ==========
+
+    /**
+     * 返回范围内的每一天
+     */
+    public function eachDay() []any {
+        result := []any{}
+        s := this.startDt as DateTime
+        e := this.endDt as DateTime
+        current := s.startOfDay()
+        endDay := e.startOfDay()
+
+        for current.isBeforeOrEqual(endDay) {
+            result = append(result, current)
+            current = current.addDays(1)
+        }
+
+        return result
+    }
+
+    /**
+     * 返回范围内的每周一
+     */
+    public function eachWeek() []any {
+        result := []any{}
+        s := this.startDt as DateTime
+        e := this.endDt as DateTime
+        current := s.startOfWeek()
+
+        for current.isBeforeOrEqual(e) {
+            if current.isAfterOrEqual(s) {
+                result = append(result, current)
+            }
+            current = current.addDays(7)
+        }
+
+        return result
+    }
+
+    /**
+     * 返回范围内的每月第一天
+     */
+    public function eachMonth() []any {
+        result := []any{}
+        s := this.startDt as DateTime
+        e := this.endDt as DateTime
+        current := s.startOfMonth()
+
+        for current.isBeforeOrEqual(e) {
+            if current.isAfterOrEqual(s) || current.isSameMonth(s) {
+                result = append(result, current)
+            }
+            current = current.addMonths(1).startOfMonth()
+        }
+
+        return result
+    }
+
+    public function toString() string {
+        s := this.startDt as DateTime
+        e := this.endDt as DateTime
+        return s.toDateTimeString() + " - " + e.toDateTimeString()
+    }
+}
