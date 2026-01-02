@@ -291,6 +291,14 @@ func (l *Lexer) NextToken() Token {
 			tok.Type = LookupIdent(tok.Literal)
 			tok.Line = l.line
 			tok.Column = l.column
+			
+			// 特殊处理 as? (安全类型断言)
+			if tok.Type == AS && l.ch == '?' {
+				l.readChar() // 跳过 ?
+				tok.Type = AS_SAFE
+				tok.Literal = "as?"
+			}
+			
 			return tok
 		} else if isDigit(l.ch) {
 			// 是数字，读取整数或浮点数

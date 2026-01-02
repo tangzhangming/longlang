@@ -597,19 +597,25 @@ func (te *TernaryExpression) String() string {
 }
 
 // TypeAssertionExpression 类型断言表达式
-// 对应语法：value.(type)
-// 例如：x.(string)
-// 注意：当前版本尚未完全实现
+// 对应语法：value as Type（强制断言）或 value as? Type（安全断言）
+// 例如：x as string, obj as User, value as? int
+// 强制断言：类型不匹配时抛出 TypeError
+// 安全断言：类型不匹配时返回 null
 type TypeAssertionExpression struct {
-	Token lexer.Token // .( 对应的 token
-	Left  Expression  // 要断言的值
-	Type  *Identifier // 要断言的类型
+	Token      lexer.Token // as 或 as? 对应的 token
+	Left       Expression  // 要断言的值
+	TargetType Expression  // 要断言的目标类型（可以是 *Identifier 或 *ArrayType 或 *MapType）
+	IsSafe     bool        // 是否是安全断言（as? 返回 null，as 抛出异常）
 }
 
 func (tae *TypeAssertionExpression) expressionNode()      {}
 func (tae *TypeAssertionExpression) TokenLiteral() string { return tae.Token.Literal }
 func (tae *TypeAssertionExpression) String() string {
-	return "(" + tae.Left.String() + ".( " + tae.Type.String() + "))"
+	op := " as "
+	if tae.IsSafe {
+		op = " as? "
+	}
+	return "(" + tae.Left.String() + op + tae.TargetType.String() + ")"
 }
 
 // ========== 命名空间和导入 ==========

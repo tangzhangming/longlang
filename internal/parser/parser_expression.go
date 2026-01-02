@@ -284,6 +284,163 @@ func (p *Parser) parseAssignmentExpression(left Expression) Expression {
 	return exp
 }
 
+// parseTypeAssertionExpression 解析类型断言表达式
+// 对应语法：value as Type（强制断言）或 value as? Type（安全断言）
+// 例如：x as string, obj as User, value as? int
+// 支持的目标类型：
+//   - 基本类型：int, float, string, bool, byte 等
+//   - 数组类型：[]int, []string 等
+//   - Map 类型：map[string]int 等
+//   - 类/接口：User, Readable 等
+func (p *Parser) parseTypeAssertionExpression(left Expression) Expression {
+	exp := &TypeAssertionExpression{
+		Token:  p.curToken,
+		Left:   left,
+		IsSafe: p.curToken.Type == lexer.AS_SAFE,
+	}
+
+	// 移动到类型位置
+	p.nextToken()
+
+	// 解析目标类型
+	exp.TargetType = p.parseTypeExpressionForAssertion()
+	if exp.TargetType == nil {
+		msg := fmt.Sprintf("类型断言缺少目标类型 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+
+	return exp
+}
+
+// parseTypeExpressionForAssertion 解析用于类型断言的类型表达式
+// 支持：基本类型、数组类型 []T、Map 类型 map[K]V、类名/接口名
+func (p *Parser) parseTypeExpressionForAssertion() Expression {
+	switch p.curToken.Type {
+	case lexer.LBRACKET:
+		// 数组类型：[]int, []string 等
+		return p.parseArrayTypeForAssertion()
+	case lexer.MAP:
+		// Map 类型：map[string]int 等
+		return p.parseMapTypeForAssertion()
+	case lexer.IDENT:
+		return &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	case lexer.INT_TYPE:
+		return &Identifier{Token: p.curToken, Value: "int"}
+	case lexer.I8_TYPE:
+		return &Identifier{Token: p.curToken, Value: "i8"}
+	case lexer.I16_TYPE:
+		return &Identifier{Token: p.curToken, Value: "i16"}
+	case lexer.I32_TYPE:
+		return &Identifier{Token: p.curToken, Value: "i32"}
+	case lexer.I64_TYPE:
+		return &Identifier{Token: p.curToken, Value: "i64"}
+	case lexer.UINT_TYPE:
+		return &Identifier{Token: p.curToken, Value: "uint"}
+	case lexer.U8_TYPE:
+		return &Identifier{Token: p.curToken, Value: "u8"}
+	case lexer.U16_TYPE:
+		return &Identifier{Token: p.curToken, Value: "u16"}
+	case lexer.U32_TYPE:
+		return &Identifier{Token: p.curToken, Value: "u32"}
+	case lexer.U64_TYPE:
+		return &Identifier{Token: p.curToken, Value: "u64"}
+	case lexer.BYTE_TYPE:
+		return &Identifier{Token: p.curToken, Value: "byte"}
+	case lexer.FLOAT_TYPE:
+		return &Identifier{Token: p.curToken, Value: "float"}
+	case lexer.F32_TYPE:
+		return &Identifier{Token: p.curToken, Value: "f32"}
+	case lexer.F64_TYPE:
+		return &Identifier{Token: p.curToken, Value: "f64"}
+	case lexer.STRING_TYPE:
+		return &Identifier{Token: p.curToken, Value: "string"}
+	case lexer.BOOL_TYPE:
+		return &Identifier{Token: p.curToken, Value: "bool"}
+	case lexer.ANY:
+		return &Identifier{Token: p.curToken, Value: "any"}
+	default:
+		return nil
+	}
+}
+
+// parseArrayTypeForAssertion 解析数组类型（用于类型断言）
+// 例如：[]int, []string, []User
+func (p *Parser) parseArrayTypeForAssertion() Expression {
+	arrayType := &ArrayType{Token: p.curToken}
+
+	// 跳过 [
+	p.nextToken()
+
+	// 检查是否有大小（固定数组）或直接是 ]（切片）
+	if p.curToken.Type == lexer.INT {
+		// 固定大小数组 [5]int
+		size, _ := strconv.ParseInt(p.curToken.Literal, 0, 64)
+		arrayType.Size = &IntegerLiteral{Token: p.curToken, Value: size}
+		p.nextToken()
+	} else if p.curToken.Type == lexer.ELLIPSIS {
+		// 推导大小 [...]int
+		arrayType.IsInferred = true
+		p.nextToken()
+	}
+	// 否则是切片 []int
+
+	// 期望 ]
+	if !p.curTokenIs(lexer.RBRACKET) {
+		msg := fmt.Sprintf("数组类型期望 ']'，得到 %s (行 %d, 列 %d)", p.curToken.Literal, p.curToken.Line, p.curToken.Column)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+
+	// 跳过 ]
+	p.nextToken()
+
+	// 解析元素类型
+	arrayType.ElementType = p.parseTypeExpressionForAssertion()
+
+	return arrayType
+}
+
+// parseMapTypeForAssertion 解析 Map 类型（用于类型断言）
+// 例如：map[string]int, map[string]User
+func (p *Parser) parseMapTypeForAssertion() Expression {
+	mapType := &MapType{Token: p.curToken}
+
+	// 跳过 map
+	p.nextToken()
+
+	// 期望 [
+	if !p.curTokenIs(lexer.LBRACKET) {
+		msg := fmt.Sprintf("Map 类型期望 '['，得到 %s (行 %d, 列 %d)", p.curToken.Literal, p.curToken.Line, p.curToken.Column)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+	p.nextToken()
+
+	// 解析键类型
+	if p.curToken.Type == lexer.IDENT || p.curToken.Type == lexer.STRING_TYPE {
+		mapType.KeyType = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	} else {
+		msg := fmt.Sprintf("Map 键类型无效 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+	p.nextToken()
+
+	// 期望 ]
+	if !p.curTokenIs(lexer.RBRACKET) {
+		msg := fmt.Sprintf("Map 类型期望 ']'，得到 %s (行 %d, 列 %d)", p.curToken.Literal, p.curToken.Line, p.curToken.Column)
+		p.errors = append(p.errors, msg)
+		return nil
+	}
+	p.nextToken()
+
+	// 解析值类型
+	mapType.ValueType = p.parseTypeExpressionForAssertion()
+
+	return mapType
+}
+
 
 
 

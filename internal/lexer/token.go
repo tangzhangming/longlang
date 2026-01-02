@@ -137,6 +137,10 @@ const (
 	DEFAULT TokenType = "DEFAULT" // default - 默认分支关键字
 	RANGE   TokenType = "RANGE"   // range - for-range 遍历关键字
 	
+	// ========== 类型断言关键字 ==========
+	AS       TokenType = "AS"        // as - 类型断言关键字
+	AS_SAFE  TokenType = "AS_SAFE"   // as? - 安全类型断言
+	
 	// ========== 特殊运算符 ==========
 	ARROW TokenType = "=>" // => - 匹配箭头运算符
 	
@@ -222,6 +226,8 @@ var keywords = map[string]TokenType{
 	"case":    CASE,
 	"default": DEFAULT,
 	"range":   RANGE,
+	// 类型断言
+	"as": AS,
 }
 
 // LookupIdent 检查标识符是否是关键字

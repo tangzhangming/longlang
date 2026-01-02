@@ -273,6 +273,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 	case *parser.ArrayType:
 		// ArrayType 在表达式位置时返回 nil（通常不应该执行到这里）
 		return &Null{}
+	case *parser.TypeAssertionExpression:
+		return i.evalTypeAssertionExpression(node)
 	}
 
 	return newError("未知节点类型: %T", node)

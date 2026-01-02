@@ -44,6 +44,8 @@ var precedences = map[lexer.TokenType]int{
 	lexer.ASSIGN:       ASSIGNMENT,
 	lexer.DOT:          CALL,
 	lexer.DOUBLE_COLON: CALL,
+	lexer.AS:           TYPEASSERT, // 类型断言 as
+	lexer.AS_SAFE:      TYPEASSERT, // 安全类型断言 as?
 }
 
 // ========== 语法分析器结构 ==========
@@ -121,6 +123,8 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerInfix(lexer.ASSIGN, p.parseAssignmentExpression)
 	p.registerInfix(lexer.DOUBLE_COLON, p.parseStaticCallExpression)
 	p.registerInfix(lexer.LBRACKET, p.parseIndexExpression)
+	p.registerInfix(lexer.AS, p.parseTypeAssertionExpression)
+	p.registerInfix(lexer.AS_SAFE, p.parseTypeAssertionExpression)
 
 	// 初始化 curToken 和 peekToken
 	p.nextToken()
