@@ -329,13 +329,36 @@ func (l *Lexer) readIdentifier() string {
 }
 
 // readNumber 读取数字（整数或浮点数）
+// 支持十进制、十六进制(0x)、二进制(0b)
 // 返回:
 //   数字字符串和是否是浮点数
 func (l *Lexer) readNumber() (string, bool) {
 	position := l.position
 	isFloat := false
 
-	// 读取整数部分
+	// 检查是否是特殊进制（0x 十六进制，0b 二进制）
+	if l.ch == '0' {
+		next := l.peekChar()
+		if next == 'x' || next == 'X' {
+			// 十六进制
+			l.readChar() // 跳过 0
+			l.readChar() // 跳过 x
+			for isHexDigit(l.ch) {
+				l.readChar()
+			}
+			return l.input[position:l.position], false
+		} else if next == 'b' || next == 'B' {
+			// 二进制
+			l.readChar() // 跳过 0
+			l.readChar() // 跳过 b
+			for l.ch == '0' || l.ch == '1' {
+				l.readChar()
+			}
+			return l.input[position:l.position], false
+		}
+	}
+
+	// 读取十进制整数部分
 	for isDigit(l.ch) {
 		l.readChar()
 	}
@@ -352,6 +375,11 @@ func (l *Lexer) readNumber() (string, bool) {
 	}
 
 	return l.input[position:l.position], isFloat
+}
+
+// isHexDigit 判断字符是否是十六进制数字
+func isHexDigit(ch byte) bool {
+	return isDigit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F')
 }
 
 // readString 读取字符串字面量

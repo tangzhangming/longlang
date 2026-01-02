@@ -299,7 +299,7 @@ func (p *Parser) parseClassVariable(accessModifier string) *ClassVariable {
 	p.nextToken()
 
 	// 解析类型
-	if !p.curTokenIs(lexer.STRING_TYPE) && !p.curTokenIs(lexer.INT_TYPE) && !p.curTokenIs(lexer.BOOL_TYPE) && !p.curTokenIs(lexer.FLOAT_TYPE) && !p.curTokenIs(lexer.ANY) {
+	if !p.curTokenIs(lexer.STRING_TYPE) && !p.curTokenIs(lexer.INT_TYPE) && !p.curTokenIs(lexer.BOOL_TYPE) && !p.curTokenIs(lexer.FLOAT_TYPE) && !p.curTokenIs(lexer.ANY) && !p.curTokenIs(lexer.BYTE_TYPE) && !p.curTokenIs(lexer.U8_TYPE) {
 		p.errors = append(p.errors, fmt.Sprintf("类成员变量必须声明类型，得到 %s (行 %d, 列 %d)", p.curToken.Type, p.curToken.Line, p.curToken.Column))
 		return nil
 	}
@@ -343,7 +343,8 @@ func (p *Parser) parseClassConstant(accessModifier string) *ClassConstant {
 	// 解析类型（可选）
 	if p.curTokenIs(lexer.STRING_TYPE) || p.curTokenIs(lexer.INT_TYPE) || p.curTokenIs(lexer.BOOL_TYPE) || p.curTokenIs(lexer.FLOAT_TYPE) || p.curTokenIs(lexer.ANY) ||
 		p.curTokenIs(lexer.I8_TYPE) || p.curTokenIs(lexer.I16_TYPE) || p.curTokenIs(lexer.I32_TYPE) || p.curTokenIs(lexer.I64_TYPE) ||
-		p.curTokenIs(lexer.UINT_TYPE) || p.curTokenIs(lexer.U8_TYPE) || p.curTokenIs(lexer.U16_TYPE) || p.curTokenIs(lexer.U32_TYPE) || p.curTokenIs(lexer.U64_TYPE) ||
+		p.curTokenIs(lexer.UINT_TYPE) || p.curTokenIs(lexer.U8_TYPE) || p.curTokenIs(lexer.BYTE_TYPE) ||
+		p.curTokenIs(lexer.U16_TYPE) || p.curTokenIs(lexer.U32_TYPE) || p.curTokenIs(lexer.U64_TYPE) ||
 		p.curTokenIs(lexer.F32_TYPE) || p.curTokenIs(lexer.F64_TYPE) || p.curTokenIs(lexer.IDENT) {
 		constant.Type = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
 		p.nextToken()

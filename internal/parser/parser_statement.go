@@ -88,9 +88,10 @@ func (p *Parser) parseLetStatement() Statement {
 	} else if p.peekTokenIs(lexer.STRING_TYPE) || p.peekTokenIs(lexer.INT_TYPE) || 
 		p.peekTokenIs(lexer.BOOL_TYPE) || p.peekTokenIs(lexer.FLOAT_TYPE) || 
 		p.peekTokenIs(lexer.ANY) || p.peekTokenIs(lexer.I8_TYPE) || 
-		p.peekTokenIs(lexer.I16_TYPE) || p.peekTokenIs(lexer.I32_TYPE) || 
+		p.peekTokenIs(lexer.I16_TYPE) || p.peekTokenIs(lexer.I32_TYPE) ||
 		p.peekTokenIs(lexer.I64_TYPE) || p.peekTokenIs(lexer.UINT_TYPE) || 
-		p.peekTokenIs(lexer.U8_TYPE) || p.peekTokenIs(lexer.U16_TYPE) || 
+		p.peekTokenIs(lexer.U8_TYPE) || p.peekTokenIs(lexer.BYTE_TYPE) ||
+		p.peekTokenIs(lexer.U16_TYPE) || 
 		p.peekTokenIs(lexer.U32_TYPE) || p.peekTokenIs(lexer.U64_TYPE) ||
 		p.peekTokenIs(lexer.F32_TYPE) || p.peekTokenIs(lexer.F64_TYPE) {
 		// 简单类型声明

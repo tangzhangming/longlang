@@ -190,6 +190,7 @@ func (i *Interpreter) checkArrayElementType(element Object, expectedType string)
 		"i64":    INTEGER_OBJ,
 		"uint":   INTEGER_OBJ,
 		"u8":     INTEGER_OBJ,
+		"byte":   INTEGER_OBJ, // byte 是 u8 的别名
 		"u16":    INTEGER_OBJ,
 		"u32":    INTEGER_OBJ,
 		"u64":    INTEGER_OBJ,
@@ -213,6 +214,15 @@ func (i *Interpreter) checkArrayElementType(element Object, expectedType string)
 
 	if actualType != expected {
 		return newError("数组元素类型不匹配：期望 %s，得到 %s", expectedType, actualType)
+	}
+
+	// byte 类型的范围检查 (0-255)
+	if expectedType == "byte" || expectedType == "u8" {
+		if intVal, ok := element.(*Integer); ok {
+			if intVal.Value < 0 || intVal.Value > 255 {
+				return newError("byte 类型值超出范围 [0, 255]：得到 %d", intVal.Value)
+			}
+		}
 	}
 
 	return nil

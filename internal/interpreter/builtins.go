@@ -126,6 +126,87 @@ func registerBuiltins(env *Environment) {
 		return &Integer{Value: int64(len(str.Value))}
 	}})
 
+	// 注册全局 toBytes 函数
+	// toBytes(string) - 将字符串转换为 []byte 数组
+	env.Set("toBytes", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("toBytes 函数需要1个参数，得到 %d 个", len(args))
+		}
+		str, ok := args[0].(*String)
+		if !ok {
+			return newError("toBytes 参数必须是字符串，得到 %s", args[0].Type())
+		}
+		// 将字符串转换为字节数组
+		bytes := []byte(str.Value)
+		elements := make([]Object, len(bytes))
+		for i, b := range bytes {
+			elements[i] = &Integer{Value: int64(b)}
+		}
+		return &Array{
+			Elements:    elements,
+			ElementType: "byte",
+			IsFixed:     false,
+			Capacity:    int64(len(bytes)),
+		}
+	}})
+
+	// 注册全局 bytesToString 函数
+	// bytesToString([]byte) - 将 []byte 数组转换为字符串
+	env.Set("bytesToString", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("bytesToString 函数需要1个参数，得到 %d 个", len(args))
+		}
+		arr, ok := args[0].(*Array)
+		if !ok {
+			return newError("bytesToString 参数必须是数组，得到 %s", args[0].Type())
+		}
+		// 将整数数组转换为字节数组
+		bytes := make([]byte, len(arr.Elements))
+		for i, elem := range arr.Elements {
+			intVal, ok := elem.(*Integer)
+			if !ok {
+				return newError("bytesToString 数组元素必须是整数，得到 %s", elem.Type())
+			}
+			if intVal.Value < 0 || intVal.Value > 255 {
+				return newError("bytesToString 数组元素必须在 [0, 255] 范围内，得到 %d", intVal.Value)
+			}
+			bytes[i] = byte(intVal.Value)
+		}
+		return &String{Value: string(bytes)}
+	}})
+
+	// 注册全局 chr 函数
+	// chr(int) - 将 byte/int 转换为单字符字符串
+	env.Set("chr", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("chr 函数需要1个参数，得到 %d 个", len(args))
+		}
+		intVal, ok := args[0].(*Integer)
+		if !ok {
+			return newError("chr 参数必须是整数，得到 %s", args[0].Type())
+		}
+		if intVal.Value < 0 || intVal.Value > 255 {
+			return newError("chr 值超出范围 [0, 255]：得到 %d", intVal.Value)
+		}
+		return &String{Value: string(byte(intVal.Value))}
+	}})
+
+	// 注册全局 ord 函数
+	// ord(string) - 获取字符串第一个字符的 byte 值
+	env.Set("ord", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("ord 函数需要1个参数，得到 %d 个", len(args))
+		}
+		str, ok := args[0].(*String)
+		if !ok {
+			return newError("ord 参数必须是字符串，得到 %s", args[0].Type())
+		}
+		if len(str.Value) == 0 {
+			return newError("ord 参数不能是空字符串")
+		}
+		return &Integer{Value: int64(str.Value[0])}
+	}})
+
 	// 注册全局 sleep 函数
 	// sleep(ms) - 休眠指定毫秒数
 	env.Set("sleep", &Builtin{Fn: func(args ...Object) Object {

@@ -92,6 +92,18 @@ func (p *Parser) isTypeToken(t lexer.TokenType) bool {
 		t == lexer.FLOAT_TYPE ||
 		t == lexer.ANY ||
 		t == lexer.VOID ||
+		t == lexer.BYTE_TYPE || // byte 类型
+		t == lexer.U8_TYPE ||   // u8 类型
+		t == lexer.I8_TYPE ||
+		t == lexer.I16_TYPE ||
+		t == lexer.I32_TYPE ||
+		t == lexer.I64_TYPE ||
+		t == lexer.UINT_TYPE ||
+		t == lexer.U16_TYPE ||
+		t == lexer.U32_TYPE ||
+		t == lexer.U64_TYPE ||
+		t == lexer.F32_TYPE ||
+		t == lexer.F64_TYPE ||
 		t == lexer.IDENT
 }
 

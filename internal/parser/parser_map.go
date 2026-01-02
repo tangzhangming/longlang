@@ -148,6 +148,10 @@ func (p *Parser) parseTypeExpression() Expression {
 		return &Identifier{Token: p.curToken, Value: "int"}
 	case lexer.STRING_TYPE:
 		return &Identifier{Token: p.curToken, Value: "string"}
+	case lexer.BYTE_TYPE:
+		return &Identifier{Token: p.curToken, Value: "byte"}
+	case lexer.U8_TYPE:
+		return &Identifier{Token: p.curToken, Value: "u8"}
 	case lexer.BOOL_TYPE:
 		return &Identifier{Token: p.curToken, Value: "bool"}
 	case lexer.FLOAT_TYPE:

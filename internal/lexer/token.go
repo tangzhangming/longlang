@@ -88,6 +88,7 @@ const (
 	// 无符号整型
 	UINT_TYPE TokenType = "UINT_TYPE" // uint - 平台相关无符号整型
 	U8_TYPE   TokenType = "U8_TYPE"   // u8 - 8位无符号整型
+	BYTE_TYPE TokenType = "BYTE_TYPE" // byte - u8 的别名，8位无符号整型
 	U16_TYPE  TokenType = "U16_TYPE"  // u16 - 16位无符号整型
 	U32_TYPE  TokenType = "U32_TYPE"  // u32 - 32位无符号整型
 	U64_TYPE  TokenType = "U64_TYPE"  // u64 - 64位无符号整型
@@ -168,6 +169,7 @@ var keywords = map[string]TokenType{
 	// 无符号整型
 	"uint": UINT_TYPE,
 	"u8":   U8_TYPE,
+	"byte": BYTE_TYPE, // byte 是 u8 的别名
 	"u16":  U16_TYPE,
 	"u32":  U32_TYPE,
 	"u64":  U64_TYPE,
