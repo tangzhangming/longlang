@@ -364,6 +364,49 @@ for j := 0; j < 5; j++ {
 }
 ```
 
+### 4. for-range 循环
+
+遍历集合（Map、Array、String）：
+
+```longlang
+// 遍历 Map
+myMap := map[string]int{"a": 1, "b": 2, "c": 3}
+for k, v := range myMap {
+    fmt.println("key:", k, "value:", v)
+}
+
+// 只取 key
+for k := range myMap {
+    fmt.println("key:", k)
+}
+
+// 忽略 key，只取 value
+for _, v := range myMap {
+    fmt.println("value:", v)
+}
+```
+
+```longlang
+// 遍历 Array
+arr := []string{"apple", "banana", "cherry"}
+for i, item := range arr {
+    fmt.println("index:", i, "item:", item)
+}
+
+// 忽略 index
+for _, item := range arr {
+    fmt.println("item:", item)
+}
+```
+
+```longlang
+// 遍历 String（按字符）
+str := "Hello"
+for i, char := range str {
+    fmt.println("index:", i, "char:", char)
+}
+```
+
 ## 循环控制
 
 ### break 语句
@@ -407,6 +450,7 @@ for i := 0; i < 5; i++ {
 | `for` | 循环 | `for cond { ... }` |
 | `for` | 传统循环 | `for init; cond; post { ... }` |
 | `for` | 无限循环 | `for { ... }` |
+| `for-range` | 遍历集合 | `for k, v := range collection { ... }` |
 | `break` | 跳出循环 | `break` |
 | `continue` | 继续下一次 | `continue` |
 

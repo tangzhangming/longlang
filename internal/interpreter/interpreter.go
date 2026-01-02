@@ -151,6 +151,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalIfStatement(node)
 	case *parser.ForStatement:
 		return i.evalForStatement(node)
+	case *parser.ForRangeStatement:
+		return i.evalForRangeStatement(node)
 	case *parser.BreakStatement:
 		return &BreakSignal{}
 	case *parser.ContinueStatement:
@@ -2560,6 +2562,144 @@ func (i *Interpreter) evalForStatement(node *parser.ForStatement) Object {
 		}
 	}
 
+	return nil
+}
+
+// evalForRangeStatement 执行 for-range 循环
+// 支持遍历 Map、Array、String
+func (i *Interpreter) evalForRangeStatement(node *parser.ForRangeStatement) Object {
+	// 计算要遍历的集合
+	iterable := i.Eval(node.Iterable)
+	if isError(iterable) {
+		return iterable
+	}
+
+	// 获取 key 和 value 变量名
+	keyName := ""
+	valueName := ""
+	if node.Key != nil {
+		keyName = node.Key.Value
+	}
+	if node.Value != nil {
+		valueName = node.Value.Value
+	}
+
+	// 根据集合类型进行遍历
+	switch obj := iterable.(type) {
+	case *Map:
+		return i.evalForRangeMap(obj, keyName, valueName, node.Body)
+	case *Array:
+		return i.evalForRangeArray(obj, keyName, valueName, node.Body)
+	case *String:
+		return i.evalForRangeString(obj, keyName, valueName, node.Body)
+	default:
+		return newError("for-range 不支持遍历类型 %s", iterable.Type())
+	}
+}
+
+// evalForRangeMap 遍历 Map
+func (i *Interpreter) evalForRangeMap(m *Map, keyName, valueName string, body *parser.BlockStatement) Object {
+	// 使用 Keys 保持插入顺序
+	for _, key := range m.Keys {
+		value := m.Pairs[key]
+		
+		// 设置 key 变量（如果不是 _）
+		if keyName != "" && keyName != "_" {
+			i.env.Set(keyName, &String{Value: key})
+		}
+		// 设置 value 变量（如果不是 _）
+		if valueName != "" && valueName != "_" {
+			i.env.Set(valueName, value)
+		}
+
+		// 执行循环体
+		result := i.Eval(body)
+
+		// 检查控制流信号
+		if result != nil {
+			switch result.Type() {
+			case BREAK_SIGNAL_OBJ:
+				return nil
+			case CONTINUE_SIGNAL_OBJ:
+				continue
+			case RETURN_VALUE_OBJ:
+				return result
+			case ERROR_OBJ:
+				return result
+			case THROWN_EXCEPTION_OBJ:
+				return result
+			}
+		}
+	}
+	return nil
+}
+
+// evalForRangeArray 遍历 Array
+func (i *Interpreter) evalForRangeArray(arr *Array, keyName, valueName string, body *parser.BlockStatement) Object {
+	for idx, elem := range arr.Elements {
+		// 设置 index 变量（如果不是 _）
+		if keyName != "" && keyName != "_" {
+			i.env.Set(keyName, &Integer{Value: int64(idx)})
+		}
+		// 设置 value 变量（如果不是 _）
+		if valueName != "" && valueName != "_" {
+			i.env.Set(valueName, elem)
+		}
+
+		// 执行循环体
+		result := i.Eval(body)
+
+		// 检查控制流信号
+		if result != nil {
+			switch result.Type() {
+			case BREAK_SIGNAL_OBJ:
+				return nil
+			case CONTINUE_SIGNAL_OBJ:
+				continue
+			case RETURN_VALUE_OBJ:
+				return result
+			case ERROR_OBJ:
+				return result
+			case THROWN_EXCEPTION_OBJ:
+				return result
+			}
+		}
+	}
+	return nil
+}
+
+// evalForRangeString 遍历 String（按字符）
+func (i *Interpreter) evalForRangeString(str *String, keyName, valueName string, body *parser.BlockStatement) Object {
+	runes := []rune(str.Value)
+	for idx, r := range runes {
+		// 设置 index 变量（如果不是 _）
+		if keyName != "" && keyName != "_" {
+			i.env.Set(keyName, &Integer{Value: int64(idx)})
+		}
+		// 设置 value 变量（如果不是 _）- 字符作为字符串
+		if valueName != "" && valueName != "_" {
+			i.env.Set(valueName, &String{Value: string(r)})
+		}
+
+		// 执行循环体
+		result := i.Eval(body)
+
+		// 检查控制流信号
+		if result != nil {
+			switch result.Type() {
+			case BREAK_SIGNAL_OBJ:
+				return nil
+			case CONTINUE_SIGNAL_OBJ:
+				continue
+			case RETURN_VALUE_OBJ:
+				return result
+			case ERROR_OBJ:
+				return result
+			case THROWN_EXCEPTION_OBJ:
+				return result
+			}
+		}
+	}
 	return nil
 }
 

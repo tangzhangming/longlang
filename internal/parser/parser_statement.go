@@ -202,45 +202,162 @@ func (p *Parser) parseIfStatement() *IfStatement {
 }
 
 // parseForStatement 解析 for 循环语句
-func (p *Parser) parseForStatement() *ForStatement {
-	stmt := &ForStatement{Token: p.curToken}
-
+// 支持：
+//   - for { ... } (无限循环)
+//   - for condition { ... } (while 式)
+//   - for init; cond; post { ... } (传统 for)
+//   - for k, v := range collection { ... } (for-range)
+func (p *Parser) parseForStatement() Statement {
+	forToken := p.curToken
 	p.nextToken()
 
 	// 无限循环：for { ... }
 	if p.curTokenIs(lexer.LBRACE) {
+		stmt := &ForStatement{Token: forToken}
 		stmt.Body = p.parseBlockStatement()
 		return stmt
 	}
 
-	// 传统 for 循环：for j := 0; j < 5; j++ { ... }
-	if p.curTokenIs(lexer.IDENT) && p.peekTokenIs(lexer.ASSIGN) && p.peekToken.Literal == ":=" {
-		stmt.Init = p.parseForInit()
-
-		if !p.curTokenIs(lexer.SEMICOLON) {
-			p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第一个分号 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
-			return nil
+	// 检查是否是 for-range: for ident [, ident] := range ...
+	if p.curTokenIs(lexer.IDENT) {
+		// 保存当前位置以便回退
+		firstIdent := p.curToken
+		
+		// 检查 for k, v := range 或 for k := range
+		if p.peekTokenIs(lexer.COMMA) {
+			// for k, v := range collection
+			return p.parseForRangeStatement(forToken, &firstIdent)
+		} else if p.peekTokenIs(lexer.ASSIGN) && p.peekToken.Literal == ":=" {
+			// 可能是 for k := range collection 或 for i := 0; ...
+			// 需要向前看更多 token
+			p.nextToken() // 移动到 :=
+			p.nextToken() // 移动到 := 后的内容
+			
+			if p.curTokenIs(lexer.RANGE) {
+				// for k := range collection
+				return p.parseForRangeStatementSingleVar(forToken, &firstIdent)
+			} else {
+				// 传统 for 循环：for i := 0; ...
+				// 需要继续解析初始化表达式
+				return p.parseTraditionalFor(forToken, &firstIdent)
+			}
 		}
-		p.nextToken()
+	}
 
-		if !p.curTokenIs(lexer.SEMICOLON) {
-			stmt.Condition = p.parseExpression(LOWEST)
-			p.nextToken()
-		}
+	// while 式循环：for condition { ... }
+	stmt := &ForStatement{Token: forToken}
+	stmt.Condition = p.parseExpression(LOWEST)
+	p.nextToken()
 
-		if !p.curTokenIs(lexer.SEMICOLON) {
-			p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第二个分号 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
-			return nil
-		}
-		p.nextToken()
+	if !p.curTokenIs(lexer.LBRACE) {
+		p.errors = append(p.errors, fmt.Sprintf("期望 '{' 但得到 %s (行 %d, 列 %d)", p.curToken.Literal, p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	stmt.Body = p.parseBlockStatement()
 
-		if !p.curTokenIs(lexer.LBRACE) {
-			stmt.Post = p.parseForPost()
-		}
-	} else {
-		// while 式循环：for condition { ... }
+	return stmt
+}
+
+// parseForRangeStatement 解析 for k, v := range collection 形式
+func (p *Parser) parseForRangeStatement(forToken lexer.Token, firstIdent *lexer.Token) *ForRangeStatement {
+	stmt := &ForRangeStatement{Token: forToken}
+	
+	// 设置 key（可能是 _ 表示忽略）
+	stmt.Key = &Identifier{Token: *firstIdent, Value: firstIdent.Literal}
+	
+	p.nextToken() // 跳过第一个标识符，移动到 ,
+	p.nextToken() // 跳过 ,，移动到第二个标识符
+	
+	if !p.curTokenIs(lexer.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("for-range 期望变量名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	
+	// 设置 value（可能是 _ 表示忽略）
+	stmt.Value = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	
+	p.nextToken() // 移动到 :=
+	if !p.curTokenIs(lexer.ASSIGN) || p.curToken.Literal != ":=" {
+		p.errors = append(p.errors, fmt.Sprintf("for-range 期望 ':=' (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	
+	p.nextToken() // 移动到 range
+	if !p.curTokenIs(lexer.RANGE) {
+		p.errors = append(p.errors, fmt.Sprintf("for-range 期望 'range' (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	
+	p.nextToken() // 移动到集合表达式
+	stmt.Iterable = p.parseExpression(LOWEST)
+	
+	p.nextToken() // 移动到 {
+	if !p.curTokenIs(lexer.LBRACE) {
+		p.errors = append(p.errors, fmt.Sprintf("for-range 期望 '{' (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	
+	stmt.Body = p.parseBlockStatement()
+	return stmt
+}
+
+// parseForRangeStatementSingleVar 解析 for k := range collection 形式
+func (p *Parser) parseForRangeStatementSingleVar(forToken lexer.Token, firstIdent *lexer.Token) *ForRangeStatement {
+	stmt := &ForRangeStatement{Token: forToken}
+	
+	// 只有 key，没有 value
+	stmt.Key = &Identifier{Token: *firstIdent, Value: firstIdent.Literal}
+	stmt.Value = nil
+	
+	// 当前已经在 range 关键字上
+	p.nextToken() // 移动到集合表达式
+	stmt.Iterable = p.parseExpression(LOWEST)
+	
+	p.nextToken() // 移动到 {
+	if !p.curTokenIs(lexer.LBRACE) {
+		p.errors = append(p.errors, fmt.Sprintf("for-range 期望 '{' (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	
+	stmt.Body = p.parseBlockStatement()
+	return stmt
+}
+
+// parseTraditionalFor 解析传统 for 循环（在已经解析了初始值后）
+func (p *Parser) parseTraditionalFor(forToken lexer.Token, initIdent *lexer.Token) *ForStatement {
+	stmt := &ForStatement{Token: forToken}
+	
+	// 初始化语句：已经解析了 i := ，现在 curToken 是值
+	name := &Identifier{Token: *initIdent, Value: initIdent.Literal}
+	assignStmt := &AssignStatement{
+		Token: lexer.Token{Type: lexer.ASSIGN, Literal: ":="},
+		Name:  name,
+	}
+	assignStmt.Value = p.parseExpression(LOWEST)
+	stmt.Init = assignStmt
+	
+	p.nextToken() // 移动到 ;
+	if !p.curTokenIs(lexer.SEMICOLON) {
+		p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第一个分号 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	p.nextToken()
+
+	// 条件
+	if !p.curTokenIs(lexer.SEMICOLON) {
 		stmt.Condition = p.parseExpression(LOWEST)
 		p.nextToken()
+	}
+
+	if !p.curTokenIs(lexer.SEMICOLON) {
+		p.errors = append(p.errors, fmt.Sprintf("for 循环缺少第二个分号 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	p.nextToken()
+
+	// Post
+	if !p.curTokenIs(lexer.LBRACE) {
+		stmt.Post = p.parseForPost()
 	}
 
 	if !p.curTokenIs(lexer.LBRACE) {
@@ -253,19 +370,6 @@ func (p *Parser) parseForStatement() *ForStatement {
 }
 
 // parseForInit 解析 for 循环初始化语句
-func (p *Parser) parseForInit() Statement {
-	name := &Identifier{Token: p.curToken, Value: p.curToken.Literal}
-	p.nextToken()
-	p.nextToken()
-	assignStmt := &AssignStatement{
-		Token: lexer.Token{Type: lexer.ASSIGN, Literal: ":="},
-		Name:  name,
-	}
-	assignStmt.Value = p.parseExpression(LOWEST)
-	p.nextToken()
-	return assignStmt
-}
-
 // parseForPost 解析 for 循环 post 语句
 func (p *Parser) parseForPost() Statement {
 	if p.curTokenIs(lexer.IDENT) && (p.peekTokenIs(lexer.INCREMENT) || p.peekTokenIs(lexer.DECREMENT)) {

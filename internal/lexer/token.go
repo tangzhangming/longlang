@@ -135,6 +135,7 @@ const (
 	MATCH   TokenType = "MATCH"   // match - 模式匹配表达式关键字
 	CASE    TokenType = "CASE"    // case - 分支条件关键字
 	DEFAULT TokenType = "DEFAULT" // default - 默认分支关键字
+	RANGE   TokenType = "RANGE"   // range - for-range 遍历关键字
 	
 	// ========== 特殊运算符 ==========
 	ARROW TokenType = "=>" // => - 匹配箭头运算符
@@ -217,6 +218,7 @@ var keywords = map[string]TokenType{
 	"match":   MATCH,
 	"case":    CASE,
 	"default": DEFAULT,
+	"range":   RANGE,
 }
 
 // LookupIdent 检查标识符是否是关键字

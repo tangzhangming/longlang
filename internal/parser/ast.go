@@ -216,6 +216,36 @@ func (fs *ForStatement) String() string {
 	return out
 }
 
+// ForRangeStatement for-range 循环语句
+// 对应语法：for key, value := range collection { ... }
+// 例如：for k, v := range myMap { ... }
+// 例如：for i, item := range myArray { ... }
+// 例如：for _, v := range myMap { ... }  (忽略 key)
+// 例如：for k := range myMap { ... }  (只有 key)
+type ForRangeStatement struct {
+	Token      lexer.Token     // for 关键字对应的 token
+	Key        *Identifier     // key/index 变量（可以是 _ 表示忽略）
+	Value      *Identifier     // value 变量（可选，可以是 _ 或 nil）
+	Iterable   Expression      // 要遍历的集合（map、array、string）
+	Body       *BlockStatement // 循环体
+}
+
+func (frs *ForRangeStatement) statementNode()       {}
+func (frs *ForRangeStatement) TokenLiteral() string { return frs.Token.Literal }
+func (frs *ForRangeStatement) String() string {
+	var out string
+	out += "for "
+	if frs.Key != nil {
+		out += frs.Key.String()
+	}
+	if frs.Value != nil {
+		out += ", " + frs.Value.String()
+	}
+	out += " := range " + frs.Iterable.String()
+	out += " " + frs.Body.String()
+	return out
+}
+
 // BreakStatement break 语句
 // 用于跳出 for 循环
 type BreakStatement struct {
