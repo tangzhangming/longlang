@@ -6,6 +6,12 @@ import (
 
 // evalEnumStatement 执行枚举定义语句
 func (i *Interpreter) evalEnumStatement(node *parser.EnumStatement) Object {
+	// 获取当前命名空间
+	currentNS := ""
+	if i.currentNamespace != nil {
+		currentNS = i.currentNamespace.FullName
+	}
+
 	enum := &Enum{
 		Name:       node.Name.Value,
 		Members:    make(map[string]*EnumValue),
@@ -13,6 +19,9 @@ func (i *Interpreter) evalEnumStatement(node *parser.EnumStatement) Object {
 		Methods:    make(map[string]*ClassMethod),
 		Variables:  make(map[string]*ClassVariable),
 		Env:        i.env,
+		IsPublic:   node.IsPublic,
+		IsInternal: node.IsInternal,
+		Namespace:  currentNS,
 	}
 
 	// 设置底层类型

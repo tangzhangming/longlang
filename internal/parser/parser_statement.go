@@ -20,15 +20,21 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseNamespaceStatement()
 	case lexer.USE:
 		return p.parseUseStatement()
+	case lexer.PUBLIC:
+		// public class/interface/enum ...
+		return p.parsePublicDeclaration()
+	case lexer.INTERNAL:
+		// internal class/interface/enum ...
+		return p.parseInternalDeclaration()
 	case lexer.ABSTRACT:
 		// abstract class ...
-		return p.parseClassStatement()
+		return p.parseClassStatement(false, false)
 	case lexer.CLASS:
-		return p.parseClassStatement()
+		return p.parseClassStatement(false, false)
 	case lexer.INTERFACE:
-		return p.parseInterfaceStatement()
+		return p.parseInterfaceStatement(false, false)
 	case lexer.ENUM:
-		return p.parseEnumStatement()
+		return p.parseEnumStatement(false, false)
 	case lexer.VAR:
 		return p.parseLetStatement()
 	case lexer.RETURN:
@@ -61,6 +67,46 @@ func (p *Parser) parseStatement() Statement {
 		return nil
 	default:
 		return p.parseExpressionStatement()
+	}
+}
+
+// parsePublicDeclaration 解析 public 开头的声明
+// 支持：public class, public abstract class, public interface, public enum
+func (p *Parser) parsePublicDeclaration() Statement {
+	p.nextToken() // 跳过 public
+
+	switch p.curToken.Type {
+	case lexer.CLASS:
+		return p.parseClassStatement(true, false)
+	case lexer.ABSTRACT:
+		return p.parseClassStatement(true, false)
+	case lexer.INTERFACE:
+		return p.parseInterfaceStatement(true, false)
+	case lexer.ENUM:
+		return p.parseEnumStatement(true, false)
+	default:
+		p.errors = append(p.errors, fmt.Sprintf("public 后面必须是 class、abstract、interface 或 enum (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+}
+
+// parseInternalDeclaration 解析 internal 开头的声明
+// 支持：internal class, internal abstract class, internal interface, internal enum
+func (p *Parser) parseInternalDeclaration() Statement {
+	p.nextToken() // 跳过 internal
+
+	switch p.curToken.Type {
+	case lexer.CLASS:
+		return p.parseClassStatement(false, true)
+	case lexer.ABSTRACT:
+		return p.parseClassStatement(false, true)
+	case lexer.INTERFACE:
+		return p.parseInterfaceStatement(false, true)
+	case lexer.ENUM:
+		return p.parseEnumStatement(false, true)
+	default:
+		p.errors = append(p.errors, fmt.Sprintf("internal 后面必须是 class、abstract、interface 或 enum (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+		return nil
 	}
 }
 

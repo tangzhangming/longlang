@@ -9,9 +9,22 @@ import (
 // ========== 枚举解析 ==========
 
 // parseEnumStatement 解析枚举声明语句
-// 语法: enum EnumName [: BackingType] [implements Interface1, Interface2] { Members }
-func (p *Parser) parseEnumStatement() *EnumStatement {
+// 语法: [public|internal] enum EnumName [: BackingType] [implements Interface1, Interface2] { Members }
+// isPublic: 是否显式声明为 public
+// isInternal: 是否显式声明为 internal
+// 如果两者都为 false，则默认为 internal
+func (p *Parser) parseEnumStatement(isPublic bool, isInternal bool) *EnumStatement {
 	stmt := &EnumStatement{Token: p.curToken}
+
+	// 设置可见性
+	if isPublic {
+		stmt.IsPublic = true
+		stmt.IsInternal = false
+	} else {
+		// 默认或显式 internal
+		stmt.IsPublic = false
+		stmt.IsInternal = true
+	}
 
 	// 期望枚举名
 	if !p.expectPeek(lexer.IDENT) {

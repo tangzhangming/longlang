@@ -111,6 +111,7 @@ const (
 	PUBLIC     TokenType = "PUBLIC"     // public - 公开访问修饰符
 	PRIVATE    TokenType = "PRIVATE"    // private - 私有访问修饰符
 	PROTECTED  TokenType = "PROTECTED"  // protected - 受保护访问修饰符
+	INTERNAL   TokenType = "INTERNAL"   // internal - 命名空间内部可见修饰符
 	STATIC     TokenType = "STATIC"     // static - 静态关键字
 	CONST      TokenType = "CONST"      // const - 常量关键字
 	THIS       TokenType = "THIS"       // this - 当前对象关键字
@@ -205,6 +206,7 @@ var keywords = map[string]TokenType{
 	"public":     PUBLIC,
 	"private":    PRIVATE,
 	"protected":  PROTECTED,
+	"internal":   INTERNAL,
 	"static":     STATIC,
 	"const":      CONST,
 	"this":       THIS,

@@ -658,9 +658,11 @@ func (us *UseStatement) String() string {
 // InterfaceStatement 接口声明语句
 // 对应语法：interface InterfaceName { ... }
 type InterfaceStatement struct {
-	Token   lexer.Token         // interface 关键字对应的 token
-	Name    *Identifier         // 接口名
-	Methods []*InterfaceMethod  // 接口方法签名
+	Token      lexer.Token         // interface 关键字对应的 token
+	Name       *Identifier         // 接口名
+	Methods    []*InterfaceMethod  // 接口方法签名
+	IsPublic   bool                // 是否是公开接口（可被其他命名空间访问）
+	IsInternal bool                // 是否是内部接口（仅命名空间树内可访问，默认）
 }
 
 func (is *InterfaceStatement) statementNode()       {}
@@ -717,6 +719,8 @@ type ClassStatement struct {
 	Interfaces []*Identifier   // 实现的接口列表
 	Members    []ClassMember   // 类成员（变量、方法）
 	IsAbstract bool            // 是否是抽象类
+	IsPublic   bool            // 是否是公开类（可被其他命名空间访问）
+	IsInternal bool            // 是否是内部类（仅命名空间树内可访问，默认）
 }
 
 func (cs *ClassStatement) statementNode()       {}
@@ -1122,6 +1126,8 @@ type EnumStatement struct {
 	Members     []*EnumMember    // 枚举成员
 	Methods     []*ClassMethod   // 枚举方法
 	Variables   []*ClassVariable // 枚举字段（用于复杂枚举）
+	IsPublic    bool             // 是否是公开枚举（可被其他命名空间访问）
+	IsInternal  bool             // 是否是内部枚举（仅命名空间树内可访问，默认）
 }
 
 func (es *EnumStatement) statementNode()       {}

@@ -410,8 +410,11 @@ func (a *Any) Inspect() string  { return a.Value.Inspect() }
 // Interface 接口对象
 // 表示一个接口定义，包含接口的方法签名
 type Interface struct {
-	Name    string                      // 接口名
-	Methods map[string]*InterfaceMethod // 方法签名
+	Name       string                      // 接口名
+	Methods    map[string]*InterfaceMethod // 方法签名
+	IsPublic   bool                        // 是否是公开接口（可被其他命名空间访问）
+	IsInternal bool                        // 是否是内部接口（仅命名空间树内可访问，默认）
+	Namespace  string                      // 所属命名空间
 }
 
 func (i *Interface) Type() ObjectType { return INTERFACE_OBJ }
@@ -437,6 +440,9 @@ type Class struct {
 	Env           *Environment              // 类定义时的环境（用于闭包）
 	IsExported    bool                      // 是否为导出类（与文件名相同）
 	IsAbstract    bool                      // 是否是抽象类
+	IsPublic      bool                      // 是否是公开类（可被其他命名空间访问）
+	IsInternal    bool                      // 是否是内部类（仅命名空间树内可访问，默认）
+	Namespace     string                    // 所属命名空间
 }
 
 func (c *Class) Type() ObjectType { return CLASS_OBJ }
@@ -641,14 +647,17 @@ func (bam *BoundArrayMethod) Inspect() string  { return "array method " + bam.Na
 // Enum 枚举类型定义
 // 表示一个枚举类型，包含所有枚举成员
 type Enum struct {
-	Name        string                  // 枚举名
-	BackingType string                  // 底层类型（"int"、"string" 或 ""）
-	Members     map[string]*EnumValue   // 枚举成员（按名称）
-	MemberList  []*EnumValue            // 枚举成员列表（保持顺序）
-	Methods     map[string]*ClassMethod // 枚举方法
+	Name        string                    // 枚举名
+	BackingType string                    // 底层类型（"int"、"string" 或 ""）
+	Members     map[string]*EnumValue     // 枚举成员（按名称）
+	MemberList  []*EnumValue              // 枚举成员列表（保持顺序）
+	Methods     map[string]*ClassMethod   // 枚举方法
 	Variables   map[string]*ClassVariable // 枚举字段（用于复杂枚举）
-	Interfaces  []*Interface            // 实现的接口
-	Env         *Environment            // 枚举定义时的环境
+	Interfaces  []*Interface              // 实现的接口
+	Env         *Environment              // 枚举定义时的环境
+	IsPublic    bool                      // 是否是公开枚举（可被其他命名空间访问）
+	IsInternal  bool                      // 是否是内部枚举（仅命名空间树内可访问，默认）
+	Namespace   string                    // 所属命名空间
 }
 
 func (e *Enum) Type() ObjectType { return ENUM_OBJ }

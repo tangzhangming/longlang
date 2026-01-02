@@ -9,9 +9,22 @@ import (
 // ========== 类解析 ==========
 
 // parseClassStatement 解析类声明语句
-// 语法: [abstract] class ClassName extends ParentClass implements Interface1, Interface2 { ... }
-func (p *Parser) parseClassStatement() *ClassStatement {
+// 语法: [public|internal] [abstract] class ClassName extends ParentClass implements Interface1, Interface2 { ... }
+// isPublic: 是否显式声明为 public
+// isInternal: 是否显式声明为 internal
+// 如果两者都为 false，则默认为 internal
+func (p *Parser) parseClassStatement(isPublic bool, isInternal bool) *ClassStatement {
 	stmt := &ClassStatement{Token: p.curToken}
+
+	// 设置可见性
+	if isPublic {
+		stmt.IsPublic = true
+		stmt.IsInternal = false
+	} else {
+		// 默认或显式 internal
+		stmt.IsPublic = false
+		stmt.IsInternal = true
+	}
 
 	// 检查是否是抽象类（当前 token 是 abstract）
 	if p.curTokenIs(lexer.ABSTRACT) {
@@ -74,9 +87,22 @@ func (p *Parser) parseInterfaceList() []*Identifier {
 }
 
 // parseInterfaceStatement 解析接口声明语句
-// 语法: interface InterfaceName { function method1(); function method2():type; }
-func (p *Parser) parseInterfaceStatement() *InterfaceStatement {
+// 语法: [public|internal] interface InterfaceName { function method1(); function method2():type; }
+// isPublic: 是否显式声明为 public
+// isInternal: 是否显式声明为 internal
+// 如果两者都为 false，则默认为 internal
+func (p *Parser) parseInterfaceStatement(isPublic bool, isInternal bool) *InterfaceStatement {
 	stmt := &InterfaceStatement{Token: p.curToken}
+
+	// 设置可见性
+	if isPublic {
+		stmt.IsPublic = true
+		stmt.IsInternal = false
+	} else {
+		// 默认或显式 internal
+		stmt.IsPublic = false
+		stmt.IsInternal = true
+	}
 
 	if !p.expectPeek(lexer.IDENT) {
 		return nil

@@ -1513,6 +1513,22 @@ func (i *Interpreter) evalUseStatement(node *parser.UseStatement) Object {
 		return newError("命名空间 %s 中没有找到 %s", namespace, symbolName)
 	}
 
+	// 检查可见性
+	switch s := symbol.(type) {
+	case *Class:
+		if err := i.checkClassVisibility(s); err != nil {
+			return err
+		}
+	case *Interface:
+		if err := i.checkInterfaceVisibility(s); err != nil {
+			return err
+		}
+	case *Enum:
+		if err := i.checkEnumVisibility(s); err != nil {
+			return err
+		}
+	}
+
 	// 确定导入到当前环境的名称
 	importName := symbolName
 	if node.Alias != nil {
@@ -1669,9 +1685,18 @@ func (i *Interpreter) loadNamespaceFile(namespace string, className string) erro
 
 // evalInterfaceStatement 执行接口定义语句
 func (i *Interpreter) evalInterfaceStatement(node *parser.InterfaceStatement) Object {
+	// 获取当前命名空间
+	currentNS := ""
+	if i.currentNamespace != nil {
+		currentNS = i.currentNamespace.FullName
+	}
+
 	iface := &Interface{
-		Name:    node.Name.Value,
-		Methods: make(map[string]*InterfaceMethod),
+		Name:       node.Name.Value,
+		Methods:    make(map[string]*InterfaceMethod),
+		IsPublic:   node.IsPublic,
+		IsInternal: node.IsInternal,
+		Namespace:  currentNS,
 	}
 
 	// 处理接口方法
@@ -1705,6 +1730,12 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 		isExported = true
 	}
 
+	// 获取当前命名空间
+	currentNS := ""
+	if i.currentNamespace != nil {
+		currentNS = i.currentNamespace.FullName
+	}
+
 	class := &Class{
 		Name:          node.Name.Value,
 		Variables:     make(map[string]*ClassVariable),
@@ -1714,6 +1745,9 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 		Env:           i.env,
 		IsExported:    isExported,
 		IsAbstract:    node.IsAbstract,
+		IsPublic:      node.IsPublic,
+		IsInternal:    node.IsInternal,
+		Namespace:     currentNS,
 	}
 
 	// 处理继承
@@ -1969,6 +2003,11 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 	class, ok := classObj.(*Class)
 	if !ok {
 		return newError("%s 不是一个类", className)
+	}
+
+	// 检查可见性
+	if err := i.checkClassVisibility(class); err != nil {
+		return err
 	}
 
 	// 检查是否是抽象类
@@ -2429,6 +2468,15 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 	i.pushStackFrame(methodName, class.Name, method.FileName, method.Line, method.Column)
 	defer i.popStackFrame()
 
+	// 保存当前命名空间，设置为类所属的命名空间
+	savedNamespace := i.currentNamespace
+	if class.Namespace != "" {
+		i.currentNamespace = i.namespaceMgr.GetNamespace(class.Namespace)
+	}
+	defer func() {
+		i.currentNamespace = savedNamespace
+	}()
+
 	// 执行方法体
 	body, ok := method.Body.(*parser.BlockStatement)
 	if !ok {
@@ -2622,6 +2670,15 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 	}
 	i.pushStackFrame(method.Name, className, method.FileName, method.Line, method.Column)
 	defer i.popStackFrame()
+
+	// 保存当前命名空间，设置为类所属的命名空间
+	savedNamespace := i.currentNamespace
+	if bm.Instance != nil && bm.Instance.Class != nil && bm.Instance.Class.Namespace != "" {
+		i.currentNamespace = i.namespaceMgr.GetNamespace(bm.Instance.Class.Namespace)
+	}
+	defer func() {
+		i.currentNamespace = savedNamespace
+	}()
 
 	body, ok := method.Body.(*parser.BlockStatement)
 	if !ok {
