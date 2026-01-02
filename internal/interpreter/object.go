@@ -31,6 +31,8 @@ const (
 	BREAK_SIGNAL_OBJ      ObjectType = "BREAK_SIGNAL"      // break 信号
 	CONTINUE_SIGNAL_OBJ   ObjectType = "CONTINUE_SIGNAL"   // continue 信号
 	THROWN_EXCEPTION_OBJ  ObjectType = "THROWN_EXCEPTION"  // 抛出的异常信号
+	ENUM_OBJ              ObjectType = "ENUM"              // 枚举类型
+	ENUM_VALUE_OBJ        ObjectType = "ENUM_VALUE"        // 枚举值类型
 )
 
 // ========== 对象接口 ==========
@@ -590,6 +592,98 @@ type BoundArrayMethod struct {
 
 func (bam *BoundArrayMethod) Type() ObjectType { return FUNCTION_OBJ }
 func (bam *BoundArrayMethod) Inspect() string  { return "array method " + bam.Name }
+
+// ========== 枚举类型 ==========
+
+// Enum 枚举类型定义
+// 表示一个枚举类型，包含所有枚举成员
+type Enum struct {
+	Name        string                  // 枚举名
+	BackingType string                  // 底层类型（"int"、"string" 或 ""）
+	Members     map[string]*EnumValue   // 枚举成员（按名称）
+	MemberList  []*EnumValue            // 枚举成员列表（保持顺序）
+	Methods     map[string]*ClassMethod // 枚举方法
+	Variables   map[string]*ClassVariable // 枚举字段（用于复杂枚举）
+	Interfaces  []*Interface            // 实现的接口
+	Env         *Environment            // 枚举定义时的环境
+}
+
+func (e *Enum) Type() ObjectType { return ENUM_OBJ }
+func (e *Enum) Inspect() string {
+	var out string
+	out += "enum " + e.Name
+	if e.BackingType != "" {
+		out += ": " + e.BackingType
+	}
+	out += " { "
+	for i, member := range e.MemberList {
+		if i > 0 {
+			out += ", "
+		}
+		out += member.Name
+	}
+	out += " }"
+	return out
+}
+
+// GetMember 获取枚举成员
+func (e *Enum) GetMember(name string) (*EnumValue, bool) {
+	member, ok := e.Members[name]
+	return member, ok
+}
+
+// GetMethod 获取枚举方法
+func (e *Enum) GetMethod(name string) (*ClassMethod, bool) {
+	method, ok := e.Methods[name]
+	return method, ok
+}
+
+// EnumValue 枚举值对象
+// 表示一个枚举成员的实例
+type EnumValue struct {
+	Enum    *Enum             // 所属枚举类型
+	Name    string            // 成员名称
+	Ordinal int               // 序号（从0开始）
+	Value   Object            // 成员值（带值枚举使用）
+	Fields  map[string]Object // 字段值（复杂枚举使用）
+}
+
+func (ev *EnumValue) Type() ObjectType { return ENUM_VALUE_OBJ }
+func (ev *EnumValue) Inspect() string {
+	return ev.Enum.Name + "::" + ev.Name
+}
+
+// GetName 获取成员名称
+func (ev *EnumValue) GetName() string {
+	return ev.Name
+}
+
+// GetValue 获取成员值
+func (ev *EnumValue) GetValue() Object {
+	return ev.Value
+}
+
+// GetOrdinal 获取序号
+func (ev *EnumValue) GetOrdinal() int {
+	return ev.Ordinal
+}
+
+// BoundEnumMethod 绑定枚举值方法对象
+// 表示一个绑定了枚举值实例的方法
+type BoundEnumMethod struct {
+	EnumValue  *EnumValue   // 绑定的枚举值
+	Method     *ClassMethod // 方法定义（内置方法时为 nil）
+	Enum       *Enum        // 所属枚举类型
+	MethodName string       // 方法名（用于内置方法）
+}
+
+func (bem *BoundEnumMethod) Type() ObjectType { return FUNCTION_OBJ }
+func (bem *BoundEnumMethod) Inspect() string {
+	if bem.Method != nil {
+		return "enum method " + bem.Method.Name
+	}
+	return "enum method " + bem.MethodName
+}
 
 // ========== 辅助函数 ==========
 

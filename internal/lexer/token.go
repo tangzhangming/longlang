@@ -123,7 +123,8 @@ const (
 	THROW   TokenType = "THROW"   // throw - 抛出异常
 	
 	// ========== 复合类型关键字 ==========
-	MAP TokenType = "MAP" // map - Map 类型关键字
+	MAP  TokenType = "MAP"  // map - Map 类型关键字
+	ENUM TokenType = "ENUM" // enum - 枚举类型关键字
 )
 
 // Token 表示一个词法单元
@@ -193,7 +194,8 @@ var keywords = map[string]TokenType{
 	"finally": FINALLY,
 	"throw":   THROW,
 	// 复合类型
-	"map": MAP,
+	"map":  MAP,
+	"enum": ENUM,
 }
 
 // LookupIdent 检查标识符是否是关键字

@@ -102,6 +102,9 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 	case *parser.ClassStatement:
 		// 类定义，注册到环境中
 		return i.evalClassStatement(node)
+	case *parser.EnumStatement:
+		// 枚举定义，注册到环境中
+		return i.evalEnumStatement(node)
 	case *parser.InterfaceStatement:
 		// 接口定义，注册到环境中
 		return i.evalInterfaceStatement(node)
@@ -435,6 +438,22 @@ func (i *Interpreter) evalInfixExpression(operator string, left, right Object) O
 		return i.evalStringConcatExpression(left, right)
 	case right.Type() == STRING_OBJ && operator == "+":
 		return i.evalStringConcatExpression(left, right)
+	// 枚举值比较
+	case left.Type() == ENUM_VALUE_OBJ && right.Type() == ENUM_VALUE_OBJ:
+		leftEnum := left.(*EnumValue)
+		rightEnum := right.(*EnumValue)
+		// 不同枚举类型不能比较
+		if leftEnum.Enum != rightEnum.Enum {
+			return newError("不能比较不同枚举类型: %s 和 %s", leftEnum.Enum.Name, rightEnum.Enum.Name)
+		}
+		switch operator {
+		case "==":
+			return &Boolean{Value: leftEnum.Name == rightEnum.Name}
+		case "!=":
+			return &Boolean{Value: leftEnum.Name != rightEnum.Name}
+		default:
+			return newError("枚举类型不支持运算符: %s", operator)
+		}
 	case operator == "==":
 		return &Boolean{Value: left == right}
 	case operator == "!=":
@@ -728,6 +747,14 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 	case *BoundArrayMethod:
 		// 处理数组方法调用
 		return fn.Method(fn.Array, args...)
+	case *BoundEnumMethod:
+		// 处理枚举方法调用
+		if fn.EnumValue != nil {
+			return i.evalEnumMethodCall(fn.EnumValue, fn.MethodName, args)
+		} else {
+			// 静态方法
+			return i.evalEnumStaticMethodCall(fn.Enum, fn.MethodName, args)
+		}
 	default:
 		return newError("不是函数: %s", fn.Type())
 	}
@@ -1749,6 +1776,32 @@ func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpres
 			}
 		}
 		return newError("数组没有方法: %s", memberName)
+	case *EnumValue:
+		// 访问枚举值方法或字段
+		// 内置方法
+		switch memberName {
+		case "name", "ordinal", "value":
+			return &BoundEnumMethod{
+				EnumValue:  object,
+				Method:     nil,
+				Enum:       object.Enum,
+				MethodName: memberName,
+			}
+		}
+		// 字段访问
+		if val, ok := object.Fields[memberName]; ok {
+			return val
+		}
+		// 自定义方法
+		if method, ok := object.Enum.GetMethod(memberName); ok {
+			return &BoundEnumMethod{
+				EnumValue:  object,
+				Method:     method,
+				Enum:       object.Enum,
+				MethodName: memberName,
+			}
+		}
+		return newError("枚举值没有成员: %s", memberName)
 	default:
 		return newError("无法访问 %s 的成员", obj.Type())
 	}
@@ -1837,7 +1890,7 @@ func (i *Interpreter) evalSuperExpression() Object {
 }
 
 // evalStaticCallExpression 执行静态方法调用
-// 支持：ClassName::method(), self::method(), super::method()
+// 支持：ClassName::method(), self::method(), super::method(), EnumName::method()
 func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression) Object {
 	// 获取类定义
 	className := node.ClassName.Value
@@ -1871,7 +1924,17 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 	}
 
 	if !ok {
-		return newError("未定义的类: %s", className)
+		return newError("未定义的类或枚举: %s", className)
+	}
+
+	// 检查是否是枚举类型
+	if enum, isEnum := classObj.(*Enum); isEnum {
+		// 求值参数
+		args := i.evalExpressions(node.Arguments)
+		if len(args) == 1 && isError(args[0]) {
+			return args[0]
+		}
+		return i.evalEnumStaticMethodCall(enum, methodName, args)
 	}
 
 	class, ok := classObj.(*Class)
@@ -1997,10 +2060,10 @@ func (i *Interpreter) evalSuperMethodCall(methodName string, arguments []parser.
 	return unwrapReturnValue(evaluated)
 }
 
-// evalStaticAccessExpression 执行静态访问（常量访问）
+// evalStaticAccessExpression 执行静态访问（常量访问或枚举成员访问）
 func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpression) Object {
 	className := node.ClassName.Value
-	constName := node.Name.Value
+	memberName := node.Name.Value
 
 	var class *Class
 	var ok bool
@@ -2017,7 +2080,7 @@ func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpres
 			return newError("self 必须指向一个类")
 		}
 	} else {
-		// 获取类定义
+		// 获取类或枚举定义
 		classObj, found := i.env.Get(className)
 		if !found && i.currentNamespace != nil {
 			if c, f := i.currentNamespace.GetClass(className); f {
@@ -2035,8 +2098,19 @@ func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpres
 			}
 		}
 		if !found {
-			return newError("未定义的类: %s", className)
+			return newError("未定义的类或枚举: %s", className)
 		}
+
+		// 检查是否是枚举类型
+		if enum, isEnum := classObj.(*Enum); isEnum {
+			// 枚举成员访问
+			member, memberOk := enum.GetMember(memberName)
+			if !memberOk {
+				return newError("枚举 %s 没有成员 %s", className, memberName)
+			}
+			return member
+		}
+
 		class, ok = classObj.(*Class)
 		if !ok {
 			return newError("%s 不是一个类", className)
@@ -2044,9 +2118,9 @@ func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpres
 	}
 
 	// 获取常量
-	constant, ok := class.GetConstant(constName)
+	constant, ok := class.GetConstant(memberName)
 	if !ok {
-		return newError("类 %s 没有常量: %s", class.Name, constName)
+		return newError("类 %s 没有常量: %s", class.Name, memberName)
 	}
 
 	// 检查访问权限（暂时所有常量都可以访问，后续可以添加访问控制）

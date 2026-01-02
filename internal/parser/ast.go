@@ -1037,3 +1037,88 @@ func (ml *MapLiteral) String() string {
 	return out
 }
 
+// ========== 枚举类型 ==========
+
+// EnumStatement 枚举声明语句
+// 对应语法：enum EnumName [: BackingType] [implements Interface1, ...] { Members }
+// 例如：enum Color { Red, Green, Blue }
+// 例如：enum Status: int { Pending = 0, Approved = 1 }
+type EnumStatement struct {
+	Token       lexer.Token      // enum 关键字对应的 token
+	Name        *Identifier      // 枚举名
+	BackingType *Identifier      // 底层类型（int 或 string，可选）
+	Interfaces  []*Identifier    // 实现的接口列表
+	Members     []*EnumMember    // 枚举成员
+	Methods     []*ClassMethod   // 枚举方法
+	Variables   []*ClassVariable // 枚举字段（用于复杂枚举）
+}
+
+func (es *EnumStatement) statementNode()       {}
+func (es *EnumStatement) TokenLiteral() string { return es.Token.Literal }
+func (es *EnumStatement) String() string {
+	var out string
+	out += "enum " + es.Name.String()
+	if es.BackingType != nil {
+		out += ": " + es.BackingType.String()
+	}
+	if len(es.Interfaces) > 0 {
+		out += " implements "
+		for i, iface := range es.Interfaces {
+			if i > 0 {
+				out += ", "
+			}
+			out += iface.String()
+		}
+	}
+	out += " { "
+	for _, member := range es.Members {
+		out += member.String() + " "
+	}
+	out += "}"
+	return out
+}
+
+// EnumMember 枚举成员
+// 对应语法：MemberName [= value] 或 MemberName(args)
+// 例如：Red, Pending = 0, Earth(mass, radius)
+type EnumMember struct {
+	Token     lexer.Token  // 成员名对应的 token
+	Name      *Identifier  // 成员名
+	Value     Expression   // 成员值（可选，用于带值枚举）
+	Arguments []Expression // 构造参数（可选，用于复杂枚举）
+}
+
+func (em *EnumMember) TokenLiteral() string { return em.Token.Literal }
+func (em *EnumMember) String() string {
+	var out string
+	out += em.Name.String()
+	if len(em.Arguments) > 0 {
+		out += "("
+		for i, arg := range em.Arguments {
+			if i > 0 {
+				out += ", "
+			}
+			out += arg.String()
+		}
+		out += ")"
+	} else if em.Value != nil {
+		out += " = " + em.Value.String()
+	}
+	return out
+}
+
+// EnumAccessExpression 枚举成员访问表达式
+// 对应语法：EnumName::MemberName
+// 例如：Color::Red, Status::Pending
+type EnumAccessExpression struct {
+	Token    lexer.Token // :: 对应的 token
+	EnumName *Identifier // 枚举名
+	Member   *Identifier // 成员名
+}
+
+func (eae *EnumAccessExpression) expressionNode()      {}
+func (eae *EnumAccessExpression) TokenLiteral() string { return eae.Token.Literal }
+func (eae *EnumAccessExpression) String() string {
+	return eae.EnumName.String() + "::" + eae.Member.String()
+}
+

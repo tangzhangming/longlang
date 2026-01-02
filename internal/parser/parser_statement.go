@@ -27,6 +27,8 @@ func (p *Parser) parseStatement() Statement {
 		return p.parseClassStatement()
 	case lexer.INTERFACE:
 		return p.parseInterfaceStatement()
+	case lexer.ENUM:
+		return p.parseEnumStatement()
 	case lexer.VAR:
 		return p.parseLetStatement()
 	case lexer.RETURN:
