@@ -243,9 +243,10 @@ func (cs *ContinueSignal) Inspect() string  { return "continue" }
 // 用于在解释器中传递被 throw 语句抛出的异常
 // 当解释器遇到这个对象时，会沿着调用栈向上传递，直到被 catch 捕获
 type ThrownException struct {
-	Exception    *Instance // 被抛出的异常对象（必须是 Exception 类或其子类的实例）
-	RuntimeError *Error    // 内置运行时错误（用于除零等运行时错误）
-	StackTrace   []string  // 调用栈信息
+	Exception    *Instance        // 被抛出的异常对象（必须是 Exception 类或其子类的实例）
+	RuntimeError *Error           // 内置运行时错误（用于除零等运行时错误）
+	StackTrace   []string         // 调用栈信息
+	Cause        *ThrownException // 异常链：导致此异常的原始异常
 }
 
 func (te *ThrownException) Type() ObjectType { return THROWN_EXCEPTION_OBJ }
@@ -308,6 +309,41 @@ func (te *ThrownException) IsInstanceOf(className string) bool {
 	return false
 }
 
+// GetFullStackTrace 获取完整的堆栈跟踪字符串（包括异常链）
+func (te *ThrownException) GetFullStackTrace() string {
+	var sb strings.Builder
+	
+	// 当前异常
+	sb.WriteString(te.GetExceptionType())
+	sb.WriteString(": ")
+	sb.WriteString(te.GetMessage())
+	sb.WriteString("\n")
+	
+	// 堆栈跟踪
+	for _, trace := range te.StackTrace {
+		sb.WriteString(trace)
+		sb.WriteString("\n")
+	}
+	
+	// 异常链
+	if te.Cause != nil {
+		sb.WriteString("Caused by: ")
+		sb.WriteString(te.Cause.GetFullStackTrace())
+	}
+	
+	return sb.String()
+}
+
+// GetCause 获取导致此异常的原始异常
+func (te *ThrownException) GetCause() *ThrownException {
+	return te.Cause
+}
+
+// SetCause 设置导致此异常的原始异常
+func (te *ThrownException) SetCause(cause *ThrownException) {
+	te.Cause = cause
+}
+
 // Error 错误对象
 // 表示运行时错误
 // 当解释器遇到错误时（如未定义的变量、类型不匹配等），会创建这个对象
@@ -328,6 +364,10 @@ type Function struct {
 	Body       interface{}   // 函数体（*parser.BlockStatement）
 	Env        *Environment  // 函数定义时的环境（用于闭包）
 	ReturnType []string      // 返回类型列表（当前未使用）
+	Name       string        // 函数名（用于堆栈跟踪）
+	FileName   string        // 定义函数的文件名（用于堆栈跟踪）
+	Line       int           // 函数定义的行号
+	Column     int           // 函数定义的列号
 }
 
 func (f *Function) Type() ObjectType { return FUNCTION_OBJ }
@@ -515,6 +555,9 @@ type ClassMethod struct {
 	ReturnType     []string                  // 返回类型
 	Body           interface{}               // 方法体（*parser.BlockStatement，抽象方法时为 nil）
 	Env            *Environment              // 方法定义时的环境
+	FileName       string                    // 定义方法的文件名（用于堆栈跟踪）
+	Line           int                       // 方法定义的行号
+	Column         int                       // 方法定义的列号
 }
 
 // Instance 类实例对象

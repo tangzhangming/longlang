@@ -42,6 +42,16 @@ type Interpreter struct {
 	projectConfig     *config.ProjectConfig // 项目配置
 	loadedNamespaces  map[string]bool       // 已加载的命名空间文件缓存
 	loadingNamespaces map[string]bool       // 正在加载中的命名空间（用于循环依赖检测）
+	callStack         []StackFrame          // 调用栈（用于堆栈跟踪）
+}
+
+// StackFrame 调用栈帧
+type StackFrame struct {
+	FunctionName string // 函数/方法名
+	ClassName    string // 类名（如果是方法）
+	FileName     string // 文件名
+	Line         int    // 行号
+	Column       int    // 列号
 }
 
 // Module 模块对象
@@ -62,6 +72,8 @@ func New() *Interpreter {
 	registerNetBuiltins(env)
 	// 注册字节操作内置函数
 	registerBytesBuiltins(env)
+	// 注册异常类
+	registerExceptionClasses(env)
 	return &Interpreter{
 		env:               env,
 		stdlibPath:        "stdlib", // 默认标准库路径
@@ -71,6 +83,7 @@ func New() *Interpreter {
 		projectConfig:     nil,
 		loadedNamespaces:  make(map[string]bool),
 		loadingNamespaces: make(map[string]bool),
+		callStack:         make([]StackFrame, 0),
 	}
 }
 
@@ -731,12 +744,22 @@ func (i *Interpreter) evalFunctionLiteral(node *parser.FunctionLiteral) Object {
 		returnTypes = append(returnTypes, rt.Value)
 	}
 
+	// 提取函数名（如果有）
+	funcName := ""
+	if node.Name != nil {
+		funcName = node.Name.Value
+	}
+
 	// 创建函数对象，保存参数、函数体和当前环境（闭包）
 	return &Function{
 		Parameters: params,
 		Body:       node.Body,
 		Env:        i.env, // 捕获当前环境，实现闭包
 		ReturnType: returnTypes,
+		Name:       funcName,
+		FileName:   i.currentFileName,
+		Line:       node.Token.Line,
+		Column:     node.Token.Column,
 	}
 }
 
@@ -759,6 +782,10 @@ func (i *Interpreter) evalExpressions(args []parser.CallArgument) []Object {
 func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.CallArgument) Object {
 	switch fn := fn.(type) {
 	case *Function:
+		// 压入调用栈
+		i.pushStackFrame(fn.Name, "", fn.FileName, fn.Line, fn.Column)
+		defer i.popStackFrame()
+		
 		// 需要将 interface{} 转换为正确的类型
 		body, ok := fn.Body.(*parser.BlockStatement)
 		if !ok {
@@ -1064,39 +1091,78 @@ func (i *Interpreter) matchCatchClause(clause *parser.CatchClause, te *ThrownExc
 // createRuntimeExceptionWrapper 为内置运行时错误创建包装对象
 // 这个包装对象提供与 Exception 类相同的接口（getMessage 等方法）
 func (i *Interpreter) createRuntimeExceptionWrapper(err *Error) *Instance {
-	// 创建一个模拟的 RuntimeException 类
-	class := &Class{
-		Name: "RuntimeException",
-		Methods: map[string]*ClassMethod{
-			"getMessage": {
-				Name:       "getMessage",
-				Parameters: []interface{}{},
-				ReturnType: []string{"string"},
-				Body:       nil, // 内置方法，不需要 Body
+	// 尝试获取注册的 RuntimeException 类
+	var class *Class
+	if runtimeExceptionClass, ok := i.env.Get("RuntimeException"); ok {
+		if c, ok := runtimeExceptionClass.(*Class); ok {
+			class = c
+		}
+	}
+
+	// 如果没有找到注册的类，创建一个临时的
+	if class == nil {
+		class = &Class{
+			Name: "RuntimeException",
+			Methods: map[string]*ClassMethod{
+				"getMessage": {
+					Name:           "getMessage",
+					AccessModifier: "public",
+					Parameters:     []interface{}{},
+					ReturnType:     []string{"string"},
+					Body:           nil,
+				},
+				"getCode": {
+					Name:           "getCode",
+					AccessModifier: "public",
+					Parameters:     []interface{}{},
+					ReturnType:     []string{"int"},
+					Body:           nil,
+				},
+				"toString": {
+					Name:           "toString",
+					AccessModifier: "public",
+					Parameters:     []interface{}{},
+					ReturnType:     []string{"string"},
+					Body:           nil,
+				},
+				"getStackTrace": {
+					Name:           "getStackTrace",
+					AccessModifier: "public",
+					Parameters:     []interface{}{},
+					ReturnType:     []string{"[]string"},
+					Body:           nil,
+				},
+				"getTraceAsString": {
+					Name:           "getTraceAsString",
+					AccessModifier: "public",
+					Parameters:     []interface{}{},
+					ReturnType:     []string{"string"},
+					Body:           nil,
+				},
+				"getCause": {
+					Name:           "getCause",
+					AccessModifier: "public",
+					Parameters:     []interface{}{},
+					ReturnType:     []string{"Exception"},
+					Body:           nil,
+				},
+				"printStackTrace": {
+					Name:           "printStackTrace",
+					AccessModifier: "public",
+					Parameters:     []interface{}{},
+					ReturnType:     []string{},
+					Body:           nil,
+				},
 			},
-			"getCode": {
-				Name:       "getCode",
-				Parameters: []interface{}{},
-				ReturnType: []string{"int"},
-				Body:       nil,
+			Variables: map[string]*ClassVariable{
+				"message":    {Name: "message", Type: "string", AccessModifier: "protected"},
+				"code":       {Name: "code", Type: "int", AccessModifier: "protected"},
+				"stackTrace": {Name: "stackTrace", Type: "[]string", AccessModifier: "protected"},
+				"cause":      {Name: "cause", Type: "Exception", AccessModifier: "protected"},
+				"file":       {Name: "file", Type: "string", AccessModifier: "protected"},
+				"line":       {Name: "line", Type: "int", AccessModifier: "protected"},
 			},
-			"toString": {
-				Name:       "toString",
-				Parameters: []interface{}{},
-				ReturnType: []string{"string"},
-				Body:       nil,
-			},
-			"getStackTrace": {
-				Name:       "getStackTrace",
-				Parameters: []interface{}{},
-				ReturnType: []string{"[]string"},
-				Body:       nil,
-			},
-		},
-		Variables: map[string]*ClassVariable{
-			"message": {Name: "message", Type: "string", AccessModifier: "private"},
-			"code":    {Name: "code", Type: "int", AccessModifier: "private"},
-		},
+		}
 	}
 
 	// 创建实例并设置字段
@@ -1106,7 +1172,20 @@ func (i *Interpreter) createRuntimeExceptionWrapper(err *Error) *Instance {
 	}
 	instance.Fields["message"] = &String{Value: err.Message}
 	instance.Fields["code"] = &Integer{Value: 0}
-	instance.Fields["stackTrace"] = &Array{Elements: []Object{}, ElementType: "string"}
+	instance.Fields["file"] = &String{Value: i.currentFileName}
+	instance.Fields["line"] = &Integer{Value: 0}
+	instance.Fields["cause"] = &Null{}
+
+	// 捕获堆栈跟踪
+	stackTrace := i.captureStackTrace()
+	stackTraceArray := &Array{
+		Elements:    make([]Object, len(stackTrace)),
+		ElementType: "string",
+	}
+	for idx, trace := range stackTrace {
+		stackTraceArray.Elements[idx] = &String{Value: trace}
+	}
+	instance.Fields["stackTrace"] = stackTraceArray
 
 	return instance
 }
@@ -1132,23 +1211,54 @@ func (i *Interpreter) evalThrowStatement(node *parser.ThrowStatement) Object {
 			instance.Class.Name, node.Token.Line, node.Token.Column)
 	}
 
+	// 捕获堆栈跟踪
+	stackTrace := i.captureStackTrace()
+
 	// 创建 ThrownException 对象
 	te := &ThrownException{
 		Exception:  instance,
-		StackTrace: i.captureStackTrace(),
+		StackTrace: stackTrace,
 	}
 
-	// 将堆栈信息设置到异常对象中（如果有 stackTrace 字段）
-	if _, ok := instance.Fields["stackTrace"]; ok {
-		stackTraceArray := &Array{
-			Elements:    make([]Object, len(te.StackTrace)),
-			ElementType: "string",
-			IsFixed:     false,
+	// 将堆栈信息设置到异常对象中
+	stackTraceArray := &Array{
+		Elements:    make([]Object, len(stackTrace)),
+		ElementType: "string",
+		IsFixed:     false,
+	}
+	for idx, trace := range stackTrace {
+		stackTraceArray.Elements[idx] = &String{Value: trace}
+	}
+	instance.Fields["stackTrace"] = stackTraceArray
+
+	// 设置文件和行号信息
+	if _, exists := instance.Fields["file"]; !exists || instance.Fields["file"] == nil {
+		instance.Fields["file"] = &String{Value: i.currentFileName}
+	}
+	if _, exists := instance.Fields["line"]; !exists || instance.Fields["line"] == nil {
+		instance.Fields["line"] = &Integer{Value: int64(node.Token.Line)}
+	}
+
+	// 检查是否有 cause 字段（异常链）
+	if cause, ok := instance.Fields["cause"]; ok {
+		if causeInstance, ok := cause.(*Instance); ok && i.isExceptionClass(causeInstance.Class) {
+			// 异常链：将 cause 转换为 ThrownException
+			te.Cause = &ThrownException{
+				Exception: causeInstance,
+			}
+			// 如果 cause 有堆栈跟踪，使用它
+			if causeTrace, ok := causeInstance.Fields["stackTrace"]; ok {
+				if traceArr, ok := causeTrace.(*Array); ok {
+					causeTraces := make([]string, len(traceArr.Elements))
+					for idx, elem := range traceArr.Elements {
+						if str, ok := elem.(*String); ok {
+							causeTraces[idx] = str.Value
+						}
+					}
+					te.Cause.StackTrace = causeTraces
+				}
+			}
 		}
-		for idx, trace := range te.StackTrace {
-			stackTraceArray.Elements[idx] = &String{Value: trace}
-		}
-		instance.Fields["stackTrace"] = stackTraceArray
 	}
 
 	return te
@@ -1167,10 +1277,54 @@ func (i *Interpreter) isExceptionClass(class *Class) bool {
 
 // captureStackTrace 捕获当前调用栈信息
 func (i *Interpreter) captureStackTrace() []string {
-	// 简单实现：返回空的堆栈跟踪
-	// 完整实现需要在解释器中维护调用栈信息
-	return []string{
-		"at <main>",
+	var traces []string
+	
+	// 反向遍历调用栈（最近的调用在最前面）
+	for idx := len(i.callStack) - 1; idx >= 0; idx-- {
+		frame := i.callStack[idx]
+		var trace string
+		
+		if frame.ClassName != "" {
+			// 方法调用
+			trace = fmt.Sprintf("    at %s.%s(%s:%d:%d)", 
+				frame.ClassName, frame.FunctionName, 
+				frame.FileName, frame.Line, frame.Column)
+		} else if frame.FunctionName != "" {
+			// 函数调用
+			trace = fmt.Sprintf("    at %s(%s:%d:%d)", 
+				frame.FunctionName, 
+				frame.FileName, frame.Line, frame.Column)
+		} else {
+			// 顶层代码
+			trace = fmt.Sprintf("    at <main>(%s:%d:%d)", 
+				frame.FileName, frame.Line, frame.Column)
+		}
+		traces = append(traces, trace)
+	}
+	
+	// 如果调用栈为空，返回默认值
+	if len(traces) == 0 {
+		traces = append(traces, "    at <main>")
+	}
+	
+	return traces
+}
+
+// pushStackFrame 压入调用栈帧
+func (i *Interpreter) pushStackFrame(funcName, className, fileName string, line, column int) {
+	i.callStack = append(i.callStack, StackFrame{
+		FunctionName: funcName,
+		ClassName:    className,
+		FileName:     fileName,
+		Line:         line,
+		Column:       column,
+	})
+}
+
+// popStackFrame 弹出调用栈帧
+func (i *Interpreter) popStackFrame() {
+	if len(i.callStack) > 0 {
+		i.callStack = i.callStack[:len(i.callStack)-1]
 	}
 }
 
@@ -1653,6 +1807,9 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 				ReturnType:     returnTypes,
 				Body:           m.Body,
 				Env:            i.env,
+				FileName:       i.currentFileName,
+				Line:           m.Token.Line,
+				Column:         m.Token.Column,
 			}
 
 			// 非抽象类不能有抽象方法
@@ -1828,6 +1985,34 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 
 	// 调用构造函数（如果存在，包括继承的构造函数）
 	if constructor, ok := class.GetMethod("__construct"); ok {
+		// 绑定参数
+		args := i.evalExpressions(node.Arguments)
+		if len(args) == 1 && isError(args[0]) {
+			return args[0]
+		}
+
+		// 如果是内置异常类的构造函数，直接设置字段
+		if constructor.Body == nil && i.isExceptionClass(class) {
+			// 内置异常构造函数: Exception(message, code = 0)
+			if len(args) > 0 {
+				if str, ok := args[0].(*String); ok {
+					instance.Fields["message"] = str
+				}
+			}
+			if len(args) > 1 {
+				if intVal, ok := args[1].(*Integer); ok {
+					instance.Fields["code"] = intVal
+				}
+			} else {
+				// 默认 code 为 0
+				instance.Fields["code"] = &Integer{Value: 0}
+			}
+			// 设置文件和行号
+			instance.Fields["file"] = &String{Value: i.currentFileName}
+			instance.Fields["line"] = &Integer{Value: int64(node.Token.Line)}
+			return instance
+		}
+
 		// 创建新的环境，绑定 this
 		constructorEnv := NewEnclosedEnvironment(class.Env)
 		constructorEnv.Set("this", instance)
@@ -1836,12 +2021,6 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 		// 提供 super（指向父类）
 		if class.Parent != nil {
 			constructorEnv.Set("super", class.Parent)
-		}
-
-		// 绑定参数
-		args := i.evalExpressions(node.Arguments)
-		if len(args) == 1 && isError(args[0]) {
-			return args[0]
 		}
 
 		params := constructor.Parameters
@@ -2244,6 +2423,10 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 		argIdx++
 	}
 
+	// 压入调用栈
+	i.pushStackFrame(methodName, class.Name, method.FileName, method.Line, method.Column)
+	defer i.popStackFrame()
+
 	// 执行方法体
 	body, ok := method.Body.(*parser.BlockStatement)
 	if !ok {
@@ -2429,6 +2612,14 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 	if method.Body == nil {
 		return i.applyBuiltinMethod(bm.Instance, method.Name, args)
 	}
+	
+	// 压入调用栈
+	className := ""
+	if bm.Instance != nil && bm.Instance.Class != nil {
+		className = bm.Instance.Class.Name
+	}
+	i.pushStackFrame(method.Name, className, method.FileName, method.Line, method.Column)
+	defer i.popStackFrame()
 
 	body, ok := method.Body.(*parser.BlockStatement)
 	if !ok {
@@ -2494,6 +2685,11 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 
 // applyBuiltinMethod 执行内置方法（用于运行时异常包装对象）
 func (i *Interpreter) applyBuiltinMethod(instance *Instance, methodName string, args []Object) Object {
+	// 检查是否是异常类的实例
+	if i.isExceptionClass(instance.Class) {
+		return i.evalExceptionMethod(instance, methodName, args)
+	}
+
 	switch methodName {
 	case "getMessage":
 		if msg, ok := instance.Fields["message"]; ok {

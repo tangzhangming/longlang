@@ -99,7 +99,13 @@ LongLang 提供了一组预定义的异常类，位于 `System` 命名空间：
 |------|----------|------|
 | `getMessage()` | string | 获取错误消息 |
 | `getCode()` | int | 获取错误代码 |
-| `toString()` | string | 转换为字符串 |
+| `getFile()` | string | 获取异常发生的文件名 |
+| `getLine()` | int | 获取异常发生的行号 |
+| `getTrace()` | []string | 获取堆栈跟踪数组 |
+| `getTraceAsString()` | string | 获取堆栈跟踪字符串 |
+| `getCause()` | Exception | 获取导致此异常的原始异常 |
+| `toString()` | string | 转换为字符串（含堆栈跟踪） |
+| `printStackTrace()` | void | 打印异常信息和堆栈跟踪 |
 
 ## 使用示例
 
@@ -272,6 +278,92 @@ if isset(arr, 5) {
 }
 ```
 
+## 堆栈跟踪
+
+异常会自动捕获调用栈信息，可以通过 `getTrace()` 或 `getTraceAsString()` 获取：
+
+```longlang
+class StackTraceDemo {
+    public static function main() {
+        try {
+            StackTraceDemo::level1()
+        } catch (Exception e) {
+            fmt.println($"异常: {e.getMessage()}")
+            fmt.println("堆栈跟踪:")
+            fmt.println(e.getTraceAsString())
+        }
+    }
+    
+    public static function level1() {
+        StackTraceDemo::level2()
+    }
+    
+    public static function level2() {
+        throw new Exception("在 level2 中发生的错误")
+    }
+}
+
+// 输出:
+// 异常: 在 level2 中发生的错误
+// 堆栈跟踪:
+//     at StackTraceDemo.level2(demo.long:15:28)
+//     at StackTraceDemo.level1(demo.long:11:28)
+//     at StackTraceDemo.main(demo.long:4:28)
+```
+
+## 异常链
+
+异常链用于保留原始异常信息，同时抛出更高层次的异常：
+
+```longlang
+class DatabaseException extends Exception {
+    public function __construct(msg: string) {
+        this.message = msg
+    }
+}
+
+class ServiceException extends Exception {
+    public function __construct(msg: string) {
+        this.message = msg
+    }
+}
+
+class Main {
+    public static function main() {
+        try {
+            Main::processData()
+        } catch (Exception e) {
+            fmt.println($"异常: {e.getMessage()}")
+            
+            // 获取原始异常
+            cause := e.getCause()
+            if cause != null {
+                fmt.println($"原因: {cause.getMessage()}")
+            }
+        }
+    }
+    
+    public static function processData() {
+        try {
+            Main::queryDatabase()
+        } catch (DatabaseException e) {
+            // 包装原始异常
+            serviceEx := new ServiceException("数据处理失败")
+            serviceEx.cause = e  // 设置异常链
+            throw serviceEx
+        }
+    }
+    
+    public static function queryDatabase() {
+        throw new DatabaseException("数据库连接超时")
+    }
+}
+
+// 输出:
+// 异常: 数据处理失败
+// 原因: 数据库连接超时
+```
+
 ## 最佳实践
 
 1. **使用具体的异常类型**: 尽可能使用具体的异常类型，而不是通用的 `Exception`。
@@ -287,6 +379,10 @@ if isset(arr, 5) {
 6. **优先使用 isset 检查**: 对于 Map 和数组访问，优先使用 `isset()` 检查，而不是依赖异常捕获。
 
 7. **finally 块不能访问 catch 变量**: `finally` 块无法访问 `catch` 块中声明的异常变量。
+
+8. **使用异常链**: 当捕获异常并重新抛出时，保留原始异常作为 cause，便于调试。
+
+9. **查看堆栈跟踪**: 调试时使用 `getTraceAsString()` 或 `printStackTrace()` 查看完整调用链。
 
 ## 注意事项
 
