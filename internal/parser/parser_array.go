@@ -112,18 +112,61 @@ func (p *Parser) parseElementType() Expression {
 	return nil
 }
 
-// parseIndexExpression 解析索引访问表达式 array[index]
+// parseIndexExpression 解析索引访问表达式 array[index] 或切片表达式 array[start:end]
+// Go风格切片语法：
+//   - array[start:end]  从 start 到 end-1
+//   - array[start:]     从 start 到末尾
+//   - array[:end]       从开头到 end-1
+//   - array[:]          整个数组的副本
 func (p *Parser) parseIndexExpression(left Expression) Expression {
-	exp := &IndexExpression{Token: p.curToken, Left: left}
+	token := p.curToken // [
+	p.nextToken()       // 跳过 [
 
-	p.nextToken()
-	exp.Index = p.parseExpression(LOWEST)
+	// 检查是否是 [:...] 形式（无起始索引）
+	if p.curTokenIs(lexer.COLON) {
+		// 切片表达式，无起始索引
+		return p.parseSliceExpression(left, token, nil)
+	}
+
+	// 解析第一个表达式（可能是索引或切片的起始）
+	firstExpr := p.parseExpression(LOWEST)
+
+	// 检查下一个 token 是否是 :（切片语法）
+	if p.peekTokenIs(lexer.COLON) {
+		p.nextToken() // 跳到 :
+		return p.parseSliceExpression(left, token, firstExpr)
+	}
+
+	// 普通索引表达式
+	exp := &IndexExpression{Token: token, Left: left, Index: firstExpr}
 
 	if !p.expectPeek(lexer.RBRACKET) {
 		return nil
 	}
 
 	return exp
+}
+
+// parseSliceExpression 解析切片表达式
+// 调用时 curToken 应该是 :
+func (p *Parser) parseSliceExpression(left Expression, token lexer.Token, start Expression) Expression {
+	slice := &SliceExpression{
+		Token: token,
+		Left:  left,
+		Start: start,
+	}
+
+	p.nextToken() // 跳过 :
+
+	// 检查是否有结束索引
+	if !p.curTokenIs(lexer.RBRACKET) {
+		slice.End = p.parseExpression(LOWEST)
+		if !p.expectPeek(lexer.RBRACKET) {
+			return nil
+		}
+	}
+
+	return slice
 }
 
 // parseExpressionList 解析表达式列表，用于数组字面量

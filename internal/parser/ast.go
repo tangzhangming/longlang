@@ -1059,6 +1059,32 @@ func (ie *IndexExpression) String() string {
 	return "(" + ie.Left.String() + "[" + ie.Index.String() + "])"
 }
 
+// SliceExpression 切片表达式
+// 对应语法：array[start:end], array[start:], array[:end], array[:]
+// Go风格切片语法
+type SliceExpression struct {
+	Token lexer.Token // [ 对应的 token
+	Left  Expression  // 数组/字符串表达式
+	Start Expression  // 起始索引（可选，nil表示从头开始）
+	End   Expression  // 结束索引（可选，nil表示到末尾）
+}
+
+func (se *SliceExpression) expressionNode()      {}
+func (se *SliceExpression) TokenLiteral() string { return se.Token.Literal }
+func (se *SliceExpression) String() string {
+	var out string
+	out += "(" + se.Left.String() + "["
+	if se.Start != nil {
+		out += se.Start.String()
+	}
+	out += ":"
+	if se.End != nil {
+		out += se.End.String()
+	}
+	out += "])"
+	return out
+}
+
 // ========== Map 类型 ==========
 
 // MapType Map 类型声明

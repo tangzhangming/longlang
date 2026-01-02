@@ -270,6 +270,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalMapLiteral(node)
 	case *parser.IndexExpression:
 		return i.evalIndexExpression(node)
+	case *parser.SliceExpression:
+		return i.evalSliceExpression(node)
 	case *parser.ArrayType:
 		// ArrayType 在表达式位置时返回 nil（通常不应该执行到这里）
 		return &Null{}

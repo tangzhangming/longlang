@@ -228,6 +228,126 @@ func (i *Interpreter) checkArrayElementType(element Object, expectedType string)
 	return nil
 }
 
+// evalSliceExpression 执行切片表达式 array[start:end]
+// Go风格切片语法，支持数组和字符串
+func (i *Interpreter) evalSliceExpression(node *parser.SliceExpression) Object {
+	left := i.Eval(node.Left)
+	if isError(left) {
+		return left
+	}
+
+	// 解析 start 索引
+	var start int64 = 0
+	if node.Start != nil {
+		startObj := i.Eval(node.Start)
+		if isError(startObj) {
+			return startObj
+		}
+		startInt, ok := startObj.(*Integer)
+		if !ok {
+			return newError("切片起始索引必须是整数，得到 %s", startObj.Type())
+		}
+		start = startInt.Value
+	}
+
+	// 解析 end 索引
+	var end int64 = -1 // -1 表示到末尾
+	if node.End != nil {
+		endObj := i.Eval(node.End)
+		if isError(endObj) {
+			return endObj
+		}
+		endInt, ok := endObj.(*Integer)
+		if !ok {
+			return newError("切片结束索引必须是整数，得到 %s", endObj.Type())
+		}
+		end = endInt.Value
+	}
+
+	switch obj := left.(type) {
+	case *Array:
+		return i.evalArraySlice(obj, start, end)
+	case *String:
+		return i.evalStringSlice(obj, start, end)
+	default:
+		return newError("切片操作不支持类型: %s", left.Type())
+	}
+}
+
+// evalArraySlice 执行数组切片
+// end == -1 表示切到末尾（来自 arr[start:] 语法）
+func (i *Interpreter) evalArraySlice(array *Array, start, end int64) Object {
+	length := int64(len(array.Elements))
+
+	// end == -1 表示切到末尾
+	if end == -1 {
+		end = length
+	}
+
+	// 处理负数索引（用户显式使用负数，如 arr[-2:]）
+	if start < 0 {
+		start = length + start
+	}
+	if end < 0 {
+		end = length + end
+	}
+
+	// 边界检查
+	if start < 0 {
+		start = 0
+	}
+	if end > length {
+		end = length
+	}
+	if start > end {
+		return newError("切片范围无效：起始索引 %d 大于结束索引 %d", start, end)
+	}
+
+	// 创建新数组
+	newElements := make([]Object, end-start)
+	copy(newElements, array.Elements[start:end])
+
+	return &Array{
+		Elements:    newElements,
+		ElementType: array.ElementType,
+		IsFixed:     false,
+		Capacity:    int64(len(newElements)),
+	}
+}
+
+// evalStringSlice 执行字符串切片
+// end == -1 表示切到末尾（来自 str[start:] 语法）
+func (i *Interpreter) evalStringSlice(str *String, start, end int64) Object {
+	runes := []rune(str.Value)
+	length := int64(len(runes))
+
+	// end == -1 表示切到末尾
+	if end == -1 {
+		end = length
+	}
+
+	// 处理负数索引
+	if start < 0 {
+		start = length + start
+	}
+	if end < 0 {
+		end = length + end
+	}
+
+	// 边界检查
+	if start < 0 {
+		start = 0
+	}
+	if end > length {
+		end = length
+	}
+	if start > end {
+		return newError("切片范围无效：起始索引 %d 大于结束索引 %d", start, end)
+	}
+
+	return &String{Value: string(runes[start:end])}
+}
+
 // evalArrayAssignment 执行数组或 Map 元素赋值 array[index] = value / map[key] = value
 func (i *Interpreter) evalArrayAssignment(obj Object, index Object, value Object) Object {
 	switch obj.Type() {
