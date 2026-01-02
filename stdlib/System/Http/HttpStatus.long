@@ -1,0 +1,156 @@
+namespace System.Http
+
+/**
+ * HttpStatus - HTTP 状态码枚举
+ * 
+ * 包含常用的 HTTP 状态码及其描述
+ */
+enum HttpStatus: int {
+    // ========== 1xx 信息响应 ==========
+    Continue = 100
+    SwitchingProtocols = 101
+    
+    // ========== 2xx 成功 ==========
+    OK = 200
+    Created = 201
+    Accepted = 202
+    NoContent = 204
+    ResetContent = 205
+    PartialContent = 206
+    
+    // ========== 3xx 重定向 ==========
+    MultipleChoices = 300
+    MovedPermanently = 301
+    Found = 302
+    SeeOther = 303
+    NotModified = 304
+    TemporaryRedirect = 307
+    PermanentRedirect = 308
+    
+    // ========== 4xx 客户端错误 ==========
+    BadRequest = 400
+    Unauthorized = 401
+    PaymentRequired = 402
+    Forbidden = 403
+    NotFound = 404
+    MethodNotAllowed = 405
+    NotAcceptable = 406
+    RequestTimeout = 408
+    Conflict = 409
+    Gone = 410
+    LengthRequired = 411
+    PayloadTooLarge = 413
+    URITooLong = 414
+    UnsupportedMediaType = 415
+    RangeNotSatisfiable = 416
+    ExpectationFailed = 417
+    ImATeapot = 418
+    UnprocessableEntity = 422
+    TooManyRequests = 429
+    
+    // ========== 5xx 服务器错误 ==========
+    InternalServerError = 500
+    NotImplemented = 501
+    BadGateway = 502
+    ServiceUnavailable = 503
+    GatewayTimeout = 504
+    HTTPVersionNotSupported = 505
+    
+    /**
+     * text 获取状态码的文本描述
+     * @return 状态码对应的英文描述
+     */
+    public function text() string {
+        // 1xx
+        if this == HttpStatus::Continue { return "Continue" }
+        if this == HttpStatus::SwitchingProtocols { return "Switching Protocols" }
+        
+        // 2xx
+        if this == HttpStatus::OK { return "OK" }
+        if this == HttpStatus::Created { return "Created" }
+        if this == HttpStatus::Accepted { return "Accepted" }
+        if this == HttpStatus::NoContent { return "No Content" }
+        if this == HttpStatus::ResetContent { return "Reset Content" }
+        if this == HttpStatus::PartialContent { return "Partial Content" }
+        
+        // 3xx
+        if this == HttpStatus::MultipleChoices { return "Multiple Choices" }
+        if this == HttpStatus::MovedPermanently { return "Moved Permanently" }
+        if this == HttpStatus::Found { return "Found" }
+        if this == HttpStatus::SeeOther { return "See Other" }
+        if this == HttpStatus::NotModified { return "Not Modified" }
+        if this == HttpStatus::TemporaryRedirect { return "Temporary Redirect" }
+        if this == HttpStatus::PermanentRedirect { return "Permanent Redirect" }
+        
+        // 4xx
+        if this == HttpStatus::BadRequest { return "Bad Request" }
+        if this == HttpStatus::Unauthorized { return "Unauthorized" }
+        if this == HttpStatus::PaymentRequired { return "Payment Required" }
+        if this == HttpStatus::Forbidden { return "Forbidden" }
+        if this == HttpStatus::NotFound { return "Not Found" }
+        if this == HttpStatus::MethodNotAllowed { return "Method Not Allowed" }
+        if this == HttpStatus::NotAcceptable { return "Not Acceptable" }
+        if this == HttpStatus::RequestTimeout { return "Request Timeout" }
+        if this == HttpStatus::Conflict { return "Conflict" }
+        if this == HttpStatus::Gone { return "Gone" }
+        if this == HttpStatus::LengthRequired { return "Length Required" }
+        if this == HttpStatus::PayloadTooLarge { return "Payload Too Large" }
+        if this == HttpStatus::URITooLong { return "URI Too Long" }
+        if this == HttpStatus::UnsupportedMediaType { return "Unsupported Media Type" }
+        if this == HttpStatus::RangeNotSatisfiable { return "Range Not Satisfiable" }
+        if this == HttpStatus::ExpectationFailed { return "Expectation Failed" }
+        if this == HttpStatus::ImATeapot { return "I'm a teapot" }
+        if this == HttpStatus::UnprocessableEntity { return "Unprocessable Entity" }
+        if this == HttpStatus::TooManyRequests { return "Too Many Requests" }
+        
+        // 5xx
+        if this == HttpStatus::InternalServerError { return "Internal Server Error" }
+        if this == HttpStatus::NotImplemented { return "Not Implemented" }
+        if this == HttpStatus::BadGateway { return "Bad Gateway" }
+        if this == HttpStatus::ServiceUnavailable { return "Service Unavailable" }
+        if this == HttpStatus::GatewayTimeout { return "Gateway Timeout" }
+        if this == HttpStatus::HTTPVersionNotSupported { return "HTTP Version Not Supported" }
+        
+        return "Unknown"
+    }
+    
+    /**
+     * isSuccess 判断是否为成功状态码 (2xx)
+     */
+    public function isSuccess() bool {
+        v := this.value()
+        return v >= 200 && v < 300
+    }
+    
+    /**
+     * isRedirect 判断是否为重定向状态码 (3xx)
+     */
+    public function isRedirect() bool {
+        v := this.value()
+        return v >= 300 && v < 400
+    }
+    
+    /**
+     * isClientError 判断是否为客户端错误 (4xx)
+     */
+    public function isClientError() bool {
+        v := this.value()
+        return v >= 400 && v < 500
+    }
+    
+    /**
+     * isServerError 判断是否为服务器错误 (5xx)
+     */
+    public function isServerError() bool {
+        v := this.value()
+        return v >= 500 && v < 600
+    }
+    
+    /**
+     * isError 判断是否为错误状态码 (4xx 或 5xx)
+     */
+    public function isError() bool {
+        return this.isClientError() || this.isServerError()
+    }
+}
+

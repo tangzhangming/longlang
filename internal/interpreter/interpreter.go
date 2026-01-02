@@ -1199,41 +1199,87 @@ func (i *Interpreter) evalUseStatement(node *parser.UseStatement) Object {
 
 	// 解析完全限定名：Illuminate.Database.Eloquent.Model
 	// 分解为：命名空间 Illuminate.Database.Eloquent，类名 Model
-	namespace, className, err := ResolveClassName(fullPath)
+	namespace, symbolName, err := ResolveClassName(fullPath)
 	if err != nil {
 		return newError("无效的 use 路径: %s", fullPath)
 	}
 
 	// 尝试加载命名空间文件（如果尚未加载）
-	loadErr := i.loadNamespaceFile(namespace, className)
+	loadErr := i.loadNamespaceFile(namespace, symbolName)
 	// 注意：即使加载失败，也继续尝试查找（可能已经在其他地方加载了）
 	_ = loadErr
 
 	// 首先尝试在原始命名空间中查找（支持标准库）
 	targetNamespace := i.namespaceMgr.GetNamespace(namespace)
-	class, ok := targetNamespace.GetClass(className)
 
-	// 如果找不到，且有项目配置，尝试使用 root_namespace 解析后的命名空间
-	if !ok && i.projectConfig != nil {
-		resolvedNamespace := i.projectConfig.ResolveNamespace(namespace)
-		if resolvedNamespace != namespace {
-			targetNamespace = i.namespaceMgr.GetNamespace(resolvedNamespace)
-			class, ok = targetNamespace.GetClass(className)
+	// 尝试查找类、枚举或接口
+	var symbol Object
+	var found bool
+
+	// 1. 尝试查找类
+	if class, ok := targetNamespace.GetClass(symbolName); ok {
+		symbol = class
+		found = true
+	}
+
+	// 2. 尝试查找枚举
+	if !found {
+		if enum, ok := targetNamespace.GetEnum(symbolName); ok {
+			symbol = enum
+			found = true
 		}
 	}
 
-	if !ok {
-		return newError("命名空间 %s 中没有找到类 %s", namespace, className)
+	// 3. 尝试查找接口
+	if !found {
+		if iface, ok := targetNamespace.GetInterface(symbolName); ok {
+			symbol = iface
+			found = true
+		}
+	}
+
+	// 如果找不到，且有项目配置，尝试使用 root_namespace 解析后的命名空间
+	if !found && i.projectConfig != nil {
+		resolvedNamespace := i.projectConfig.ResolveNamespace(namespace)
+		if resolvedNamespace != namespace {
+			targetNamespace = i.namespaceMgr.GetNamespace(resolvedNamespace)
+
+			// 1. 尝试查找类
+			if class, ok := targetNamespace.GetClass(symbolName); ok {
+				symbol = class
+				found = true
+			}
+
+			// 2. 尝试查找枚举
+			if !found {
+				if enum, ok := targetNamespace.GetEnum(symbolName); ok {
+					symbol = enum
+					found = true
+				}
+			}
+
+			// 3. 尝试查找接口
+			if !found {
+				if iface, ok := targetNamespace.GetInterface(symbolName); ok {
+					symbol = iface
+					found = true
+				}
+			}
+		}
+	}
+
+	if !found {
+		return newError("命名空间 %s 中没有找到 %s", namespace, symbolName)
 	}
 
 	// 确定导入到当前环境的名称
-	importName := className
+	importName := symbolName
 	if node.Alias != nil {
 		importName = node.Alias.Value
 	}
 
-	// 将类导入到当前环境
-	i.env.Set(importName, class)
+	// 将符号导入到当前环境
+	i.env.Set(importName, symbol)
 
 	return nil
 }

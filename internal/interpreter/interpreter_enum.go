@@ -113,9 +113,9 @@ func (i *Interpreter) evalEnumStatement(node *parser.EnumStatement) Object {
 		enum.MemberList = append(enum.MemberList, enumValue)
 	}
 
-	// 注册到环境
+	// 注册到命名空间和环境
 	if i.currentNamespace != nil {
-		i.currentNamespace.SetClass(node.Name.Value, &Class{Name: node.Name.Value})
+		i.currentNamespace.SetEnum(node.Name.Value, enum)
 	}
 	i.env.Set(node.Name.Value, enum)
 

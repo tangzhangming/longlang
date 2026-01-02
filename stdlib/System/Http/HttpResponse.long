@@ -36,6 +36,14 @@ class HttpResponse {
     }
     
     /**
+     * getStatusCode 获取当前状态码数值
+     * @return 当前设置的 HTTP 状态码数值
+     */
+    public function getStatusCode() int {
+        return this._statusCode
+    }
+    
+    /**
      * header 设置响应头
      * @param key 响应头名称
      * @param value 响应头值
@@ -79,12 +87,72 @@ class HttpResponse {
     /**
      * redirect 发送重定向响应
      * @param url 重定向目标 URL
+     * @param permanent 是否为永久重定向（默认 false）
      */
-    public function redirect(url: string) {
-        this._statusCode = 302
+    public function redirect(url: string, permanent: bool = false) {
+        if permanent {
+            this._statusCode = 301
+        } else {
+            this._statusCode = 302
+        }
         this.header("Location", url)
         this._sendHeaders("text/plain; charset=utf-8")
         this._conn.write("Redirecting to " + url)
+        this._conn.flush()
+    }
+    
+    /**
+     * notFound 发送 404 响应
+     * @param message 错误消息（可选）
+     */
+    public function notFound(message: string = "Page not found") {
+        this._statusCode = 404
+        this._sendHeaders("text/plain; charset=utf-8")
+        this._conn.write(message)
+        this._conn.flush()
+    }
+    
+    /**
+     * badRequest 发送 400 响应
+     * @param message 错误消息（可选）
+     */
+    public function badRequest(message: string = "Bad request") {
+        this._statusCode = 400
+        this._sendHeaders("text/plain; charset=utf-8")
+        this._conn.write(message)
+        this._conn.flush()
+    }
+    
+    /**
+     * unauthorized 发送 401 响应
+     * @param message 错误消息（可选）
+     */
+    public function unauthorized(message: string = "Unauthorized") {
+        this._statusCode = 401
+        this._sendHeaders("text/plain; charset=utf-8")
+        this._conn.write(message)
+        this._conn.flush()
+    }
+    
+    /**
+     * forbidden 发送 403 响应
+     * @param message 错误消息（可选）
+     */
+    public function forbidden(message: string = "Forbidden") {
+        this._statusCode = 403
+        this._sendHeaders("text/plain; charset=utf-8")
+        this._conn.write(message)
+        this._conn.flush()
+    }
+    
+    /**
+     * serverError 发送 500 响应
+     * @param message 错误消息（可选）
+     */
+    public function serverError(message: string = "Internal server error") {
+        this._statusCode = 500
+        this._sendHeaders("text/plain; charset=utf-8")
+        this._conn.write(message)
         this._conn.flush()
     }
     
@@ -117,35 +185,91 @@ class HttpResponse {
     }
     
     private function _getStatusText() string {
-        if this._statusCode == 200 {
-            return "OK"
-        } else if this._statusCode == 201 {
-            return "Created"
-        } else if this._statusCode == 204 {
-            return "No Content"
-        } else if this._statusCode == 301 {
-            return "Moved Permanently"
-        } else if this._statusCode == 302 {
-            return "Found"
-        } else if this._statusCode == 304 {
-            return "Not Modified"
-        } else if this._statusCode == 400 {
-            return "Bad Request"
-        } else if this._statusCode == 401 {
-            return "Unauthorized"
-        } else if this._statusCode == 403 {
-            return "Forbidden"
-        } else if this._statusCode == 404 {
-            return "Not Found"
-        } else if this._statusCode == 405 {
-            return "Method Not Allowed"
-        } else if this._statusCode == 500 {
-            return "Internal Server Error"
-        } else if this._statusCode == 502 {
-            return "Bad Gateway"
-        } else if this._statusCode == 503 {
-            return "Service Unavailable"
-        }
+        // 1xx
+        if this._statusCode == 100 { return "Continue" }
+        if this._statusCode == 101 { return "Switching Protocols" }
+        
+        // 2xx
+        if this._statusCode == 200 { return "OK" }
+        if this._statusCode == 201 { return "Created" }
+        if this._statusCode == 202 { return "Accepted" }
+        if this._statusCode == 204 { return "No Content" }
+        if this._statusCode == 206 { return "Partial Content" }
+        
+        // 3xx
+        if this._statusCode == 300 { return "Multiple Choices" }
+        if this._statusCode == 301 { return "Moved Permanently" }
+        if this._statusCode == 302 { return "Found" }
+        if this._statusCode == 303 { return "See Other" }
+        if this._statusCode == 304 { return "Not Modified" }
+        if this._statusCode == 307 { return "Temporary Redirect" }
+        if this._statusCode == 308 { return "Permanent Redirect" }
+        
+        // 4xx
+        if this._statusCode == 400 { return "Bad Request" }
+        if this._statusCode == 401 { return "Unauthorized" }
+        if this._statusCode == 402 { return "Payment Required" }
+        if this._statusCode == 403 { return "Forbidden" }
+        if this._statusCode == 404 { return "Not Found" }
+        if this._statusCode == 405 { return "Method Not Allowed" }
+        if this._statusCode == 406 { return "Not Acceptable" }
+        if this._statusCode == 408 { return "Request Timeout" }
+        if this._statusCode == 409 { return "Conflict" }
+        if this._statusCode == 410 { return "Gone" }
+        if this._statusCode == 413 { return "Payload Too Large" }
+        if this._statusCode == 415 { return "Unsupported Media Type" }
+        if this._statusCode == 418 { return "I'm a teapot" }
+        if this._statusCode == 422 { return "Unprocessable Entity" }
+        if this._statusCode == 429 { return "Too Many Requests" }
+        
+        // 5xx
+        if this._statusCode == 500 { return "Internal Server Error" }
+        if this._statusCode == 501 { return "Not Implemented" }
+        if this._statusCode == 502 { return "Bad Gateway" }
+        if this._statusCode == 503 { return "Service Unavailable" }
+        if this._statusCode == 504 { return "Gateway Timeout" }
+        
         return "Unknown"
     }
+}
+
+/**
+ * HTTP 状态码常量类
+ * 
+ * 使用示例：
+ *   response.status(Http::OK)
+ *   response.status(Http::NotFound)
+ */
+class Http {
+    // 2xx 成功
+    public static OK int = 200
+    public static Created int = 201
+    public static Accepted int = 202
+    public static NoContent int = 204
+    
+    // 3xx 重定向
+    public static MovedPermanently int = 301
+    public static Found int = 302
+    public static SeeOther int = 303
+    public static NotModified int = 304
+    public static TemporaryRedirect int = 307
+    public static PermanentRedirect int = 308
+    
+    // 4xx 客户端错误
+    public static BadRequest int = 400
+    public static Unauthorized int = 401
+    public static Forbidden int = 403
+    public static NotFound int = 404
+    public static MethodNotAllowed int = 405
+    public static Conflict int = 409
+    public static Gone int = 410
+    public static UnprocessableEntity int = 422
+    public static TooManyRequests int = 429
+    
+    // 5xx 服务器错误
+    public static InternalServerError int = 500
+    public static NotImplemented int = 501
+    public static BadGateway int = 502
+    public static ServiceUnavailable int = 503
+    public static GatewayTimeout int = 504
 }

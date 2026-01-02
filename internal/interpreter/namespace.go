@@ -6,21 +6,25 @@ import (
 )
 
 // Namespace 命名空间对象
-// 存储命名空间中的类、函数等符号
+// 存储命名空间中的类、函数、枚举等符号
 type Namespace struct {
-	FullName  string            // 完全限定名，如 "Mycompany.Myapp.Models"
-	Classes   map[string]*Class // 类定义
-	Functions map[string]*Function // 函数定义
-	Variables map[string]Object   // 变量（常量等）
+	FullName   string               // 完全限定名，如 "Mycompany.Myapp.Models"
+	Classes    map[string]*Class    // 类定义
+	Enums      map[string]*Enum     // 枚举定义
+	Interfaces map[string]*Interface // 接口定义
+	Functions  map[string]*Function // 函数定义
+	Variables  map[string]Object    // 变量（常量等）
 }
 
 // NewNamespace 创建新的命名空间
 func NewNamespace(fullName string) *Namespace {
 	return &Namespace{
-		FullName:  fullName,
-		Classes:   make(map[string]*Class),
-		Functions: make(map[string]*Function),
-		Variables: make(map[string]Object),
+		FullName:   fullName,
+		Classes:    make(map[string]*Class),
+		Enums:      make(map[string]*Enum),
+		Interfaces: make(map[string]*Interface),
+		Functions:  make(map[string]*Function),
+		Variables:  make(map[string]Object),
 	}
 }
 
@@ -33,6 +37,28 @@ func (ns *Namespace) GetClass(name string) (*Class, bool) {
 // SetClass 设置类
 func (ns *Namespace) SetClass(name string, class *Class) {
 	ns.Classes[name] = class
+}
+
+// GetEnum 获取枚举
+func (ns *Namespace) GetEnum(name string) (*Enum, bool) {
+	enum, ok := ns.Enums[name]
+	return enum, ok
+}
+
+// SetEnum 设置枚举
+func (ns *Namespace) SetEnum(name string, enum *Enum) {
+	ns.Enums[name] = enum
+}
+
+// GetInterface 获取接口
+func (ns *Namespace) GetInterface(name string) (*Interface, bool) {
+	iface, ok := ns.Interfaces[name]
+	return iface, ok
+}
+
+// SetInterface 设置接口
+func (ns *Namespace) SetInterface(name string, iface *Interface) {
+	ns.Interfaces[name] = iface
 }
 
 // GetFunction 获取函数
