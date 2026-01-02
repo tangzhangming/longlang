@@ -1,0 +1,100 @@
+namespace System.Console
+
+/**
+ * Console 控制台类
+ * 提供标准输入输出功能，参照 C# Console 类设计
+ */
+public class Console {
+    // ========== 输出方法 ==========
+    
+    /**
+     * 输出内容，不换行
+     * @param args 要输出的内容（可变参数）
+     */
+    public static function write(...args) void {
+        __console_write(args)
+    }
+    
+    /**
+     * 输出内容并换行
+     * @param args 要输出的内容（可变参数）
+     */
+    public static function writeLine(...args) void {
+        __console_write_line(args)
+    }
+    
+    /**
+     * 输出空行
+     */
+    public static function writeEmptyLine() void {
+        __console_write_empty_line()
+    }
+    
+    // ========== 输入方法 ==========
+    
+    /**
+     * 读取一行输入
+     * @return 用户输入的字符串（不包含换行符）
+     */
+    public static function readLine() string {
+        return __console_read_line()
+    }
+    
+    /**
+     * 读取单个字符
+     * @return 字符的 ASCII 码，如果到达输入末尾返回 -1
+     */
+    public static function read() int {
+        return __console_read()
+    }
+    
+    // ========== 控制台控制 ==========
+    
+    /**
+     * 清除控制台屏幕
+     */
+    public static function clear() void {
+        __console_clear()
+    }
+    
+    /**
+     * 设置光标位置
+     * @param left 列位置（从 0 开始）
+     * @param top 行位置（从 0 开始）
+     */
+    public static function setCursorPosition(left: int, top: int) void {
+        __console_set_cursor_position(left, top)
+    }
+    
+    /**
+     * 获取控制台窗口宽度（字符数）
+     * @return 窗口宽度
+     */
+    public static function getWindowWidth() int {
+        return __console_get_window_width()
+    }
+    
+    /**
+     * 获取控制台窗口高度（行数）
+     * @return 窗口高度
+     */
+    public static function getWindowHeight() int {
+        return __console_get_window_height()
+    }
+    
+    /**
+     * 设置控制台窗口标题
+     * @param title 标题文本
+     */
+    public static function setTitle(title: string) void {
+        __console_set_title(title)
+    }
+    
+    /**
+     * 发出蜂鸣声
+     */
+    public static function beep() void {
+        __console_beep()
+    }
+}
+

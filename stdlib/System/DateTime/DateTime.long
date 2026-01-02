@@ -7,11 +7,12 @@ namespace System.DateTime
  * 设计参考 C# DateTime 和 PHP Carbon
  * 
  * 示例：
+ *   use System.Console
  *   now := DateTime::now()
- *   fmt.println(now.format("yyyy-MM-dd HH:mm:ss"))
+ *   Console.writeLine(now.format("yyyy-MM-dd HH:mm:ss"))
  *   
  *   future := now.addDays(30).addHours(2)
- *   fmt.println(future.diffForHumans())  // "in 30 days"
+ *   Console.writeLine(future.diffForHumans())  // "in 30 days"
  */
 public class DateTime {
     private millis int  // 毫秒时间戳

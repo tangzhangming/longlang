@@ -6,10 +6,11 @@ namespace System.DateTime
  * 用于测量代码执行时间
  * 
  * 示例：
+ *   use System.Console
  *   sw := Stopwatch::startNew()
  *   // 执行一些操作...
  *   sw.stop()
- *   fmt.println("耗时: " + toString(sw.getElapsedMilliseconds()) + " ms")
+ *   Console.writeLine("耗时: " + toString(sw.getElapsedMilliseconds()) + " ms")
  */
 public class Stopwatch {
     private startNano int    // 开始时间（纳秒）

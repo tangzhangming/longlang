@@ -77,6 +77,8 @@ func New() *Interpreter {
 	registerRegexBuiltins(env)
 	// 注册日期时间内置函数
 	registerDateTimeBuiltins(env)
+	// 注册控制台内置函数
+	registerConsoleBuiltins(env)
 	// 注册注解相关内置函数
 	registerAnnotationBuiltins(env)
 	// 设置全局环境引用（用于注解内置函数）

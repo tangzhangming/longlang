@@ -6,9 +6,10 @@ namespace System.DateTime
  * 表示一个时间范围，提供范围检查和遍历功能
  * 
  * 示例：
+ *   use System.Console
  *   range := new DateRange(DateTime::create(2026, 1, 1), DateTime::create(2026, 1, 31))
  *   if range.contains(DateTime::now()) {
- *       fmt.println("在范围内")
+ *       Console.writeLine("在范围内")
  *   }
  */
 public class DateRange {

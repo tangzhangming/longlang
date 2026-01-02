@@ -6,8 +6,9 @@ namespace System.DateTime
  * 表示两个时间点之间的间隔
  * 
  * 示例：
+ *   use System.Console
  *   duration := Duration::fromHours(2).add(Duration::fromMinutes(30))
- *   fmt.println(duration.toHumanString())  // "2 hours 30 minutes"
+ *   Console.writeLine(duration.toHumanString())  // "2 hours 30 minutes"
  */
 public class Duration {
     private totalMs int  // 总毫秒数
