@@ -2,407 +2,1625 @@ namespace System.Redis
 
 use System.Net.TcpClient
 use System.Redis.RedisException
+use System.Redis.RedisConfig
 
 /**
  * RedisClient - Redis 客户端类
  * 
  * 纯 LongLang 实现的 Redis 客户端，支持 RESP 协议
  * 
+ * 生产级特性：
+ *   - 支持用户名/密码认证（兼容 Redis 6.0+ ACL）
+ *   - 支持选择数据库
+ *   - 支持键前缀
+ *   - 支持连接状态检查
+ *   - 完整的异常处理
+ *
  * 使用示例：
  *   use System.Redis.RedisClient
+ *   use System.Redis.RedisConfig
  *   
+ *   // 方式1：简单连接
  *   client := RedisClient::connect("127.0.0.1", 6379)
+ *
+ *   // 方式2：带认证连接
+ *   client := RedisClient::connectWithAuth("127.0.0.1", 6379, "password")
+ *
+ *   // 方式3：完整配置连接
+ *   config := new RedisConfig()
+ *   config.setHost("127.0.0.1")
+ *         .setPort(6379)
+ *         .setPassword("mypassword")
+ *         .setDatabase(1)
+ *         .setPrefix("myapp:")
+ *   client := RedisClient::connectWithConfig(config)
+ *
  *   client.set("name", "LongLang")
  *   name := client.get("name")
- *   fmt.println(name)  // LongLang
  *   client.close()
  */
 class RedisClient {
-    private tcp any
-    private host string
-    private port int
-    private connected bool
+    private _tcp any
+    private _host string
+    private _port int
+    private _connected bool
+    private _authenticated bool
+    private _database int
+    private _prefix string
+    private _config any
+    private _lastError string
     
     /**
-     * 构造函数
+     * 构造函数（私有化，使用静态工厂方法创建实例）
      */
-    public function __construct(host: string, port: int) {
-        this.host = host
-        this.port = port
-        this.connected = false
+    public function __construct() {
+        this._host = ""
+        this._port = 0
+        this._connected = false
+        this._authenticated = false
+        this._database = 0
+        this._prefix = ""
+        this._config = null
+        this._lastError = ""
     }
     
+    // ========== 静态工厂方法 ==========
+
     /**
-     * connect 连接到 Redis 服务器
+     * connect 简单连接到 Redis 服务器
+     * @param host 主机地址
+     * @param port 端口
+     * @return RedisClient
      */
     public static function connect(host: string, port: int) RedisClient {
-        client := new RedisClient(host, port)
-        client.tcp = new TcpClient(host, port)
-        client.connected = true
+        client := new RedisClient()
+        client._host = host
+        client._port = port
+        client._doConnect()
         return client
     }
     
     /**
-     * auth 认证
+     * connectWithAuth 带认证连接
+     * @param host 主机地址
+     * @param port 端口
+     * @param password 密码
+     * @return RedisClient
      */
-    public function auth(password: string) bool {
-        reply := this.cmd2("AUTH", password)
-        return reply == "OK"
+    public static function connectWithAuth(host: string, port: int, password: string) RedisClient {
+        client := new RedisClient()
+        client._host = host
+        client._port = port
+        client._doConnect()
+        client._auth("", password)
+        return client
+    }
+
+    /**
+     * connectWithUserAuth 带用户名和密码认证连接（Redis 6.0+ ACL）
+     * @param host 主机地址
+     * @param port 端口
+     * @param username 用户名
+     * @param password 密码
+     * @return RedisClient
+     */
+    public static function connectWithUserAuth(host: string, port: int, username: string, password: string) RedisClient {
+        client := new RedisClient()
+        client._host = host
+        client._port = port
+        client._doConnect()
+        client._auth(username, password)
+        return client
+    }
+
+    /**
+     * connectWithConfig 使用配置对象连接
+     * @param config RedisConfig 配置对象
+     * @return RedisClient
+     */
+    public static function connectWithConfig(config: RedisConfig) RedisClient {
+        client := new RedisClient()
+        client._config = config
+        client._host = config.getHost()
+        client._port = config.getPort()
+        client._prefix = config.getPrefix()
+
+        // 建立连接
+        client._doConnect()
+
+        // 认证
+        if config.hasAuth() {
+            if config.hasUsername() {
+                client._auth(config.getUsername(), config.getPassword())
+            } else {
+                client._auth("", config.getPassword())
+            }
+        }
+
+        // 选择数据库
+        if config.needSelectDb() {
+            client.selectDb(config.getDatabase())
+        }
+
+        return client
+    }
+
+    // ========== 连接管理 ==========
+
+    /**
+     * _doConnect 执行实际连接
+     */
+    private function _doConnect() {
+        if this._connected {
+            return
+        }
+
+        try {
+            this._tcp = new TcpClient(this._host, this._port)
+            this._connected = true
+        } catch (Exception e) {
+            throw new RedisException("连接 Redis 失败: " + this._host + ":" + toString(this._port) + " - " + e.getMessage())
+        }
+    }
+
+    /**
+     * _auth 内部认证方法
+     */
+    private function _auth(username: string, password: string) {
+        if username != "" {
+            // Redis 6.0+ ACL 认证
+            reply := this._cmd3("AUTH", username, password)
+            if reply != "OK" {
+                throw new RedisException("Redis 认证失败: " + reply)
+            }
+        } else {
+            // 传统密码认证
+            reply := this._cmd2("AUTH", password)
+            if reply != "OK" {
+                throw new RedisException("Redis 认证失败: " + reply)
+            }
+        }
+        this._authenticated = true
+    }
+
+    /**
+     * isConnected - 检查是否已连接到 Redis 服务器
+     * 
+     * @return bool 已连接返回 true，否则返回 false
+     */
+    public function isConnected() bool {
+        return this._connected
+    }
+
+    /**
+     * isAuthenticated - 检查是否已通过认证
+     * 
+     * @return bool 已认证返回 true，否则返回 false
+     */
+    public function isAuthenticated() bool {
+        return this._authenticated
+    }
+
+    /**
+     * getHost - 获取当前连接的主机地址
+     * 
+     * @return string 主机地址
+     */
+    public function getHost() string {
+        return this._host
+    }
+
+    /**
+     * getPort - 获取当前连接的端口号
+     * 
+     * @return int 端口号
+     */
+    public function getPort() int {
+        return this._port
+    }
+
+    /**
+     * getCurrentDatabase - 获取当前选择的数据库索引
+     * 
+     * @return int 数据库索引（0-15）
+     */
+    public function getCurrentDatabase() int {
+        return this._database
+    }
+
+    /**
+     * getLastError - 获取最后一次 Redis 错误信息
+     * 
+     * @return string 错误信息，无错误时返回空字符串
+     */
+    public function getLastError() string {
+        return this._lastError
+    }
+
+    /**
+     * setPrefix - 设置键前缀
+     * 
+     * 设置后所有键操作会自动添加此前缀
+     * 
+     * @param prefix string 键前缀，如 "myapp:"
+     */
+    public function setPrefix(prefix: string) {
+        this._prefix = prefix
+    }
+
+    /**
+     * getPrefix - 获取当前键前缀
+     * 
+     * @return string 键前缀
+     */
+    public function getPrefix() string {
+        return this._prefix
+    }
+
+    /**
+     * _prefixKey - 为键添加前缀（内部方法）
+     * 
+     * @param key string 原始键名
+     * @return string 添加前缀后的键名
+     */
+    private function _prefixKey(key: string) string {
+        if this._prefix == "" {
+            return key
+        }
+        return this._prefix + key
     }
     
     /**
-     * ping 测试连接
+     * ping - 测试与 Redis 服务器的连接
+     * 
+     * 向服务器发送 PING 命令，正常情况下返回 "PONG"
+     * 
+     * @return string 服务器响应，通常为 "PONG"
      */
     public function ping() string {
-        return this.cmd1("PING")
+        return this._cmd1("PING")
     }
     
     /**
-     * selectDb 选择数据库
+     * selectDb - 选择数据库
+     * 
+     * Redis 默认有 16 个数据库（0-15），默认使用数据库 0
+     * 
+     * @param db int 数据库索引（0-15）
+     * @return bool 选择成功返回 true，否则返回 false
      */
     public function selectDb(db: int) bool {
-        reply := this.cmd2("SELECT", toString(db))
+        reply := this._cmd2("SELECT", toString(db))
+        if reply == "OK" {
+            this._database = db
+            return true
+        }
+        return false
+    }
+
+    /**
+     * echo - 回显消息
+     * 
+     * 向服务器发送消息并原样返回，用于测试
+     * 
+     * @param message string 要回显的消息
+     * @return string 服务器返回的消息
+     */
+    public function echo(message: string) string {
+        return this._cmd2("ECHO", message)
+    }
+
+    /**
+     * info - 获取 Redis 服务器的全部信息
+     * 
+     * 返回服务器的各种信息和统计数据
+     * 
+     * @return string 服务器信息（多行文本）
+     */
+    public function info() string {
+        return this._cmd1("INFO")
+    }
+
+    /**
+     * infoSection - 获取指定部分的服务器信息
+     * 
+     * @param section string 信息部分名称（server/clients/memory/stats/replication/cpu/keyspace）
+     * @return string 指定部分的服务器信息
+     */
+    public function infoSection(section: string) string {
+        return this._cmd2("INFO", section)
+    }
+
+    /**
+     * clientList - 获取所有已连接客户端的列表
+     * 
+     * @return string 客户端列表信息
+     */
+    public function clientList() string {
+        return this._cmd2("CLIENT", "LIST")
+    }
+
+    /**
+     * clientSetName - 设置当前连接的客户端名称
+     * 
+     * 便于在 CLIENT LIST 中识别连接
+     * 
+     * @param name string 客户端名称
+     * @return bool 设置成功返回 true
+     */
+    public function clientSetName(name: string) bool {
+        reply := this._cmd3("CLIENT", "SETNAME", name)
         return reply == "OK"
     }
     
+    /**
+     * clientGetName - 获取当前连接的客户端名称
+     * 
+     * @return string 客户端名称，未设置时返回空字符串
+     */
+    public function clientGetName() string {
+        return this._cmd2("CLIENT", "GETNAME")
+    }
+
     // ========== 字符串操作 ==========
     
+    /**
+     * set - 设置字符串键值
+     * 
+     * 如果键已存在则覆盖旧值，无论旧值是什么类型
+     * 
+     * @param key string 键名
+     * @param value string 字符串值
+     * @return bool 设置成功返回 true
+     */
     public function set(key: string, value: string) bool {
-        reply := this.cmd3("SET", key, value)
+        reply := this._cmd3("SET", this._prefixKey(key), value)
         return reply == "OK"
     }
     
+    /**
+     * setEx - 设置键值并指定过期时间（秒）
+     * 
+     * 原子操作，等同于 SET key value 后执行 EXPIRE key seconds
+     * 
+     * @param key string 键名
+     * @param seconds int 过期时间（秒）
+     * @param value string 字符串值
+     * @return bool 设置成功返回 true
+     */
     public function setEx(key: string, seconds: int, value: string) bool {
-        reply := this.cmd4("SETEX", key, toString(seconds), value)
+        reply := this._cmd4("SETEX", this._prefixKey(key), toString(seconds), value)
+        return reply == "OK"
+    }
+
+    /**
+     * setPx - 设置键值并指定过期时间（毫秒）
+     * 
+     * 类似 setEx，但过期时间单位为毫秒
+     * 
+     * @param key string 键名
+     * @param milliseconds int 过期时间（毫秒）
+     * @param value string 字符串值
+     * @return bool 设置成功返回 true
+     */
+    public function setPx(key: string, milliseconds: int, value: string) bool {
+        reply := this._cmd4("PSETEX", this._prefixKey(key), toString(milliseconds), value)
         return reply == "OK"
     }
     
+    /**
+     * setNx - 仅当键不存在时设置值
+     * 
+     * 常用于实现分布式锁
+     * 
+     * @param key string 键名
+     * @param value string 字符串值
+     * @return bool 键不存在且设置成功返回 true，键已存在返回 false
+     */
     public function setNx(key: string, value: string) bool {
-        reply := this.cmd3("SETNX", key, value)
+        reply := this._cmd3("SETNX", this._prefixKey(key), value)
         return reply == "1"
     }
     
+    /**
+     * setXx - 仅当键存在时设置值
+     * 
+     * @param key string 键名
+     * @param value string 字符串值
+     * @return bool 键存在且设置成功返回 true，键不存在返回 false
+     */
+    public function setXx(key: string, value: string) bool {
+        reply := this._cmdN([]string{"SET", this._prefixKey(key), value, "XX"})
+        return reply == "OK"
+    }
+
+    /**
+     * get - 获取键的字符串值
+     * 
+     * 如果键不存在，返回空字符串
+     * 如果键存储的不是字符串，将抛出异常
+     * 
+     * @param key string 键名
+     * @return string 键对应的值，不存在时返回空字符串
+     */
     public function get(key: string) string {
-        return this.cmd2("GET", key)
+        return this._cmd2("GET", this._prefixKey(key))
+    }
+
+    /**
+     * getOrDefault - 获取键的值，不存在时返回默认值
+     * 
+     * @param key string 键名
+     * @param defaultValue string 默认值
+     * @return string 键对应的值，不存在时返回 defaultValue
+     */
+    public function getOrDefault(key: string, defaultValue: string) string {
+        raw := this._cmd2Raw("GET", this._prefixKey(key))
+        if raw == null {
+            return defaultValue
+        }
+        return raw
     }
     
+    /**
+     * getOrNull - 获取键的值，不存在时返回 null
+     * 
+     * 用于区分键不存在和值为空字符串的情况
+     * 
+     * @param key string 键名
+     * @return any 键对应的值，不存在时返回 null
+     */
     public function getOrNull(key: string) any {
-        return this.cmd2Raw("GET", key)
+        return this._cmd2Raw("GET", this._prefixKey(key))
+    }
+
+    /**
+     * getSet - 设置新值并返回旧值
+     * 
+     * 原子操作，常用于计数器重置
+     * 
+     * @param key string 键名
+     * @param value string 新值
+     * @return string 旧值，键不存在时返回空字符串
+     */
+    public function getSet(key: string, value: string) string {
+        return this._cmd3("GETSET", this._prefixKey(key), value)
+    }
+
+    /**
+     * getDel - 获取值并删除键
+     * 
+     * 原子操作，Redis 6.2+ 支持
+     * 
+     * @param key string 键名
+     * @return string 键对应的值，不存在时返回空字符串
+     */
+    public function getDel(key: string) string {
+        return this._cmd2("GETDEL", this._prefixKey(key))
     }
     
+    /**
+     * incr - 将键的整数值加 1
+     * 
+     * 如果键不存在，先初始化为 0 再执行操作
+     * 如果键的值不是整数，将抛出异常
+     * 
+     * @param key string 键名
+     * @return int 增加后的值
+     */
     public function incr(key: string) int {
-        reply := this.cmd2("INCR", key)
+        reply := this._cmd2("INCR", this._prefixKey(key))
         return parseInt(reply)
     }
     
+    /**
+     * incrBy - 将键的整数值增加指定增量
+     * 
+     * 如果键不存在，先初始化为 0 再执行操作
+     * 
+     * @param key string 键名
+     * @param increment int 增量（可为负数）
+     * @return int 增加后的值
+     */
     public function incrBy(key: string, increment: int) int {
-        reply := this.cmd3("INCRBY", key, toString(increment))
+        reply := this._cmd3("INCRBY", this._prefixKey(key), toString(increment))
         return parseInt(reply)
     }
     
+    /**
+     * incrByFloat - 将键的浮点数值增加指定增量
+     * 
+     * 如果键不存在，先初始化为 0 再执行操作
+     * 
+     * @param key string 键名
+     * @param increment float 浮点数增量
+     * @return string 增加后的值（字符串形式）
+     */
+    public function incrByFloat(key: string, increment: float) string {
+        return this._cmd3("INCRBYFLOAT", this._prefixKey(key), toString(increment))
+    }
+
+    /**
+     * decr - 将键的整数值减 1
+     * 
+     * 如果键不存在，先初始化为 0 再执行操作
+     * 
+     * @param key string 键名
+     * @return int 减少后的值
+     */
     public function decr(key: string) int {
-        reply := this.cmd2("DECR", key)
+        reply := this._cmd2("DECR", this._prefixKey(key))
         return parseInt(reply)
     }
     
+    /**
+     * decrBy - 将键的整数值减少指定减量
+     * 
+     * 如果键不存在，先初始化为 0 再执行操作
+     * 
+     * @param key string 键名
+     * @param decrement int 减量
+     * @return int 减少后的值
+     */
     public function decrBy(key: string, decrement: int) int {
-        reply := this.cmd3("DECRBY", key, toString(decrement))
+        reply := this._cmd3("DECRBY", this._prefixKey(key), toString(decrement))
         return parseInt(reply)
     }
     
+    /**
+     * append - 追加字符串到键的值末尾
+     * 
+     * 如果键不存在，将创建一个空字符串再追加
+     * 
+     * @param key string 键名
+     * @param value string 要追加的字符串
+     * @return int 追加后字符串的总长度
+     */
     public function append(key: string, value: string) int {
-        reply := this.cmd3("APPEND", key, value)
+        reply := this._cmd3("APPEND", this._prefixKey(key), value)
         return parseInt(reply)
     }
     
+    /**
+     * strlen - 获取键存储的字符串的长度
+     * 
+     * @param key string 键名
+     * @return int 字符串长度，键不存在时返回 0
+     */
     public function strlen(key: string) int {
-        reply := this.cmd2("STRLEN", key)
+        reply := this._cmd2("STRLEN", this._prefixKey(key))
+        return parseInt(reply)
+    }
+
+    /**
+     * getRange - 获取字符串的子串
+     * 
+     * 支持负数索引，-1 表示最后一个字符
+     * 
+     * @param key string 键名
+     * @param start int 起始位置（含）
+     * @param end int 结束位置（含）
+     * @return string 子串
+     */
+    public function getRange(key: string, start: int, end: int) string {
+        return this._cmd4("GETRANGE", this._prefixKey(key), toString(start), toString(end))
+    }
+
+    /**
+     * setRange - 覆盖字符串指定位置开始的部分
+     * 
+     * 如果偏移量超过字符串长度，用零字节填充
+     * 
+     * @param key string 键名
+     * @param offset int 起始偏移量
+     * @param value string 要写入的字符串
+     * @return int 修改后字符串的总长度
+     */
+    public function setRange(key: string, offset: int, value: string) int {
+        reply := this._cmd4("SETRANGE", this._prefixKey(key), toString(offset), value)
         return parseInt(reply)
     }
     
     // ========== 键操作 ==========
     
+    /**
+     * del - 删除一个键
+     * 
+     * @param key string 键名
+     * @return int 删除的键数量（0 或 1）
+     */
     public function del(key: string) int {
-        reply := this.cmd2("DEL", key)
+        reply := this._cmd2("DEL", this._prefixKey(key))
+        return parseInt(reply)
+    }
+
+    /**
+     * delMultiple - 删除多个键
+     * 
+     * @param keys any 键名数组
+     * @return int 成功删除的键数量
+     */
+    public function delMultiple(keys: any) int {
+        args := []string{"DEL"}
+        for i := 0; i < len(keys); i++ {
+            args.push(this._prefixKey(keys[i]))
+        }
+        reply := this._cmdN(args)
         return parseInt(reply)
     }
     
+    /**
+     * exists - 检查键是否存在
+     * 
+     * @param key string 键名
+     * @return bool 键存在返回 true
+     */
     public function exists(key: string) bool {
-        reply := this.cmd2("EXISTS", key)
+        reply := this._cmd2("EXISTS", this._prefixKey(key))
         return reply == "1"
     }
     
+    /**
+     * existsMultiple - 检查多个键是否存在
+     * 
+     * @param keys any 键名数组
+     * @return int 存在的键数量
+     */
+    public function existsMultiple(keys: any) int {
+        args := []string{"EXISTS"}
+        for i := 0; i < len(keys); i++ {
+            args.push(this._prefixKey(keys[i]))
+        }
+        reply := this._cmdN(args)
+        return parseInt(reply)
+    }
+
+    /**
+     * expire - 设置键的过期时间（秒）
+     * 
+     * @param key string 键名
+     * @param seconds int 过期时间（秒）
+     * @return bool 设置成功返回 true，键不存在返回 false
+     */
     public function expire(key: string, seconds: int) bool {
-        reply := this.cmd3("EXPIRE", key, toString(seconds))
+        reply := this._cmd3("EXPIRE", this._prefixKey(key), toString(seconds))
+        return reply == "1"
+    }
+
+    /**
+     * expireAt - 设置键的过期时间点（Unix 时间戳）
+     * 
+     * @param key string 键名
+     * @param timestamp int Unix 时间戳（秒）
+     * @return bool 设置成功返回 true，键不存在返回 false
+     */
+    public function expireAt(key: string, timestamp: int) bool {
+        reply := this._cmd3("EXPIREAT", this._prefixKey(key), toString(timestamp))
+        return reply == "1"
+    }
+
+    /**
+     * pexpire - 设置键的过期时间（毫秒）
+     * 
+     * @param key string 键名
+     * @param milliseconds int 过期时间（毫秒）
+     * @return bool 设置成功返回 true，键不存在返回 false
+     */
+    public function pexpire(key: string, milliseconds: int) bool {
+        reply := this._cmd3("PEXPIRE", this._prefixKey(key), toString(milliseconds))
         return reply == "1"
     }
     
+    /**
+     * ttl - 获取键的剩余生存时间（秒）
+     * 
+     * @param key string 键名
+     * @return int 剩余秒数，-1 表示无过期时间，-2 表示键不存在
+     */
     public function ttl(key: string) int {
-        reply := this.cmd2("TTL", key)
+        reply := this._cmd2("TTL", this._prefixKey(key))
+        return parseInt(reply)
+    }
+
+    /**
+     * pttl - 获取键的剩余生存时间（毫秒）
+     * 
+     * @param key string 键名
+     * @return int 剩余毫秒数，-1 表示无过期时间，-2 表示键不存在
+     */
+    public function pttl(key: string) int {
+        reply := this._cmd2("PTTL", this._prefixKey(key))
         return parseInt(reply)
     }
     
+    /**
+     * persist - 移除键的过期时间，使其永久有效
+     * 
+     * @param key string 键名
+     * @return bool 成功移除过期时间返回 true，键不存在或无过期时间返回 false
+     */
     public function persist(key: string) bool {
-        reply := this.cmd2("PERSIST", key)
+        reply := this._cmd2("PERSIST", this._prefixKey(key))
         return reply == "1"
     }
     
+    /**
+     * keyType - 获取键存储的值的类型
+     * 
+     * @param key string 键名
+     * @return string 类型：string/list/set/zset/hash/stream，不存在返回 none
+     */
     public function keyType(key: string) string {
-        return this.cmd2("TYPE", key)
+        return this._cmd2("TYPE", this._prefixKey(key))
     }
     
+    /**
+     * rename - 重命名键
+     * 
+     * 如果新键名已存在，将覆盖
+     * 
+     * @param key string 原键名
+     * @param newKey string 新键名
+     * @return bool 成功返回 true，原键不存在将抛出异常
+     */
     public function rename(key: string, newKey: string) bool {
-        reply := this.cmd3("RENAME", key, newKey)
+        reply := this._cmd3("RENAME", this._prefixKey(key), this._prefixKey(newKey))
         return reply == "OK"
     }
     
+    /**
+     * renameNx - 仅当新键名不存在时重命名
+     * 
+     * @param key string 原键名
+     * @param newKey string 新键名
+     * @return bool 成功返回 true，新键名已存在返回 false
+     */
+    public function renameNx(key: string, newKey: string) bool {
+        reply := this._cmd3("RENAMENX", this._prefixKey(key), this._prefixKey(newKey))
+        return reply == "1"
+    }
+
+    /**
+     * keys - 查找所有匹配给定模式的键
+     * 
+     * 支持 glob 风格模式：* 匹配任意字符，? 匹配单个字符，[] 匹配括号内字符
+     * 注意：生产环境应避免使用，可能阻塞服务器
+     * 
+     * @param pattern string 模式字符串
+     * @return any 匹配的键名数组
+     */
     public function keys(pattern: string) any {
-        return this.cmd2Array("KEYS", pattern)
+        return this._cmd2Array("KEYS", this._prefixKey(pattern))
+    }
+
+    /**
+     * randomKey - 随机返回一个键名
+     * 
+     * @return string 随机键名，数据库为空时返回空字符串
+     */
+    public function randomKey() string {
+        return this._cmd1("RANDOMKEY")
+    }
+
+    /**
+     * dump - 序列化键的值
+     * 
+     * 返回的数据可用于 RESTORE 命令恢复
+     * 
+     * @param key string 键名
+     * @return string 序列化后的数据，键不存在返回空字符串
+     */
+    public function dump(key: string) string {
+        return this._cmd2("DUMP", this._prefixKey(key))
     }
     
     // ========== 哈希操作 ==========
     
-    public function hset(key: string, field: string, value: string) bool {
-        reply := this.cmd4("HSET", key, field, value)
+    /**
+     * hset - 设置哈希表字段的值
+     * 
+     * 如果哈希表不存在会自动创建
+     * 如果字段已存在则覆盖
+     * 
+     * @param key string 哈希表键名
+     * @param field string 字段名
+     * @param value string 字段值
+     * @return int 新添加的字段数量（0 表示更新，1 表示新增）
+     */
+    public function hset(key: string, field: string, value: string) int {
+        reply := this._cmd4("HSET", this._prefixKey(key), field, value)
+        return parseInt(reply)
+    }
+
+    /**
+     * hsetnx - 仅当字段不存在时设置值
+     * 
+     * @param key string 哈希表键名
+     * @param field string 字段名
+     * @param value string 字段值
+     * @return bool 字段不存在且设置成功返回 true，字段已存在返回 false
+     */
+    public function hsetnx(key: string, field: string, value: string) bool {
+        reply := this._cmd4("HSETNX", this._prefixKey(key), field, value)
         return reply == "1"
     }
     
+    /**
+     * hget - 获取哈希表字段的值
+     * 
+     * @param key string 哈希表键名
+     * @param field string 字段名
+     * @return string 字段值，不存在返回空字符串
+     */
     public function hget(key: string, field: string) string {
-        return this.cmd3("HGET", key, field)
+        return this._cmd3("HGET", this._prefixKey(key), field)
     }
     
-    public function hdel(key: string, field: string) bool {
-        reply := this.cmd3("HDEL", key, field)
-        return reply == "1"
+    /**
+     * hgetOrDefault - 获取哈希表字段的值，不存在时返回默认值
+     * 
+     * @param key string 哈希表键名
+     * @param field string 字段名
+     * @param defaultValue string 默认值
+     * @return string 字段值，不存在返回 defaultValue
+     */
+    public function hgetOrDefault(key: string, field: string, defaultValue: string) string {
+        raw := this._cmd3Raw("HGET", this._prefixKey(key), field)
+        if raw == null {
+            return defaultValue
+        }
+        return raw
     }
-    
-    public function hexists(key: string, field: string) bool {
-        reply := this.cmd3("HEXISTS", key, field)
-        return reply == "1"
-    }
-    
-    public function hgetall(key: string) any {
-        return this.cmd2Array("HGETALL", key)
-    }
-    
-    public function hkeys(key: string) any {
-        return this.cmd2Array("HKEYS", key)
-    }
-    
-    public function hvals(key: string) any {
-        return this.cmd2Array("HVALS", key)
-    }
-    
-    public function hlen(key: string) int {
-        reply := this.cmd2("HLEN", key)
+
+    /**
+     * hdel - 删除哈希表的一个字段
+     * 
+     * @param key string 哈希表键名
+     * @param field string 字段名
+     * @return int 删除的字段数量（0 或 1）
+     */
+    public function hdel(key: string, field: string) int {
+        reply := this._cmd3("HDEL", this._prefixKey(key), field)
         return parseInt(reply)
     }
     
+    /**
+     * hexists - 检查哈希表字段是否存在
+     * 
+     * @param key string 哈希表键名
+     * @param field string 字段名
+     * @return bool 字段存在返回 true
+     */
+    public function hexists(key: string, field: string) bool {
+        reply := this._cmd3("HEXISTS", this._prefixKey(key), field)
+        return reply == "1"
+    }
+    
+    /**
+     * hgetall - 获取哈希表的所有字段和值
+     * 
+     * 返回格式：[field1, value1, field2, value2, ...]
+     * 
+     * @param key string 哈希表键名
+     * @return any 字段和值的数组
+     */
+    public function hgetall(key: string) any {
+        return this._cmd2Array("HGETALL", this._prefixKey(key))
+    }
+    
+    /**
+     * hkeys - 获取哈希表的所有字段名
+     * 
+     * @param key string 哈希表键名
+     * @return any 字段名数组
+     */
+    public function hkeys(key: string) any {
+        return this._cmd2Array("HKEYS", this._prefixKey(key))
+    }
+    
+    /**
+     * hvals - 获取哈希表的所有字段值
+     * 
+     * @param key string 哈希表键名
+     * @return any 字段值数组
+     */
+    public function hvals(key: string) any {
+        return this._cmd2Array("HVALS", this._prefixKey(key))
+    }
+    
+    /**
+     * hlen - 获取哈希表的字段数量
+     * 
+     * @param key string 哈希表键名
+     * @return int 字段数量
+     */
+    public function hlen(key: string) int {
+        reply := this._cmd2("HLEN", this._prefixKey(key))
+        return parseInt(reply)
+    }
+    
+    /**
+     * hincrby - 将哈希表字段的整数值增加指定增量
+     * 
+     * @param key string 哈希表键名
+     * @param field string 字段名
+     * @param increment int 增量（可为负数）
+     * @return int 增加后的值
+     */
+    public function hincrby(key: string, field: string, increment: int) int {
+        reply := this._cmd4("HINCRBY", this._prefixKey(key), field, toString(increment))
+        return parseInt(reply)
+    }
+
+    /**
+     * hincrbyfloat - 将哈希表字段的浮点数值增加指定增量
+     * 
+     * @param key string 哈希表键名
+     * @param field string 字段名
+     * @param increment float 浮点数增量
+     * @return string 增加后的值（字符串形式）
+     */
+    public function hincrbyfloat(key: string, field: string, increment: float) string {
+        return this._cmd4("HINCRBYFLOAT", this._prefixKey(key), field, toString(increment))
+    }
+
     // ========== 列表操作 ==========
     
+    /**
+     * lpush - 将值插入列表头部（左侧）
+     * 
+     * 如果列表不存在会自动创建
+     * 
+     * @param key string 列表键名
+     * @param value string 要插入的值
+     * @return int 插入后列表的长度
+     */
     public function lpush(key: string, value: string) int {
-        reply := this.cmd3("LPUSH", key, value)
+        reply := this._cmd3("LPUSH", this._prefixKey(key), value)
+        return parseInt(reply)
+    }
+
+    /**
+     * lpushx - 仅当列表存在时将值插入头部
+     * 
+     * @param key string 列表键名
+     * @param value string 要插入的值
+     * @return int 插入后列表的长度，列表不存在返回 0
+     */
+    public function lpushx(key: string, value: string) int {
+        reply := this._cmd3("LPUSHX", this._prefixKey(key), value)
         return parseInt(reply)
     }
     
+    /**
+     * rpush - 将值插入列表尾部（右侧）
+     * 
+     * 如果列表不存在会自动创建
+     * 
+     * @param key string 列表键名
+     * @param value string 要插入的值
+     * @return int 插入后列表的长度
+     */
     public function rpush(key: string, value: string) int {
-        reply := this.cmd3("RPUSH", key, value)
+        reply := this._cmd3("RPUSH", this._prefixKey(key), value)
+        return parseInt(reply)
+    }
+
+    /**
+     * rpushx - 仅当列表存在时将值插入尾部
+     * 
+     * @param key string 列表键名
+     * @param value string 要插入的值
+     * @return int 插入后列表的长度，列表不存在返回 0
+     */
+    public function rpushx(key: string, value: string) int {
+        reply := this._cmd3("RPUSHX", this._prefixKey(key), value)
         return parseInt(reply)
     }
     
+    /**
+     * lpop - 移除并返回列表头部元素
+     * 
+     * @param key string 列表键名
+     * @return string 头部元素，列表为空或不存在返回空字符串
+     */
     public function lpop(key: string) string {
-        return this.cmd2("LPOP", key)
+        return this._cmd2("LPOP", this._prefixKey(key))
     }
     
+    /**
+     * rpop - 移除并返回列表尾部元素
+     * 
+     * @param key string 列表键名
+     * @return string 尾部元素，列表为空或不存在返回空字符串
+     */
     public function rpop(key: string) string {
-        return this.cmd2("RPOP", key)
+        return this._cmd2("RPOP", this._prefixKey(key))
     }
     
+    /**
+     * llen - 获取列表长度
+     * 
+     * @param key string 列表键名
+     * @return int 列表长度，不存在返回 0
+     */
     public function llen(key: string) int {
-        reply := this.cmd2("LLEN", key)
+        reply := this._cmd2("LLEN", this._prefixKey(key))
         return parseInt(reply)
     }
     
+    /**
+     * lrange - 获取列表指定范围内的元素
+     * 
+     * 支持负数索引，-1 表示最后一个元素
+     * 
+     * @param key string 列表键名
+     * @param start int 起始索引（含）
+     * @param stop int 结束索引（含）
+     * @return any 元素数组
+     */
     public function lrange(key: string, start: int, stop: int) any {
-        return this.cmd4Array("LRANGE", key, toString(start), toString(stop))
+        return this._cmd4Array("LRANGE", this._prefixKey(key), toString(start), toString(stop))
     }
     
+    /**
+     * lindex - 获取列表指定索引的元素
+     * 
+     * 支持负数索引，-1 表示最后一个元素
+     * 
+     * @param key string 列表键名
+     * @param index int 索引
+     * @return string 元素值，索引越界返回空字符串
+     */
     public function lindex(key: string, index: int) string {
-        return this.cmd3("LINDEX", key, toString(index))
+        return this._cmd3("LINDEX", this._prefixKey(key), toString(index))
     }
     
+    /**
+     * lset - 设置列表指定索引的元素值
+     * 
+     * @param key string 列表键名
+     * @param index int 索引
+     * @param value string 新值
+     * @return bool 设置成功返回 true，索引越界将抛出异常
+     */
     public function lset(key: string, index: int, value: string) bool {
-        reply := this.cmd4("LSET", key, toString(index), value)
+        reply := this._cmd4("LSET", this._prefixKey(key), toString(index), value)
+        return reply == "OK"
+    }
+
+    /**
+     * lrem - 移除列表中与指定值相等的元素
+     * 
+     * count > 0：从头向尾搜索，移除最多 count 个
+     * count < 0：从尾向头搜索，移除最多 |count| 个
+     * count = 0：移除所有匹配元素
+     * 
+     * @param key string 列表键名
+     * @param count int 移除数量
+     * @param value string 要匹配的值
+     * @return int 实际移除的元素数量
+     */
+    public function lrem(key: string, count: int, value: string) int {
+        reply := this._cmd4("LREM", this._prefixKey(key), toString(count), value)
+        return parseInt(reply)
+    }
+
+    /**
+     * ltrim - 修剪列表，只保留指定范围内的元素
+     * 
+     * 支持负数索引
+     * 
+     * @param key string 列表键名
+     * @param start int 起始索引（含）
+     * @param stop int 结束索引（含）
+     * @return bool 成功返回 true
+     */
+    public function ltrim(key: string, start: int, stop: int) bool {
+        reply := this._cmd4("LTRIM", this._prefixKey(key), toString(start), toString(stop))
         return reply == "OK"
     }
     
     // ========== 集合操作 ==========
     
+    /**
+     * sadd - 向集合添加一个成员
+     * 
+     * 如果集合不存在会自动创建
+     * 如果成员已存在则忽略
+     * 
+     * @param key string 集合键名
+     * @param member string 要添加的成员
+     * @return int 新添加的成员数量（0 或 1）
+     */
     public function sadd(key: string, member: string) int {
-        reply := this.cmd3("SADD", key, member)
+        reply := this._cmd3("SADD", this._prefixKey(key), member)
         return parseInt(reply)
     }
     
+    /**
+     * srem - 从集合移除一个成员
+     * 
+     * @param key string 集合键名
+     * @param member string 要移除的成员
+     * @return int 移除的成员数量（0 或 1）
+     */
     public function srem(key: string, member: string) int {
-        reply := this.cmd3("SREM", key, member)
+        reply := this._cmd3("SREM", this._prefixKey(key), member)
         return parseInt(reply)
     }
     
+    /**
+     * sismember - 检查成员是否在集合中
+     * 
+     * @param key string 集合键名
+     * @param member string 要检查的成员
+     * @return bool 成员存在返回 true
+     */
     public function sismember(key: string, member: string) bool {
-        reply := this.cmd3("SISMEMBER", key, member)
+        reply := this._cmd3("SISMEMBER", this._prefixKey(key), member)
         return reply == "1"
     }
     
+    /**
+     * smembers - 获取集合的所有成员
+     * 
+     * @param key string 集合键名
+     * @return any 成员数组
+     */
     public function smembers(key: string) any {
-        return this.cmd2Array("SMEMBERS", key)
+        return this._cmd2Array("SMEMBERS", this._prefixKey(key))
     }
     
+    /**
+     * scard - 获取集合的成员数量
+     * 
+     * @param key string 集合键名
+     * @return int 成员数量
+     */
     public function scard(key: string) int {
-        reply := this.cmd2("SCARD", key)
+        reply := this._cmd2("SCARD", this._prefixKey(key))
         return parseInt(reply)
     }
     
+    /**
+     * spop - 随机移除并返回集合中的一个成员
+     * 
+     * @param key string 集合键名
+     * @return string 被移除的成员，集合为空返回空字符串
+     */
+    public function spop(key: string) string {
+        return this._cmd2("SPOP", this._prefixKey(key))
+    }
+
+    /**
+     * srandmember - 随机返回集合中的一个成员（不移除）
+     * 
+     * @param key string 集合键名
+     * @return string 随机成员，集合为空返回空字符串
+     */
+    public function srandmember(key: string) string {
+        return this._cmd2("SRANDMEMBER", this._prefixKey(key))
+    }
+
+    /**
+     * smove - 将成员从一个集合移动到另一个集合
+     * 
+     * 原子操作
+     * 
+     * @param source string 源集合键名
+     * @param dest string 目标集合键名
+     * @param member string 要移动的成员
+     * @return bool 移动成功返回 true，源集合不存在该成员返回 false
+     */
+    public function smove(source: string, dest: string, member: string) bool {
+        reply := this._cmd4("SMOVE", this._prefixKey(source), this._prefixKey(dest), member)
+        return reply == "1"
+    }
+
     // ========== 有序集合操作 ==========
     
+    /**
+     * zadd - 向有序集合添加成员及其分数
+     * 
+     * 如果有序集合不存在会自动创建
+     * 如果成员已存在则更新其分数
+     * 
+     * @param key string 有序集合键名
+     * @param score float 分数
+     * @param member string 成员
+     * @return int 新添加的成员数量（不含更新的）
+     */
     public function zadd(key: string, score: float, member: string) int {
-        reply := this.cmd4("ZADD", key, toString(score), member)
+        reply := this._cmd4("ZADD", this._prefixKey(key), toString(score), member)
+        return parseInt(reply)
+    }
+
+    /**
+     * zaddNx - 仅当成员不存在时添加
+     * 
+     * @param key string 有序集合键名
+     * @param score float 分数
+     * @param member string 成员
+     * @return int 新添加的成员数量
+     */
+    public function zaddNx(key: string, score: float, member: string) int {
+        reply := this._cmdN([]string{"ZADD", this._prefixKey(key), "NX", toString(score), member})
+        return parseInt(reply)
+    }
+
+    /**
+     * zaddXx - 仅当成员存在时更新分数
+     * 
+     * @param key string 有序集合键名
+     * @param score float 新分数
+     * @param member string 成员
+     * @return int 更新的成员数量
+     */
+    public function zaddXx(key: string, score: float, member: string) int {
+        reply := this._cmdN([]string{"ZADD", this._prefixKey(key), "XX", toString(score), member})
         return parseInt(reply)
     }
     
+    /**
+     * zscore - 获取成员的分数
+     * 
+     * @param key string 有序集合键名
+     * @param member string 成员
+     * @return string 分数（字符串形式），不存在返回空字符串
+     */
     public function zscore(key: string, member: string) string {
-        return this.cmd3("ZSCORE", key, member)
+        return this._cmd3("ZSCORE", this._prefixKey(key), member)
     }
     
+    /**
+     * zrank - 获取成员的排名（按分数从小到大）
+     * 
+     * 排名从 0 开始
+     * 
+     * @param key string 有序集合键名
+     * @param member string 成员
+     * @return int 排名，成员不存在返回 -1
+     */
     public function zrank(key: string, member: string) int {
-        reply := this.cmd3("ZRANK", key, member)
+        reply := this._cmd3("ZRANK", this._prefixKey(key), member)
+        if reply == "" {
+            return -1
+        }
+        return parseInt(reply)
+    }
+
+    /**
+     * zrevrank - 获取成员的排名（按分数从大到小）
+     * 
+     * 排名从 0 开始
+     * 
+     * @param key string 有序集合键名
+     * @param member string 成员
+     * @return int 排名，成员不存在返回 -1
+     */
+    public function zrevrank(key: string, member: string) int {
+        reply := this._cmd3("ZREVRANK", this._prefixKey(key), member)
         if reply == "" {
             return -1
         }
         return parseInt(reply)
     }
     
+    /**
+     * zrange - 获取指定排名范围的成员（按分数从小到大）
+     * 
+     * 支持负数索引，-1 表示最后一个
+     * 
+     * @param key string 有序集合键名
+     * @param start int 起始排名（含）
+     * @param stop int 结束排名（含）
+     * @return any 成员数组
+     */
     public function zrange(key: string, start: int, stop: int) any {
-        return this.cmd4Array("ZRANGE", key, toString(start), toString(stop))
+        return this._cmd4Array("ZRANGE", this._prefixKey(key), toString(start), toString(stop))
+    }
+
+    /**
+     * zrangeWithScores - 获取指定排名范围的成员及分数
+     * 
+     * 返回格式：[member1, score1, member2, score2, ...]
+     * 
+     * @param key string 有序集合键名
+     * @param start int 起始排名（含）
+     * @param stop int 结束排名（含）
+     * @return any 成员和分数的数组
+     */
+    public function zrangeWithScores(key: string, start: int, stop: int) any {
+        return this._cmdNArray([]string{"ZRANGE", this._prefixKey(key), toString(start), toString(stop), "WITHSCORES"})
     }
     
+    /**
+     * zrevrange - 获取指定排名范围的成员（按分数从大到小）
+     * 
+     * 支持负数索引
+     * 
+     * @param key string 有序集合键名
+     * @param start int 起始排名（含）
+     * @param stop int 结束排名（含）
+     * @return any 成员数组
+     */
     public function zrevrange(key: string, start: int, stop: int) any {
-        return this.cmd4Array("ZREVRANGE", key, toString(start), toString(stop))
+        return this._cmd4Array("ZREVRANGE", this._prefixKey(key), toString(start), toString(stop))
     }
     
+    /**
+     * zcard - 获取有序集合的成员数量
+     * 
+     * @param key string 有序集合键名
+     * @return int 成员数量
+     */
     public function zcard(key: string) int {
-        reply := this.cmd2("ZCARD", key)
+        reply := this._cmd2("ZCARD", this._prefixKey(key))
+        return parseInt(reply)
+    }
+
+    /**
+     * zcount - 统计分数在指定范围内的成员数量
+     * 
+     * min/max 可以使用 "-inf" 和 "+inf" 表示无穷
+     * 可以使用 "(score" 表示开区间
+     * 
+     * @param key string 有序集合键名
+     * @param min string 最小分数
+     * @param max string 最大分数
+     * @return int 符合条件的成员数量
+     */
+    public function zcount(key: string, min: string, max: string) int {
+        reply := this._cmd4("ZCOUNT", this._prefixKey(key), min, max)
         return parseInt(reply)
     }
     
+    /**
+     * zrem - 从有序集合移除一个成员
+     * 
+     * @param key string 有序集合键名
+     * @param member string 要移除的成员
+     * @return int 移除的成员数量（0 或 1）
+     */
     public function zrem(key: string, member: string) int {
-        reply := this.cmd3("ZREM", key, member)
+        reply := this._cmd3("ZREM", this._prefixKey(key), member)
         return parseInt(reply)
     }
     
+    /**
+     * zincrby - 增加成员的分数
+     * 
+     * 如果成员不存在，先添加成员并设置分数为 0 再增加
+     * 
+     * @param key string 有序集合键名
+     * @param increment float 分数增量（可为负数）
+     * @param member string 成员
+     * @return string 增加后的分数（字符串形式）
+     */
+    public function zincrby(key: string, increment: float, member: string) string {
+        return this._cmd4("ZINCRBY", this._prefixKey(key), toString(increment), member)
+    }
+
     // ========== 通用操作 ==========
     
+    /**
+     * flushDb - 清空当前数据库的所有键
+     * 
+     * 警告：此操作不可逆，生产环境请谨慎使用
+     * 
+     * @return bool 成功返回 true
+     */
     public function flushDb() bool {
-        reply := this.cmd1("FLUSHDB")
+        reply := this._cmd1("FLUSHDB")
+        return reply == "OK"
+    }
+
+    /**
+     * flushDbAsync - 异步清空当前数据库的所有键
+     * 
+     * 在后台线程执行删除，不会阻塞服务器
+     * 
+     * @return bool 成功返回 true
+     */
+    public function flushDbAsync() bool {
+        reply := this._cmd2("FLUSHDB", "ASYNC")
         return reply == "OK"
     }
     
+    /**
+     * flushAll - 清空所有数据库的所有键
+     * 
+     * 警告：此操作不可逆，会删除所有数据库的数据，生产环境请极度谨慎
+     * 
+     * @return bool 成功返回 true
+     */
     public function flushAll() bool {
-        reply := this.cmd1("FLUSHALL")
+        reply := this._cmd1("FLUSHALL")
+        return reply == "OK"
+    }
+
+    /**
+     * flushAllAsync - 异步清空所有数据库的所有键
+     * 
+     * 在后台线程执行删除，不会阻塞服务器
+     * 
+     * @return bool 成功返回 true
+     */
+    public function flushAllAsync() bool {
+        reply := this._cmd2("FLUSHALL", "ASYNC")
         return reply == "OK"
     }
     
+    /**
+     * dbSize - 获取当前数据库的键数量
+     * 
+     * @return int 键数量
+     */
     public function dbSize() int {
-        reply := this.cmd1("DBSIZE")
+        reply := this._cmd1("DBSIZE")
         return parseInt(reply)
     }
     
+    /**
+     * time - 获取 Redis 服务器的当前时间
+     * 
+     * 返回格式：[unix秒, 微秒]
+     * 
+     * @return any 包含秒和微秒的数组
+     */
+    public function time() any {
+        return this._cmd1Array("TIME")
+    }
+
+    /**
+     * lastSave - 获取最后一次成功持久化到磁盘的 Unix 时间戳
+     * 
+     * @return int Unix 时间戳（秒）
+     */
+    public function lastSave() int {
+        reply := this._cmd1("LASTSAVE")
+        return parseInt(reply)
+    }
+
+    /**
+     * bgSave - 在后台异步保存数据到磁盘
+     * 
+     * 不会阻塞服务器
+     * 
+     * @return bool 成功开始后台保存返回 true
+     */
+    public function bgSave() bool {
+        reply := this._cmd1("BGSAVE")
+        return reply.contains("Background saving started") || reply == "OK"
+    }
+
+    /**
+     * close - 关闭与 Redis 服务器的连接
+     * 
+     * 使用完毕后应调用此方法释放资源
+     * 关闭后的客户端不能再执行任何操作
+     */
     public function close() {
-        if this.connected {
-            this.tcp.close()
-            this.connected = false
+        if this._connected {
+            try {
+                this._tcp.close()
+            } catch (Exception e) {
+                // 忽略关闭时的错误
+            }
+            this._connected = false
         }
     }
     
     // ========== 私有方法：命令执行 ==========
     
-    private function cmd1(cmd: string) string {
-        this.sendCmd1(cmd)
-        return this.readReply()
+    private function _cmd1(cmd: string) string {
+        this._sendCmd1(cmd)
+        return this._readReply()
+    }
+
+    private function _cmd1Array(cmd: string) any {
+        this._sendCmd1(cmd)
+        return this._readArrayReply()
+    }
+
+    private function _cmd2(cmd: string, arg1: string) string {
+        this._sendCmd2(cmd, arg1)
+        return this._readReply()
     }
     
-    private function cmd2(cmd: string, arg1: string) string {
-        this.sendCmd2(cmd, arg1)
-        return this.readReply()
+    private function _cmd2Raw(cmd: string, arg1: string) any {
+        this._sendCmd2(cmd, arg1)
+        return this._readReplyRaw()
     }
     
-    private function cmd2Raw(cmd: string, arg1: string) any {
-        this.sendCmd2(cmd, arg1)
-        return this.readReplyRaw()
+    private function _cmd2Array(cmd: string, arg1: string) any {
+        this._sendCmd2(cmd, arg1)
+        return this._readArrayReply()
     }
     
-    private function cmd2Array(cmd: string, arg1: string) any {
-        this.sendCmd2(cmd, arg1)
-        return this.readArrayReply()
+    private function _cmd3(cmd: string, arg1: string, arg2: string) string {
+        this._sendCmd3(cmd, arg1, arg2)
+        return this._readReply()
     }
     
-    private function cmd3(cmd: string, arg1: string, arg2: string) string {
-        this.sendCmd3(cmd, arg1, arg2)
-        return this.readReply()
+    private function _cmd3Raw(cmd: string, arg1: string, arg2: string) any {
+        this._sendCmd3(cmd, arg1, arg2)
+        return this._readReplyRaw()
     }
     
-    private function cmd4(cmd: string, arg1: string, arg2: string, arg3: string) string {
-        this.sendCmd4(cmd, arg1, arg2, arg3)
-        return this.readReply()
+    private function _cmd4(cmd: string, arg1: string, arg2: string, arg3: string) string {
+        this._sendCmd4(cmd, arg1, arg2, arg3)
+        return this._readReply()
     }
     
-    private function cmd4Array(cmd: string, arg1: string, arg2: string, arg3: string) any {
-        this.sendCmd4(cmd, arg1, arg2, arg3)
-        return this.readArrayReply()
+    private function _cmd4Array(cmd: string, arg1: string, arg2: string, arg3: string) any {
+        this._sendCmd4(cmd, arg1, arg2, arg3)
+        return this._readArrayReply()
+    }
+
+    private function _cmdN(args: any) string {
+        this._sendCmdN(args)
+        return this._readReply()
+    }
+
+    private function _cmdNArray(args: any) any {
+        this._sendCmdN(args)
+        return this._readArrayReply()
     }
     
     // ========== 私有方法：发送 RESP 命令 ==========
     
-    private function sendCmd1(cmd: string) {
+    private function _sendCmd1(cmd: string) {
         msg := "*1\r\n$" + toString(byteLen(cmd)) + "\r\n" + cmd + "\r\n"
-        this.tcp.write(msg)
+        this._tcp.write(msg)
     }
     
-    private function sendCmd2(cmd: string, arg1: string) {
+    private function _sendCmd2(cmd: string, arg1: string) {
         msg := "*2\r\n"
         msg = msg + "$" + toString(byteLen(cmd)) + "\r\n" + cmd + "\r\n"
         msg = msg + "$" + toString(byteLen(arg1)) + "\r\n" + arg1 + "\r\n"
-        this.tcp.write(msg)
+        this._tcp.write(msg)
     }
     
-    private function sendCmd3(cmd: string, arg1: string, arg2: string) {
+    private function _sendCmd3(cmd: string, arg1: string, arg2: string) {
         msg := "*3\r\n"
         msg = msg + "$" + toString(byteLen(cmd)) + "\r\n" + cmd + "\r\n"
         msg = msg + "$" + toString(byteLen(arg1)) + "\r\n" + arg1 + "\r\n"
         msg = msg + "$" + toString(byteLen(arg2)) + "\r\n" + arg2 + "\r\n"
-        this.tcp.write(msg)
+        this._tcp.write(msg)
     }
     
-    private function sendCmd4(cmd: string, arg1: string, arg2: string, arg3: string) {
+    private function _sendCmd4(cmd: string, arg1: string, arg2: string, arg3: string) {
         msg := "*4\r\n"
         msg = msg + "$" + toString(byteLen(cmd)) + "\r\n" + cmd + "\r\n"
         msg = msg + "$" + toString(byteLen(arg1)) + "\r\n" + arg1 + "\r\n"
         msg = msg + "$" + toString(byteLen(arg2)) + "\r\n" + arg2 + "\r\n"
         msg = msg + "$" + toString(byteLen(arg3)) + "\r\n" + arg3 + "\r\n"
-        this.tcp.write(msg)
+        this._tcp.write(msg)
+    }
+
+    private function _sendCmdN(args: any) {
+        msg := "*" + toString(len(args)) + "\r\n"
+        for i := 0; i < len(args); i++ {
+            arg := args[i]
+            msg = msg + "$" + toString(byteLen(arg)) + "\r\n" + arg + "\r\n"
+        }
+        this._tcp.write(msg)
     }
     
     // ========== 私有方法：读取 RESP 响应 ==========
     
-    private function readReply() string {
-        raw := this.readReplyRaw()
+    private function _readReply() string {
+        raw := this._readReplyRaw()
         if raw == null {
             return ""
         }
         return raw
     }
     
-    private function readReplyRaw() any {
-        line := this.tcp.readLine()
+    private function _readReplyRaw() any {
+        line := this._tcp.readLine()
         if len(line) == 0 {
             return null
         }
@@ -413,6 +1631,7 @@ class RedisClient {
         if typeChar == "+" {
             return content
         } else if typeChar == "-" {
+            this._lastError = content
             throw new RedisException(content)
         } else if typeChar == ":" {
             return content
@@ -421,8 +1640,8 @@ class RedisClient {
             if length == -1 {
                 return null
             }
-            data := this.tcp.read(length)
-            this.tcp.readLine()
+            data := this._tcp.read(length)
+            this._tcp.readLine()
             return __bytes_to_string(data)
         } else if typeChar == "*" {
             count := parseInt(content)
@@ -432,7 +1651,7 @@ class RedisClient {
             result := []any{}
             i := 0
             for i < count {
-                elem := this.readReplyRaw()
+                elem := this._readReplyRaw()
                 result.push(elem)
                 i = i + 1
             }
@@ -442,8 +1661,8 @@ class RedisClient {
         return content
     }
     
-    private function readArrayReply() any {
-        raw := this.readReplyRaw()
+    private function _readArrayReply() any {
+        raw := this._readReplyRaw()
         if raw == null {
             return []string{}
         }

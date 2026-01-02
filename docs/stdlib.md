@@ -80,6 +80,86 @@ fmt.println(name.contains("world")) // true
 result := name.trim().upper().replace("WORLD", "LONGLANG")
 ```
 
+## System.Redis - Redis 客户端
+
+提供生产级 Redis 客户端，支持完整的 RESP 协议。
+
+### 基本使用
+
+```longlang
+use System.Redis.RedisClient
+
+// 简单连接
+client := RedisClient::connect("127.0.0.1", 6379)
+
+// 基本操作
+client.set("name", "LongLang")
+name := client.get("name")
+fmt.println(name)  // LongLang
+
+client.close()
+```
+
+### 带认证连接
+
+```longlang
+use System.Redis.RedisClient
+
+// 方式 1: 仅密码
+client := RedisClient::connectWithAuth("127.0.0.1", 6379, "password")
+
+// 方式 2: 用户名 + 密码 (Redis 6.0+ ACL)
+client := RedisClient::connectWithUserAuth("127.0.0.1", 6379, "default", "password")
+```
+
+### 使用配置对象
+
+```longlang
+use System.Redis.RedisClient
+use System.Redis.RedisConfig
+
+config := new RedisConfig()
+config.setHost("127.0.0.1")
+      .setPort(6379)
+      .setPassword("mypassword")
+      .setUsername("default")        // 可选，Redis 6.0+ ACL
+      .setDatabase(1)                // 默认数据库
+      .setPrefix("myapp:")           // 键前缀
+      .setConnectTimeout(5000)       // 连接超时
+      .setMaxRetries(3)              // 最大重试次数
+
+client := RedisClient::connectWithConfig(config)
+
+// 使用前缀后，所有键自动添加前缀
+client.set("user:1", "Alice")  // 实际键为 myapp:user:1
+```
+
+### 支持的数据类型
+
+| 数据类型 | 方法 |
+|----------|------|
+| 字符串 | `set`, `get`, `setEx`, `setNx`, `incr`, `decr`, `append` |
+| 哈希 | `hset`, `hget`, `hdel`, `hgetall`, `hkeys`, `hvals`, `hlen` |
+| 列表 | `lpush`, `rpush`, `lpop`, `rpop`, `lrange`, `llen`, `lindex` |
+| 集合 | `sadd`, `srem`, `sismember`, `smembers`, `scard` |
+| 有序集合 | `zadd`, `zrange`, `zrevrange`, `zscore`, `zrank`, `zcard` |
+| 键操作 | `del`, `exists`, `expire`, `ttl`, `keys`, `rename` |
+
+### 服务器管理
+
+```longlang
+// 选择数据库
+client.selectDb(1)
+
+// 获取服务器信息
+info := client.info()
+dbSize := client.dbSize()
+
+// 清空数据库
+client.flushDb()      // 清空当前数据库
+client.flushAll()     // 清空所有数据库（慎用）
+```
+
 ## 目录结构
 
 ```
@@ -94,13 +174,32 @@ longlang/
 │       ├── PermissionException.long
 │       ├── Str.long                 # 字符串静态工具类
 │       ├── String.long              # 字符串对象类
-│       └── IO/
-│           ├── File.long            # 文件操作
-│           ├── Directory.long       # 目录操作
-│           ├── Path.long            # 路径操作
-│           ├── FileStream.long      # 文件流
-│           ├── FileInfo.long        # 文件信息
-│           └── DirectoryInfo.long   # 目录信息
+│       ├── IO/
+│       │   ├── File.long            # 文件操作
+│       │   ├── Directory.long       # 目录操作
+│       │   ├── Path.long            # 路径操作
+│       │   ├── FileStream.long      # 文件流
+│       │   ├── FileInfo.long        # 文件信息
+│       │   └── DirectoryInfo.long   # 目录信息
+│       ├── Net/
+│       │   ├── TcpListener.long     # TCP 服务器
+│       │   ├── TcpClient.long       # TCP 客户端
+│       │   ├── TcpConnection.long   # TCP 连接
+│       │   └── SocketException.long # 网络异常
+│       ├── Http/
+│       │   ├── HttpServer.long      # HTTP 服务器
+│       │   ├── HttpRequest.long     # HTTP 请求
+│       │   ├── HttpResponse.long    # HTTP 响应
+│       │   └── HttpStatus.long      # HTTP 状态码枚举
+│       ├── Redis/
+│       │   ├── RedisClient.long     # Redis 客户端
+│       │   ├── RedisConfig.long     # Redis 配置
+│       │   └── RedisException.long  # Redis 异常
+│       └── Binary/
+│           ├── Bytes.long           # 字节操作
+│           ├── ByteBuffer.long      # 字节缓冲区
+│           ├── BinaryReader.long    # 二进制读取
+│           └── BinaryWriter.long    # 二进制写入
 ├── internal/
 │   └── interpreter/
 │       ├── builtins.go         # fmt 等内置函数（Go）

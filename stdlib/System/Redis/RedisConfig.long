@@ -1,0 +1,207 @@
+namespace System.Redis
+
+/**
+ * RedisConfig - Redis 连接配置类
+ * 
+ * 使用示例：
+ *   config := new RedisConfig()
+ *   config.setHost("127.0.0.1")
+ *         .setPort(6379)
+ *         .setPassword("mypassword")
+ *         .setDatabase(0)
+ *         .setUsername("default")
+ *         .setConnectTimeout(5000)
+ *   
+ *   client := RedisClient::connectWithConfig(config)
+ */
+class RedisConfig {
+    private _host string
+    private _port int
+    private _username string
+    private _password string
+    private _database int
+    private _connectTimeout int
+    private _readTimeout int
+    private _writeTimeout int
+    private _maxRetries int
+    private _retryInterval int
+    private _prefix string
+    
+    /**
+     * 构造函数 - 设置默认值
+     */
+    public function __construct() {
+        this._host = "127.0.0.1"
+        this._port = 6379
+        this._username = ""
+        this._password = ""
+        this._database = 0
+        this._connectTimeout = 5000    // 默认 5 秒连接超时
+        this._readTimeout = 3000       // 默认 3 秒读取超时
+        this._writeTimeout = 3000      // 默认 3 秒写入超时
+        this._maxRetries = 3           // 默认最大重试次数
+        this._retryInterval = 100      // 默认重试间隔 100ms
+        this._prefix = ""              // 默认无前缀
+    }
+    
+    // ========== 链式设置方法 ==========
+    
+    public function setHost(host: string) RedisConfig {
+        this._host = host
+        return this
+    }
+    
+    public function setPort(port: int) RedisConfig {
+        this._port = port
+        return this
+    }
+    
+    public function setUsername(username: string) RedisConfig {
+        this._username = username
+        return this
+    }
+    
+    public function setPassword(password: string) RedisConfig {
+        this._password = password
+        return this
+    }
+    
+    public function setDatabase(database: int) RedisConfig {
+        this._database = database
+        return this
+    }
+    
+    public function setConnectTimeout(timeout: int) RedisConfig {
+        this._connectTimeout = timeout
+        return this
+    }
+    
+    public function setReadTimeout(timeout: int) RedisConfig {
+        this._readTimeout = timeout
+        return this
+    }
+    
+    public function setWriteTimeout(timeout: int) RedisConfig {
+        this._writeTimeout = timeout
+        return this
+    }
+    
+    public function setMaxRetries(retries: int) RedisConfig {
+        this._maxRetries = retries
+        return this
+    }
+    
+    public function setRetryInterval(interval: int) RedisConfig {
+        this._retryInterval = interval
+        return this
+    }
+    
+    public function setPrefix(prefix: string) RedisConfig {
+        this._prefix = prefix
+        return this
+    }
+    
+    // ========== 获取方法 ==========
+    
+    public function getHost() string {
+        return this._host
+    }
+    
+    public function getPort() int {
+        return this._port
+    }
+    
+    public function getUsername() string {
+        return this._username
+    }
+    
+    public function getPassword() string {
+        return this._password
+    }
+    
+    public function getDatabase() int {
+        return this._database
+    }
+    
+    public function getConnectTimeout() int {
+        return this._connectTimeout
+    }
+    
+    public function getReadTimeout() int {
+        return this._readTimeout
+    }
+    
+    public function getWriteTimeout() int {
+        return this._writeTimeout
+    }
+    
+    public function getMaxRetries() int {
+        return this._maxRetries
+    }
+    
+    public function getRetryInterval() int {
+        return this._retryInterval
+    }
+    
+    public function getPrefix() string {
+        return this._prefix
+    }
+    
+    // ========== 便捷方法 ==========
+    
+    /**
+     * hasAuth 是否需要认证
+     */
+    public function hasAuth() bool {
+        return this._password != ""
+    }
+    
+    /**
+     * hasUsername 是否有用户名（Redis 6.0+ ACL）
+     */
+    public function hasUsername() bool {
+        return this._username != ""
+    }
+    
+    /**
+     * needSelectDb 是否需要选择数据库
+     */
+    public function needSelectDb() bool {
+        return this._database != 0
+    }
+    
+    /**
+     * getConnectionString 获取连接字符串（用于日志）
+     */
+    public function getConnectionString() string {
+        str := "redis://"
+        if this._username != "" {
+            str = str + this._username + "@"
+        }
+        str = str + this._host + ":" + toString(this._port)
+        if this._database != 0 {
+            str = str + "/" + toString(this._database)
+        }
+        return str
+    }
+    
+    /**
+     * clone 克隆配置
+     */
+    public function clone() RedisConfig {
+        cfg := new RedisConfig()
+        cfg._host = this._host
+        cfg._port = this._port
+        cfg._username = this._username
+        cfg._password = this._password
+        cfg._database = this._database
+        cfg._connectTimeout = this._connectTimeout
+        cfg._readTimeout = this._readTimeout
+        cfg._writeTimeout = this._writeTimeout
+        cfg._maxRetries = this._maxRetries
+        cfg._retryInterval = this._retryInterval
+        cfg._prefix = this._prefix
+        return cfg
+    }
+}
+
