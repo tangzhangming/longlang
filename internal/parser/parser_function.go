@@ -75,8 +75,10 @@ func (p *Parser) parseFunctionStatement() *ExpressionStatement {
 }
 
 // parseFunctionParameters 解析函数参数
+// 支持可变参数语法：...args 或 ...args:type
 func (p *Parser) parseFunctionParameters() []*FunctionParameter {
 	parameters := []*FunctionParameter{}
+	hasVariadic := false // 标记是否已有可变参数
 
 	if p.peekTokenIs(lexer.RPAREN) {
 		p.nextToken()
@@ -85,42 +87,27 @@ func (p *Parser) parseFunctionParameters() []*FunctionParameter {
 
 	p.nextToken()
 
-	param := &FunctionParameter{}
-	param.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-	if p.peekTokenIs(lexer.COLON) {
-		p.nextToken()
-		p.nextToken()
-		param.Type = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	// 解析第一个参数
+	param := p.parseSingleParameter(&hasVariadic)
+	if param == nil {
+		return nil
 	}
-
-	if p.peekTokenIs(lexer.ASSIGN) {
-		p.nextToken()
-		p.nextToken()
-		param.DefaultValue = p.parseExpression(LOWEST)
-	}
-
 	parameters = append(parameters, param)
 
 	for p.peekTokenIs(lexer.COMMA) {
+		// 如果已经有可变参数，不允许再有其他参数
+		if hasVariadic {
+			p.errors = append(p.errors, fmt.Sprintf("可变参数必须是最后一个参数 (行 %d, 列 %d)", p.peekToken.Line, p.peekToken.Column))
+			return nil
+		}
+
 		p.nextToken()
 		p.nextToken()
 
-		param := &FunctionParameter{}
-		param.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
-
-		if p.peekTokenIs(lexer.COLON) {
-			p.nextToken()
-			p.nextToken()
-			param.Type = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+		param := p.parseSingleParameter(&hasVariadic)
+		if param == nil {
+			return nil
 		}
-
-		if p.peekTokenIs(lexer.ASSIGN) {
-			p.nextToken()
-			p.nextToken()
-			param.DefaultValue = p.parseExpression(LOWEST)
-		}
-
 		parameters = append(parameters, param)
 	}
 
@@ -129,6 +116,50 @@ func (p *Parser) parseFunctionParameters() []*FunctionParameter {
 	}
 
 	return parameters
+}
+
+// parseSingleParameter 解析单个函数参数
+// 支持普通参数和可变参数 (...args)
+func (p *Parser) parseSingleParameter(hasVariadic *bool) *FunctionParameter {
+	param := &FunctionParameter{}
+
+	// 检查是否是可变参数 (...)
+	if p.curTokenIs(lexer.ELLIPSIS) {
+		if *hasVariadic {
+			p.errors = append(p.errors, fmt.Sprintf("函数只能有一个可变参数 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
+			return nil
+		}
+		param.IsVariadic = true
+		*hasVariadic = true
+		p.nextToken() // 跳过 ...
+	}
+
+	// 参数名
+	if !p.curTokenIs(lexer.IDENT) {
+		p.errors = append(p.errors, fmt.Sprintf("期望参数名，得到 %s (行 %d, 列 %d)", p.curToken.Type, p.curToken.Line, p.curToken.Column))
+		return nil
+	}
+	param.Name = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+
+	// 参数类型
+	if p.peekTokenIs(lexer.COLON) {
+		p.nextToken()
+		p.nextToken()
+		param.Type = &Identifier{Token: p.curToken, Value: p.curToken.Literal}
+	}
+
+	// 默认值（可变参数不允许有默认值）
+	if p.peekTokenIs(lexer.ASSIGN) {
+		if param.IsVariadic {
+			p.errors = append(p.errors, fmt.Sprintf("可变参数不能有默认值 (行 %d, 列 %d)", p.peekToken.Line, p.peekToken.Column))
+			return nil
+		}
+		p.nextToken()
+		p.nextToken()
+		param.DefaultValue = p.parseExpression(LOWEST)
+	}
+
+	return param
 }
 
 // parseCallExpression 解析函数调用表达式

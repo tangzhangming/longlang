@@ -356,16 +356,20 @@ func (fl *FunctionLiteral) String() string {
 }
 
 // FunctionParameter 函数参数
-// 对应语法：name:type 或 name:type = defaultValue
-// 例如：x:int 或 y:int = 10
+// 对应语法：name:type 或 name:type = defaultValue 或 ...name:type (可变参数)
+// 例如：x:int 或 y:int = 10 或 ...args:any
 type FunctionParameter struct {
 	Name         *Identifier // 参数名
 	Type         *Identifier // 参数类型（可选）
 	DefaultValue Expression  // 默认值（可选）
+	IsVariadic   bool        // 是否是可变参数（...args）
 }
 
 func (fp *FunctionParameter) String() string {
 	var out string
+	if fp.IsVariadic {
+		out += "..."
+	}
 	out += fp.Name.String()
 	if fp.Type != nil {
 		out += ":" + fp.Type.String()

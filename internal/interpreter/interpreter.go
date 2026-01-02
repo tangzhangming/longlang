@@ -812,6 +812,7 @@ func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.
 }
 
 // extendFunctionEnv 扩展函数环境
+// 支持普通参数、默认参数和可变参数
 func (i *Interpreter) extendFunctionEnv(fn *Function, args []Object, callArgs []parser.CallArgument) *Environment {
 	env := NewEnclosedEnvironment(fn.Env)
 
@@ -825,18 +826,42 @@ func (i *Interpreter) extendFunctionEnv(fn *Function, args []Object, callArgs []
 	}
 
 	// 设置参数
-	for idx, paramInterface := range fn.Parameters {
+	argIdx := 0
+	for _, paramInterface := range fn.Parameters {
 		param, ok := paramInterface.(*parser.FunctionParameter)
 		if !ok {
 			continue
 		}
+
+		// 如果是可变参数，收集剩余所有参数到数组
+		if param.IsVariadic {
+			variadicArgs := []Object{}
+			for argIdx < len(args) {
+				variadicArgs = append(variadicArgs, args[argIdx])
+				argIdx++
+			}
+			// 确定可变参数数组的元素类型
+			elementType := "any"
+			if param.Type != nil {
+				elementType = param.Type.Value
+			}
+			env.Set(param.Name.Value, &Array{
+				Elements:    variadicArgs,
+				ElementType: elementType,
+				IsFixed:     false,
+				Capacity:    int64(len(variadicArgs)),
+			})
+			continue
+		}
+
+		// 普通参数处理
 		var val Object
-		if idx < len(callArgs) && callArgs[idx].Name != nil {
+		if argIdx < len(callArgs) && callArgs[argIdx].Name != nil {
 			// 使用命名参数
-			val = paramMap[callArgs[idx].Name.Value]
-		} else if idx < len(args) {
+			val = paramMap[callArgs[argIdx].Name.Value]
+		} else if argIdx < len(args) {
 			// 使用位置参数
-			val = args[idx]
+			val = args[argIdx]
 		} else if param.DefaultValue != nil {
 			// 使用默认值
 			val = i.Eval(param.DefaultValue)
@@ -844,6 +869,7 @@ func (i *Interpreter) extendFunctionEnv(fn *Function, args []Object, callArgs []
 			val = &Null{}
 		}
 		env.Set(param.Name.Value, val)
+		argIdx++
 	}
 
 	return env
@@ -2168,21 +2194,46 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 	// 在静态方法中提供 self（指向当前类），支持 self::xxx
 	env.Set("self", class)
 
-	// 绑定参数
-	for idx, paramInterface := range method.Parameters {
+	// 绑定参数（支持可变参数）
+	argIdx := 0
+	for _, paramInterface := range method.Parameters {
 		param, ok := paramInterface.(*parser.FunctionParameter)
 		if !ok {
 			continue
 		}
+
+		// 如果是可变参数，收集剩余所有参数到数组
+		if param.IsVariadic {
+			variadicArgs := []Object{}
+			for argIdx < len(args) {
+				variadicArgs = append(variadicArgs, args[argIdx])
+				argIdx++
+			}
+			// 确定可变参数数组的元素类型
+			elementType := "any"
+			if param.Type != nil {
+				elementType = param.Type.Value
+			}
+			env.Set(param.Name.Value, &Array{
+				Elements:    variadicArgs,
+				ElementType: elementType,
+				IsFixed:     false,
+				Capacity:    int64(len(variadicArgs)),
+			})
+			continue
+		}
+
+		// 普通参数处理
 		var val Object
-		if idx < len(args) {
-			val = args[idx]
+		if argIdx < len(args) {
+			val = args[argIdx]
 		} else if param.DefaultValue != nil {
 			val = i.Eval(param.DefaultValue)
 		} else {
 			val = &Null{}
 		}
 		env.Set(param.Name.Value, val)
+		argIdx++
 	}
 
 	// 执行方法体
@@ -2242,21 +2293,46 @@ func (i *Interpreter) evalSuperMethodCall(methodName string, arguments []parser.
 	env.Set("this", instance)
 	env.Set("self", parentClass)
 
-	// 绑定参数
-	for idx, paramInterface := range method.Parameters {
+	// 绑定参数（支持可变参数）
+	argIdx := 0
+	for _, paramInterface := range method.Parameters {
 		param, ok := paramInterface.(*parser.FunctionParameter)
 		if !ok {
 			continue
 		}
+
+		// 如果是可变参数，收集剩余所有参数到数组
+		if param.IsVariadic {
+			variadicArgs := []Object{}
+			for argIdx < len(args) {
+				variadicArgs = append(variadicArgs, args[argIdx])
+				argIdx++
+			}
+			// 确定可变参数数组的元素类型
+			elementType := "any"
+			if param.Type != nil {
+				elementType = param.Type.Value
+			}
+			env.Set(param.Name.Value, &Array{
+				Elements:    variadicArgs,
+				ElementType: elementType,
+				IsFixed:     false,
+				Capacity:    int64(len(variadicArgs)),
+			})
+			continue
+		}
+
+		// 普通参数处理
 		var val Object
-		if idx < len(args) {
-			val = args[idx]
+		if argIdx < len(args) {
+			val = args[argIdx]
 		} else if param.DefaultValue != nil {
 			val = i.Eval(param.DefaultValue)
 		} else {
 			val = &Null{}
 		}
 		env.Set(param.Name.Value, val)
+		argIdx++
 	}
 
 	// 执行方法体
@@ -2337,6 +2413,7 @@ func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpres
 }
 
 // applyBoundMethod 执行绑定方法
+// 支持普通参数、默认参数和可变参数
 func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs []parser.CallArgument) Object {
 	method := bm.Method
 
@@ -2360,21 +2437,46 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 		env.Set("super", bm.Instance.Class.Parent)
 	}
 
-	// 绑定参数
-	for idx, paramInterface := range method.Parameters {
+	// 绑定参数（支持可变参数）
+	argIdx := 0
+	for _, paramInterface := range method.Parameters {
 		param, ok := paramInterface.(*parser.FunctionParameter)
 		if !ok {
 			continue
 		}
+
+		// 如果是可变参数，收集剩余所有参数到数组
+		if param.IsVariadic {
+			variadicArgs := []Object{}
+			for argIdx < len(args) {
+				variadicArgs = append(variadicArgs, args[argIdx])
+				argIdx++
+			}
+			// 确定可变参数数组的元素类型
+			elementType := "any"
+			if param.Type != nil {
+				elementType = param.Type.Value
+			}
+			env.Set(param.Name.Value, &Array{
+				Elements:    variadicArgs,
+				ElementType: elementType,
+				IsFixed:     false,
+				Capacity:    int64(len(variadicArgs)),
+			})
+			continue
+		}
+
+		// 普通参数处理
 		var val Object
-		if idx < len(args) {
-			val = args[idx]
+		if argIdx < len(args) {
+			val = args[argIdx]
 		} else if param.DefaultValue != nil {
 			val = i.Eval(param.DefaultValue)
 		} else {
 			val = &Null{}
 		}
 		env.Set(param.Name.Value, val)
+		argIdx++
 	}
 
 	// 执行方法体

@@ -87,6 +87,128 @@ createUser(name:"Alice", age:25)
 createUser(name:"Bob", city:"Shanghai")
 ```
 
+### 可变参数
+
+可变参数允许函数接收任意数量的参数。使用 `...` 前缀声明可变参数，可变参数在函数内部表现为数组。
+
+#### 基本语法
+
+```longlang
+fn sum(...numbers:int) int {
+    total := 0
+    for i := 0; i < numbers.length(); i++ {
+        total = total + numbers[i]
+    }
+    return total
+}
+
+// 调用方式
+sum(1, 2, 3)        // 返回 6
+sum(1, 2, 3, 4, 5)  // 返回 15
+sum()               // 返回 0
+```
+
+#### 规则
+
+1. **可变参数必须是最后一个参数**
+2. **函数只能有一个可变参数**
+3. **可变参数不能有默认值**
+
+#### 结合固定参数
+
+```longlang
+fn printf(format:string, ...args:any) {
+    // format 是固定参数
+    // args 是可变参数，收集其余所有参数
+    for i := 0; i < args.length(); i++ {
+        fmt.println("[" + toString(i) + "] " + toString(args[i]))
+    }
+}
+
+printf("Hello", "World", 123, true)
+// 输出:
+// [0] World
+// [1] 123
+// [2] true
+```
+
+#### 结合默认参数
+
+可变参数可以与默认参数一起使用，但可变参数必须在最后：
+
+```longlang
+fn greet(name:string, greeting:string = "Hi", ...extras:string) {
+    msg := greeting + ", " + name
+    for i := 0; i < extras.length(); i++ {
+        msg = msg + " " + extras[i]
+    }
+    fmt.println(msg)
+}
+
+greet("World", "Hello", "from", "LongLang")  // Hello, World from LongLang
+greet("User")                                  // Hi, User
+```
+
+#### 类方法中的可变参数
+
+可变参数同样适用于类的实例方法和静态方法：
+
+```longlang
+class Logger {
+    private prefix string
+
+    public function __construct(prefix:string) {
+        this.prefix = prefix
+    }
+
+    // 实例方法可变参数
+    public function log(...messages:string) {
+        for i := 0; i < messages.length(); i++ {
+            fmt.println("[" + this.prefix + "] " + messages[i])
+        }
+    }
+}
+
+class MathUtil {
+    // 静态方法可变参数
+    public static function max(...nums:int) int {
+        if nums.length() == 0 {
+            return 0
+        }
+        maxVal := nums[0]
+        for i := 1; i < nums.length(); i++ {
+            if nums[i] > maxVal {
+                maxVal = nums[i]
+            }
+        }
+        return maxVal
+    }
+}
+
+// 使用
+logger := new Logger("App")
+logger.log("Message1", "Message2", "Message3")
+
+maxValue := MathUtil::max(5, 2, 8, 1, 9)  // 返回 9
+```
+
+#### 闭包中的可变参数
+
+闭包（匿名函数）同样支持可变参数：
+
+```longlang
+multiply := fn(...nums:int) int {
+    result := 1
+    for i := 0; i < nums.length(); i++ {
+        result = result * nums[i]
+    }
+    return result
+}
+
+multiply(2, 3, 4)  // 返回 24
+multiply()         // 返回 1
+```
+
 ## return 语句
 
 ### 返回单个值
@@ -190,6 +312,7 @@ LongLang 提供了一些内置函数：
 | 完整形式 | `fn name(p:type) type { }` | `fn add(a:int, b:int) int { }` |
 | 多返回值 | `fn name() (t1, t2) { }` | `fn div(a, b:int) (int, int) { }` |
 | 默认参数 | `fn name(p:type = val) { }` | `fn greet(s:string = "Hi") { }` |
+| 可变参数 | `fn name(...args:type) { }` | `fn sum(...nums:int) int { }` |
 
 ## 匿名函数（闭包）
 
