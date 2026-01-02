@@ -32,15 +32,16 @@ func newParser(l *lexer.Lexer) *parser.Parser {
 
 // Interpreter 解释器，负责执行 AST 节点
 type Interpreter struct {
-	env              *Environment          // 当前作用域环境
-	stdlibPath       string                // 标准库目录路径
-	loadedModules    map[string]*Module    // 已加载的模块缓存（已废弃，保留以兼容）
-	currentFileName  string                // 当前正在处理的文件名（不含扩展名），用于判断导出类
-	namespaceMgr     *NamespaceManager     // 命名空间管理器
-	currentNamespace *Namespace            // 当前命名空间
-	projectRoot      string                // 项目根目录
-	projectConfig    *config.ProjectConfig // 项目配置
-	loadedNamespaces map[string]bool       // 已加载的命名空间文件缓存
+	env               *Environment          // 当前作用域环境
+	stdlibPath        string                // 标准库目录路径
+	loadedModules     map[string]*Module    // 已加载的模块缓存（已废弃，保留以兼容）
+	currentFileName   string                // 当前正在处理的文件名（不含扩展名），用于判断导出类
+	namespaceMgr      *NamespaceManager     // 命名空间管理器
+	currentNamespace  *Namespace            // 当前命名空间
+	projectRoot       string                // 项目根目录
+	projectConfig     *config.ProjectConfig // 项目配置
+	loadedNamespaces  map[string]bool       // 已加载的命名空间文件缓存
+	loadingNamespaces map[string]bool       // 正在加载中的命名空间（用于循环依赖检测）
 }
 
 // Module 模块对象
@@ -62,13 +63,14 @@ func New() *Interpreter {
 	// 注册字节操作内置函数
 	registerBytesBuiltins(env)
 	return &Interpreter{
-		env:              env,
-		stdlibPath:       "stdlib", // 默认标准库路径
-		loadedModules:    make(map[string]*Module),
-		namespaceMgr:     NewNamespaceManager(),
-		projectRoot:      "",
-		projectConfig:    nil,
-		loadedNamespaces: make(map[string]bool),
+		env:               env,
+		stdlibPath:        "stdlib", // 默认标准库路径
+		loadedModules:     make(map[string]*Module),
+		namespaceMgr:      NewNamespaceManager(),
+		projectRoot:       "",
+		projectConfig:     nil,
+		loadedNamespaces:  make(map[string]bool),
+		loadingNamespaces: make(map[string]bool),
 	}
 }
 
@@ -411,6 +413,41 @@ func (i *Interpreter) evalIdentifier(node *parser.Identifier) Object {
 			}
 		}
 		return obj
+	}
+
+	// 如果在当前环境找不到，尝试在当前命名空间中查找（同命名空间自动引用）
+	if i.currentNamespace != nil {
+		name := node.Value
+		
+		// 1. 查找类
+		if class, found := i.currentNamespace.GetClass(name); found {
+			return class
+		}
+		
+		// 2. 查找枚举
+		if enum, found := i.currentNamespace.GetEnum(name); found {
+			return enum
+		}
+		
+		// 3. 查找接口
+		if iface, found := i.currentNamespace.GetInterface(name); found {
+			return iface
+		}
+		
+		// 4. 尝试自动加载同命名空间下的类文件
+		loadErr := i.loadNamespaceFile(i.currentNamespace.FullName, name)
+		if loadErr == nil {
+			// 重新尝试查找
+			if class, found := i.currentNamespace.GetClass(name); found {
+				return class
+			}
+			if enum, found := i.currentNamespace.GetEnum(name); found {
+				return enum
+			}
+			if iface, found := i.currentNamespace.GetInterface(name); found {
+				return iface
+			}
+		}
 	}
 
 	return newError("未定义的标识符: " + node.Value)
@@ -1309,6 +1346,19 @@ func (i *Interpreter) loadNamespaceFile(namespace string, className string) erro
 		return nil
 	}
 
+	// 循环依赖检测
+	if i.loadingNamespaces[fullKey] {
+		// 正在加载中，说明存在循环依赖，但我们允许这种情况
+		// 因为类定义会在后续被正确注册
+		return nil
+	}
+
+	// 标记为正在加载
+	i.loadingNamespaces[fullKey] = true
+	defer func() {
+		delete(i.loadingNamespaces, fullKey)
+	}()
+
 	// 将命名空间转换为文件路径
 	// 例如：Mycompany.Myapp.Models -> Mycompany/Myapp/Models
 	namespacePath := strings.ReplaceAll(namespace, ".", string(filepath.Separator))
@@ -1694,6 +1744,18 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 			classObj = class
 			ok = true
 		}
+		
+		// 如果在当前命名空间中没找到，尝试自动加载同命名空间下的类文件
+		if !ok {
+			loadErr := i.loadNamespaceFile(i.currentNamespace.FullName, className)
+			if loadErr == nil {
+				// 重新尝试查找
+				if class, found := i.currentNamespace.GetClass(className); found {
+					classObj = class
+					ok = true
+				}
+			}
+		}
 	}
 
 	// 如果还是找不到，从所有命名空间中查找
@@ -2022,9 +2084,35 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 
 	// 如果当前环境找不到，且存在当前命名空间，从当前命名空间查找
 	if !ok && i.currentNamespace != nil {
+		// 查找类
 		if class, found := i.currentNamespace.GetClass(className); found {
 			classObj = class
 			ok = true
+		}
+		// 查找枚举
+		if !ok {
+			if enum, found := i.currentNamespace.GetEnum(className); found {
+				classObj = enum
+				ok = true
+			}
+		}
+		
+		// 如果在当前命名空间中没找到，尝试自动加载同命名空间下的类文件
+		if !ok {
+			loadErr := i.loadNamespaceFile(i.currentNamespace.FullName, className)
+			if loadErr == nil {
+				// 重新尝试查找
+				if class, found := i.currentNamespace.GetClass(className); found {
+					classObj = class
+					ok = true
+				}
+				if !ok {
+					if enum, found := i.currentNamespace.GetEnum(className); found {
+						classObj = enum
+						ok = true
+					}
+				}
+			}
 		}
 	}
 
@@ -2033,6 +2121,11 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 		for _, ns := range i.namespaceMgr.namespaces {
 			if class, found := ns.GetClass(className); found {
 				classObj = class
+				ok = true
+				break
+			}
+			if enum, found := ns.GetEnum(className); found {
+				classObj = enum
 				ok = true
 				break
 			}

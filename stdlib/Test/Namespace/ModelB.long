@@ -1,0 +1,20 @@
+namespace Test.Namespace
+
+// ModelB 引用同命名空间的 ModelA（不需要 use）
+class ModelB {
+    private value int
+    
+    public function __construct(value: int) {
+        this.value = value
+    }
+    
+    public function getValue() int {
+        return this.value
+    }
+    
+    // 创建并返回一个 ModelA 实例（同命名空间自动引用，测试循环引用）
+    public function createModelA(name: string) ModelA {
+        return new ModelA(name)
+    }
+}
+

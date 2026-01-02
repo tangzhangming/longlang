@@ -56,21 +56,98 @@ class Application {
 }
 ```
 
-### 使用别名
+### 命名空间别名
 
-可以为导入的类指定别名：
+可以为导入的类指定别名，避免命名冲突或简化长类名：
 
 ```longlang
 namespace App
 
+// 使用 as 关键字定义别名
 use Mycompany.Myapp.Models.User as UserModel
+use System.Redis.RedisConfig as Config
+use Vendor.Database.Connection as DbConnection
 
 class Application {
     public static function main() {
         user := new UserModel("Alice")
+        config := new Config()
+        db := new DbConnection()
     }
 }
 ```
+
+### 同命名空间自动引用
+
+**同一命名空间下的类无需 `use` 即可直接引用**，类似 PHP Composer 的命名空间规则：
+
+```longlang
+// File: System/Redis/RedisClient.long
+namespace System.Redis
+
+use System.Net.TcpClient  // 跨命名空间需要 use
+
+// 同命名空间的 RedisConfig 和 RedisException 无需 use，自动可用
+class RedisClient {
+    private _config any
+    
+    public static function connectWithConfig(config: RedisConfig) RedisClient {
+        // 直接使用同命名空间的 RedisConfig，无需 use
+        client := new RedisClient()
+        // ...
+        return client
+    }
+    
+    private function handleError(msg: string) {
+        // 直接使用同命名空间的 RedisException，无需 use
+        throw new RedisException(msg)
+    }
+}
+```
+
+#### 自动引用规则
+
+| 情况 | 是否需要 use | 示例 |
+|------|-------------|------|
+| 同命名空间的类 | ❌ 不需要 | `System.Redis.RedisClient` 引用 `System.Redis.RedisConfig` |
+| 不同命名空间的类 | ✅ 需要 | `System.Redis.RedisClient` 引用 `System.Net.TcpClient` |
+| 子命名空间的类 | ✅ 需要 | `System` 引用 `System.IO.File` |
+| 父命名空间的类 | ✅ 需要 | `System.IO` 引用 `System.Exception` |
+
+### 循环依赖处理
+
+LongLang 支持同命名空间内的循环引用：
+
+```longlang
+// File: Models/Author.long
+namespace App.Models
+
+class Author {
+    public name string
+    
+    // Author 引用 Book（同命名空间）
+    public function createBook(title: string) Book {
+        return new Book(title, this)
+    }
+}
+```
+
+```longlang
+// File: Models/Book.long
+namespace App.Models
+
+class Book {
+    public title string
+    public author Author  // Book 引用 Author（循环引用）
+    
+    public function __construct(title: string, author: Author) {
+        this.title = title
+        this.author = author
+    }
+}
+```
+
+> **注意**：跨命名空间的循环依赖应尽量避免，可能导致加载问题。
 
 ## project.toml 配置
 
@@ -237,8 +314,9 @@ longlang run src/Application.long
 
 1. **命名空间必须在文件开头**：`namespace` 语句必须是文件的第一个语句（注释除外）
 2. **use 必须在类定义之前**：`use` 语句必须在 `namespace` 之后、类定义之前
-3. **避免循环依赖**：类之间不要形成循环导入关系
-4. **命名规范**：命名空间使用 PascalCase 风格
+3. **同命名空间无需 use**：同一命名空间下的类、枚举、接口可以直接引用
+4. **循环依赖**：同命名空间内的循环引用是允许的，跨命名空间应尽量避免
+5. **命名规范**：命名空间使用 PascalCase 风格
 
 ## 最佳实践
 

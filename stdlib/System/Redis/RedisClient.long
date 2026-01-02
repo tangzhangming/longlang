@@ -1,8 +1,9 @@
 namespace System.Redis
 
 use System.Net.TcpClient
-use System.Redis.RedisException
-use System.Redis.RedisConfig
+// 同命名空间的类无需显式 use，会自动引用：
+// - RedisException
+// - RedisConfig
 
 /**
  * RedisClient - Redis 客户端类
