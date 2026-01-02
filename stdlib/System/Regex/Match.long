@@ -1,0 +1,142 @@
+namespace System.Regex
+
+/**
+ * Match 匹配结果
+ * 表示正则表达式的一次匹配结果
+ */
+public class Match {
+    private success bool
+    private value string
+    private idx int
+    private len int
+    private groups any
+    private namedGroups any
+    private inputStr string
+    
+    /**
+     * 构造函数（内部使用）
+     */
+    public function __construct(data: any, input: string) {
+        this.inputStr = input
+        this.groups = {}
+        this.namedGroups = map[string]string{}
+        this.success = false
+        this.value = ""
+        this.idx = -1
+        this.len = 0
+        
+        if data == null {
+            return
+        }
+        
+        // 提取数据
+        this.success = data["success"] as bool
+        this.value = data["value"] as string
+        this.idx = data["index"] as int
+        this.len = data["length"] as int
+        
+        // 处理捕获组
+        groupsData := data["groups"]
+        if groupsData != null {
+            gArr := groupsData as []any
+            for _, gd := range gArr {
+                gdMap := gd as map[string]any
+                start := gdMap["start"] as int
+                end := gdMap["end"] as int
+                
+                if start >= 0 && end >= 0 {
+                    groupValue := input[start:end]
+                    group := new Group(true, groupValue, start, end - start, "")
+                    this.groups.push(group)
+                } else {
+                    group := new Group(false, "", -1, 0, "")
+                    this.groups.push(group)
+                }
+            }
+        }
+        
+        // 处理命名捕获组
+        ngData := data["namedGroups"]
+        if ngData != null {
+            this.namedGroups = ngData
+        }
+    }
+    
+    /**
+     * 检查是否成功匹配
+     */
+    public function isSuccess() bool {
+        return this.success
+    }
+    
+    /**
+     * 获取匹配的完整字符串
+     */
+    public function getValue() string {
+        return this.value
+    }
+    
+    /**
+     * 获取匹配在原字符串中的起始位置
+     */
+    public function getIndex() int {
+        return this.idx
+    }
+    
+    /**
+     * 获取匹配的字符串长度
+     */
+    public function getLength() int {
+        return this.len
+    }
+    
+    /**
+     * 获取所有捕获组
+     */
+    public function getGroups() any {
+        return this.groups
+    }
+    
+    /**
+     * 按索引获取捕获组的值
+     */
+    public function group(groupIdx: int) string {
+        groupsArr := this.groups as []any
+        if groupIdx < 0 || groupIdx >= len(groupsArr) {
+            return ""
+        }
+        g := groupsArr[groupIdx]
+        if g == null {
+            return ""
+        }
+        grp := g as Group
+        return grp.getValue()
+    }
+    
+    /**
+     * 按名称获取命名捕获组的值
+     */
+    public function groupByName(name: string) string {
+        ngMap := this.namedGroups as map[string]any
+        result := ngMap[name]
+        if result == null {
+            return ""
+        }
+        return result as string
+    }
+    
+    /**
+     * 获取捕获组数量
+     */
+    public function groupCount() int {
+        groupsArr := this.groups as []any
+        return len(groupsArr)
+    }
+    
+    /**
+     * 转换为字符串表示
+     */
+    public function toString() string {
+        return this.value
+    }
+}

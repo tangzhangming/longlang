@@ -1,0 +1,128 @@
+namespace System.Regex
+
+/**
+ * Regex 正则表达式类
+ * 
+ * 提供完整的正则表达式功能，包括匹配、查找、替换和分割
+ * 底层使用 RE2 引擎，保证线性时间复杂度，防止 ReDoS 攻击
+ */
+public class Regex {
+    private pattern string
+    private options int
+    
+    /**
+     * 构造函数
+     */
+    public function __construct(pattern: string, options: int = 0) {
+        this.pattern = pattern
+        this.options = options
+        
+        // 验证正则表达式
+        result := __regex_compile(pattern, options)
+        if result == null {
+            throw new RegexException("无效的正则表达式模式", pattern)
+        }
+    }
+    
+    // ========== 静态便捷方法 ==========
+    
+    /**
+     * 快速测试字符串是否匹配正则表达式
+     */
+    public static function isMatch(input: string, pattern: string) bool {
+        return __regex_is_match(input, pattern, 0)
+    }
+    
+    /**
+     * 快速替换匹配的内容
+     */
+    public static function replace(input: string, pattern: string, replacement: string) string {
+        return __regex_replace(input, pattern, replacement, 0)
+    }
+    
+    /**
+     * 快速分割字符串
+     */
+    public static function split(input: string, pattern: string) any {
+        return __regex_split(input, pattern, -1, 0)
+    }
+    
+    /**
+     * 转义字符串中的正则特殊字符
+     */
+    public static function escape(str: string) string {
+        return __regex_escape(str)
+    }
+    
+    // ========== 实例方法 ==========
+    
+    /**
+     * 测试输入字符串是否匹配
+     */
+    public function test(input: string) bool {
+        return __regex_is_match(input, this.pattern, this.options)
+    }
+    
+    /**
+     * 查找第一个匹配
+     */
+    public function find(input: string) Match {
+        data := __regex_match(input, this.pattern, this.options)
+        return new Match(data, input)
+    }
+    
+    /**
+     * 查找所有匹配
+     */
+    public function findAll(input: string) any {
+        dataArray := __regex_match_all(input, this.pattern, this.options)
+        results := {}
+        for _, data := range dataArray {
+            matchObj := new Match(data, input)
+            results.push(matchObj)
+        }
+        return results
+    }
+    
+    /**
+     * 替换所有匹配的内容
+     */
+    public function replaceAll(input: string, replacement: string) string {
+        return __regex_replace(input, this.pattern, replacement, this.options)
+    }
+    
+    /**
+     * 使用正则表达式分割字符串
+     */
+    public function splitString(input: string, limit: int = -1) any {
+        return __regex_split(input, this.pattern, limit, this.options)
+    }
+    
+    /**
+     * 查找第一个匹配的位置
+     */
+    public function findIndex(input: string) int {
+        return __regex_find_index(input, this.pattern, this.options)
+    }
+    
+    /**
+     * 获取正则表达式模式
+     */
+    public function getPattern() string {
+        return this.pattern
+    }
+    
+    /**
+     * 获取正则表达式选项
+     */
+    public function getOptions() int {
+        return this.options
+    }
+    
+    /**
+     * 转换为字符串表示
+     */
+    public function toString() string {
+        return "/" + this.pattern + "/"
+    }
+}

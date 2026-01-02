@@ -1,0 +1,66 @@
+namespace System.Regex
+
+/**
+ * Group 捕获组
+ * 表示正则表达式匹配中的一个捕获组
+ */
+public class Group {
+    private success bool
+    private value string
+    private idx int
+    private len int
+    private name string
+    
+    /**
+     * 构造函数（内部使用）
+     */
+    public function __construct(success: bool, value: string, idx: int, len: int, name: string = "") {
+        this.success = success
+        this.value = value
+        this.idx = idx
+        this.len = len
+        this.name = name
+    }
+    
+    /**
+     * 检查捕获组是否成功匹配
+     */
+    public function isSuccess() bool {
+        return this.success
+    }
+    
+    /**
+     * 获取捕获的字符串值
+     */
+    public function getValue() string {
+        return this.value
+    }
+    
+    /**
+     * 获取捕获在原字符串中的起始位置
+     */
+    public function getIndex() int {
+        return this.idx
+    }
+    
+    /**
+     * 获取捕获的字符串长度
+     */
+    public function getLength() int {
+        return this.len
+    }
+    
+    /**
+     * 获取捕获组的名称
+     */
+    public function getName() string {
+        return this.name
+    }
+    
+    /**
+     * 转换为字符串表示
+     */
+    public function toString() string {
+        return this.value
+    }
+}

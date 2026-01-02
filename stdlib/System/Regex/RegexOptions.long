@@ -1,0 +1,31 @@
+namespace System.Regex
+
+/**
+ * RegexOptions 正则表达式选项常量
+ * 
+ * 使用位标志，可以通过 | 运算符组合多个选项
+ * 
+ * 示例：
+ *   options := RegexOptions::IGNORE_CASE | RegexOptions::MULTILINE
+ *   regex := new Regex("pattern", options)
+ */
+public class RegexOptions {
+    /** 默认选项 */
+    public const NONE = 0
+    
+    /** 忽略大小写，等同于 (?i) */
+    public const IGNORE_CASE = 1
+    
+    /** 多行模式，^ 和 $ 匹配行首行尾，等同于 (?m) */
+    public const MULTILINE = 2
+    
+    /** 单行模式，. 匹配包括换行符在内的任意字符，等同于 (?s) */
+    public const SINGLELINE = 4
+    
+    /** Unicode 模式，\w、\d 等匹配 Unicode 字符 */
+    public const UNICODE = 8
+    
+    /** 非贪婪模式，量词默认为非贪婪，等同于 (?U) */
+    public const UNGREEDY = 16
+}
+

@@ -72,6 +72,8 @@ func New() *Interpreter {
 	registerNetBuiltins(env)
 	// 注册字节操作内置函数
 	registerBytesBuiltins(env)
+	// 注册正则表达式内置函数
+	registerRegexBuiltins(env)
 	// 注册异常类
 	registerExceptionClasses(env)
 	return &Interpreter{

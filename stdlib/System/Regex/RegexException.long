@@ -1,0 +1,36 @@
+namespace System.Regex
+
+use System.Exception
+
+/**
+ * RegexException 正则表达式异常
+ * 当正则表达式模式无效或编译失败时抛出
+ */
+public class RegexException extends Exception {
+    private pattern string
+    
+    /**
+     * 构造函数
+     */
+    public function __construct(message: string, pattern: string = "") {
+        super(message)
+        this.pattern = pattern
+    }
+    
+    /**
+     * 获取导致错误的正则表达式模式
+     */
+    public function getPattern() string {
+        return this.pattern
+    }
+    
+    /**
+     * 获取完整的错误信息
+     */
+    public function toString() string {
+        if this.pattern != "" {
+            return "RegexException: " + this.getMessage() + " (pattern: " + this.pattern + ")"
+        }
+        return "RegexException: " + this.getMessage()
+    }
+}
