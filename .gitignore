@@ -2,7 +2,6 @@
 *.log
 *.exe
 /idea/
-/project/
 /design/
 /test/
 /tools/

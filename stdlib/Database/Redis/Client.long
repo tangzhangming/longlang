@@ -1,12 +1,9 @@
-namespace System.Redis
+namespace Database.Redis
 
 use System.Net.TcpClient
-// 同命名空间的类无需显式 use，会自动引用：
-// - RedisException
-// - RedisConfig
 
 /**
- * RedisClient - Redis 客户端类
+ * Client - Redis 客户端类
  * 
  * 纯 LongLang 实现的 Redis 客户端，支持 RESP 协议
  * 
@@ -18,29 +15,29 @@ use System.Net.TcpClient
  *   - 完整的异常处理
  *
  * 使用示例：
- *   use System.Redis.RedisClient
- *   use System.Redis.RedisConfig
+ *   use Database.Redis.Client
+ *   use Database.Redis.Config
  *   
  *   // 方式1：简单连接
- *   client := RedisClient::connect("127.0.0.1", 6379)
+ *   client := Client::connect("127.0.0.1", 6379)
  *
  *   // 方式2：带认证连接
- *   client := RedisClient::connectWithAuth("127.0.0.1", 6379, "password")
+ *   client := Client::connectWithAuth("127.0.0.1", 6379, "password")
  *
  *   // 方式3：完整配置连接
- *   config := new RedisConfig()
+ *   config := new Config()
  *   config.setHost("127.0.0.1")
  *         .setPort(6379)
  *         .setPassword("mypassword")
  *         .setDatabase(1)
  *         .setPrefix("myapp:")
- *   client := RedisClient::connectWithConfig(config)
+ *   client := Client::connectWithConfig(config)
  *
  *   client.set("name", "LongLang")
  *   name := client.get("name")
  *   client.close()
  */
-public class RedisClient {
+public class Client {
     private _tcp any
     private _host string
     private _port int
@@ -71,10 +68,10 @@ public class RedisClient {
      * connect 简单连接到 Redis 服务器
      * @param host 主机地址
      * @param port 端口
-     * @return RedisClient
+     * @return Client
      */
-    public static function connect(host: string, port: int) RedisClient {
-        client := new RedisClient()
+    public static function connect(host: string, port: int) Client {
+        client := new Client()
         client._host = host
         client._port = port
         client._doConnect()
@@ -86,10 +83,10 @@ public class RedisClient {
      * @param host 主机地址
      * @param port 端口
      * @param password 密码
-     * @return RedisClient
+     * @return Client
      */
-    public static function connectWithAuth(host: string, port: int, password: string) RedisClient {
-        client := new RedisClient()
+    public static function connectWithAuth(host: string, port: int, password: string) Client {
+        client := new Client()
         client._host = host
         client._port = port
         client._doConnect()
@@ -103,10 +100,10 @@ public class RedisClient {
      * @param port 端口
      * @param username 用户名
      * @param password 密码
-     * @return RedisClient
+     * @return Client
      */
-    public static function connectWithUserAuth(host: string, port: int, username: string, password: string) RedisClient {
-        client := new RedisClient()
+    public static function connectWithUserAuth(host: string, port: int, username: string, password: string) Client {
+        client := new Client()
         client._host = host
         client._port = port
         client._doConnect()
@@ -116,11 +113,11 @@ public class RedisClient {
 
     /**
      * connectWithConfig 使用配置对象连接
-     * @param config RedisConfig 配置对象
-     * @return RedisClient
+     * @param config Config 配置对象
+     * @return Client
      */
-    public static function connectWithConfig(config: RedisConfig) RedisClient {
-        client := new RedisClient()
+    public static function connectWithConfig(config: Config) Client {
+        client := new Client()
         client._config = config
         client._host = config.getHost()
         client._port = config.getPort()
@@ -1670,3 +1667,4 @@ public class RedisClient {
         return raw
     }
 }
+

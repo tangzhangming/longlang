@@ -1,0 +1,40 @@
+namespace Database.Mysql
+
+use System.Exception
+
+/**
+ * MysqlException - MySQL 异常类
+ * 当 MySQL 操作失败时抛出
+ */
+public class MysqlException extends Exception {
+    private errorCode int
+    private sqlState string
+    
+    public function __construct(message: string, errorCode: int = 0, sqlState: string = "") {
+        super::__construct(message)
+        this.errorCode = errorCode
+        this.sqlState = sqlState
+    }
+    
+    /**
+     * 获取 MySQL 错误码
+     */
+    public function getErrorCode() int {
+        return this.errorCode
+    }
+    
+    /**
+     * 获取 SQL 状态码
+     */
+    public function getSqlState() string {
+        return this.sqlState
+    }
+    
+    public function toString() string {
+        if this.errorCode > 0 {
+            return "MysqlException [" + toString(this.errorCode) + "]: " + this.getMessage()
+        }
+        return "MysqlException: " + this.getMessage()
+    }
+}
+

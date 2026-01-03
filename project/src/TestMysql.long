@@ -1,0 +1,145 @@
+namespace App
+
+use System.Console
+use Database.Mysql.Client
+use Database.Mysql.Config
+use Database.Mysql.Result
+use Database.Mysql.Row
+use Database.Mysql.MysqlException
+
+public class TestMysql {
+    
+    public static function main() {
+        Console::writeLine("=== MySQL 客户端测试 ===")
+        Console::writeLine("")
+        
+        try {
+            // 创建配置
+            config := new Config()
+            config.setHost("127.0.0.1")
+                  .setPort(3306)
+                  .setUsername("root")
+                  .setPassword("root")
+                  .setDatabase("longlang")
+                  .setCharset("utf8mb4")
+            
+            Console::writeLine("正在连接 MySQL...")
+            
+            // 连接数据库
+            client := Client::connect(config)
+            
+            Console::writeLine("连接成功!")
+            Console::writeLine("服务器版本: " + client.getServerVersion())
+            Console::writeLine("连接 ID: " + toString(client.getConnectionId()))
+            Console::writeLine("")
+            
+            // 测试 Ping
+            Console::writeLine("Ping: " + toString(client.ping()))
+            Console::writeLine("")
+            
+            // 创建测试表
+            Console::writeLine("创建测试表...")
+            client.execute("DROP TABLE IF EXISTS test_users")
+            client.execute("CREATE TABLE test_users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), age INT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci")
+            Console::writeLine("表创建成功!")
+            Console::writeLine("")
+            
+            // 插入数据
+            Console::writeLine("插入测试数据...")
+            result := client.execute("INSERT INTO test_users (name, age) VALUES ('Alice', 25)")
+            Console::writeLine("插入成功, 影响行数: " + toString(result.affectedRows()) + ", 插入ID: " + toString(result.lastInsertId()))
+            
+            result = client.execute("INSERT INTO test_users (name, age) VALUES ('Bob', 30)")
+            Console::writeLine("插入成功, 影响行数: " + toString(result.affectedRows()) + ", 插入ID: " + toString(result.lastInsertId()))
+            
+            result = client.execute("INSERT INTO test_users (name, age) VALUES ('Charlie', 28)")
+            Console::writeLine("插入成功, 影响行数: " + toString(result.affectedRows()) + ", 插入ID: " + toString(result.lastInsertId()))
+            Console::writeLine("")
+            
+            // 查询数据
+            Console::writeLine("查询所有数据:")
+            result = client.query("SELECT * FROM test_users")
+            Console::writeLine("共 " + toString(result.rowCount()) + " 行数据")
+            Console::writeLine("")
+            
+            // 遍历结果
+            for true {
+                row := result.fetch()
+                if row == null {
+                    break
+                }
+                Console::writeLine("ID: " + row.getString("id") + ", Name: " + row.getString("name") + ", Age: " + row.getString("age"))
+            }
+            Console::writeLine("")
+            
+            // 使用便捷方法
+            Console::writeLine("获取单行:")
+            singleRow := client.fetchOne("SELECT * FROM test_users WHERE name = 'Bob'")
+            if singleRow != null {
+                Console::writeLine("找到: " + singleRow.getString("name") + ", 年龄: " + toString(singleRow.getInt("age")))
+            }
+            Console::writeLine("")
+            
+            // 获取单个值
+            Console::writeLine("获取用户数量:")
+            count := client.fetchScalar("SELECT COUNT(*) FROM test_users")
+            Console::writeLine("总共 " + toString(count) + " 个用户")
+            Console::writeLine("")
+            
+            // 更新数据
+            Console::writeLine("更新数据...")
+            result = client.execute("UPDATE test_users SET age = 26 WHERE name = 'Alice'")
+            Console::writeLine("更新成功, 影响行数: " + toString(result.affectedRows()))
+            Console::writeLine("")
+            
+            // 验证更新
+            row := client.fetchOne("SELECT * FROM test_users WHERE name = 'Alice'")
+            Console::writeLine("更新后: " + row.getString("name") + ", 年龄: " + toString(row.getInt("age")))
+            Console::writeLine("")
+            
+            // 测试事务
+            Console::writeLine("测试事务...")
+            client.beginTransaction()
+            client.execute("INSERT INTO test_users (name, age) VALUES ('TestUser', 99)")
+            client.rollback()  // 回滚
+            
+            count = client.fetchScalar("SELECT COUNT(*) FROM test_users")
+            Console::writeLine("回滚后用户数: " + toString(count))
+            Console::writeLine("")
+            
+            // 删除数据
+            Console::writeLine("删除测试数据...")
+            result = client.execute("DELETE FROM test_users WHERE age > 25")
+            Console::writeLine("删除成功, 影响行数: " + toString(result.affectedRows()))
+            Console::writeLine("")
+            
+            // 最终查询
+            Console::writeLine("最终数据:")
+            result = client.query("SELECT * FROM test_users")
+            for true {
+                row := result.fetch()
+                if row == null {
+                    break
+                }
+                Console::writeLine("ID: " + row.getString("id") + ", Name: " + row.getString("name") + ", Age: " + row.getString("age"))
+            }
+            Console::writeLine("")
+            
+            // 清理
+            client.execute("DROP TABLE test_users")
+            Console::writeLine("测试表已删除")
+            
+            // 关闭连接
+            client.close()
+            Console::writeLine("")
+            Console::writeLine("=== 测试完成 ===")
+            
+        } catch (MysqlException e) {
+            Console::writeLine("MySQL 错误: " + e.getMessage())
+            Console::writeLine("错误码: " + toString(e.getErrorCode()))
+        } catch (Exception e) {
+            Console::writeLine("错误: " + e.getMessage())
+        }
+    }
+}
+

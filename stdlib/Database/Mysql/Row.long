@@ -1,0 +1,120 @@
+namespace Database.Mysql
+
+/**
+ * Row - MySQL 查询结果行
+ * 表示单行查询结果，支持按列名或索引访问
+ */
+public class Row {
+    private _data any       // map: 列名 -> 值
+    private _columns any    // 列名数组（保持顺序）
+    
+    public function __construct(data: any, columns: any) {
+        this._data = data
+        this._columns = columns
+    }
+    
+    /**
+     * 按列名获取值
+     */
+    public function get(column: string) any {
+        return this._data[column]
+    }
+    
+    /**
+     * 按列名获取字符串值
+     */
+    public function getString(column: string) string {
+        val := this._data[column]
+        if val == null {
+            return ""
+        }
+        return toString(val)
+    }
+    
+    /**
+     * 按列名获取整数值
+     */
+    public function getInt(column: string) int {
+        val := this._data[column]
+        if val == null {
+            return 0
+        }
+        return parseInt(toString(val))
+    }
+    
+    /**
+     * 按列名获取浮点数值
+     */
+    public function getFloat(column: string) float {
+        val := this._data[column]
+        if val == null {
+            return 0.0
+        }
+        return parseFloat(toString(val))
+    }
+    
+    /**
+     * 按列名获取布尔值
+     */
+    public function getBool(column: string) bool {
+        val := this._data[column]
+        if val == null {
+            return false
+        }
+        s := toString(val)
+        return s == "1" || s == "true" || s == "TRUE"
+    }
+    
+    /**
+     * 检查列值是否为 NULL
+     */
+    public function isNull(column: string) bool {
+        return this._data[column] == null
+    }
+    
+    /**
+     * 按索引获取值
+     */
+    public function getByIndex(index: int) any {
+        if index < 0 || index >= len(this._columns) {
+            return null
+        }
+        column := this._columns[index]
+        return this._data[column]
+    }
+    
+    /**
+     * 获取列名列表
+     */
+    public function getColumns() any {
+        return this._columns
+    }
+    
+    /**
+     * 获取列数
+     */
+    public function columnCount() int {
+        return len(this._columns)
+    }
+    
+    /**
+     * 转换为 map
+     */
+    public function toMap() any {
+        return this._data
+    }
+    
+    /**
+     * 转换为数组（按列顺序）
+     */
+    public function toArray() any {
+        result := {}
+        for i := 0; i < len(this._columns); i++ {
+            col := this._columns[i]
+            result.push(this._data[col])
+        }
+        return result
+    }
+}
+
+

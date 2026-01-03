@@ -1,0 +1,20 @@
+namespace App
+
+use System.Console
+use App.Models.User
+use App.Models.Product
+
+public class Application {
+
+    public static function main() {
+        Console::writeLine("Hello from Application!")
+        
+        var user = new User("张三", 25)
+        user.greet()
+        
+        var product = new Product(1, "测试产品", 99.99)
+        Console::writeLine("Product: " + product.getName())
+    }
+}
+
+

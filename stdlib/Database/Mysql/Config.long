@@ -1,0 +1,89 @@
+namespace Database.Mysql
+
+/**
+ * Config - MySQL 连接配置类
+ */
+public class Config {
+    private _host string
+    private _port int
+    private _username string
+    private _password string
+    private _database string
+    private _charset string
+    private _timeout int
+    
+    public function __construct() {
+        this._host = "127.0.0.1"
+        this._port = 3306
+        this._username = "root"
+        this._password = ""
+        this._database = ""
+        this._charset = "utf8mb4"
+        this._timeout = 10000  // 10秒超时
+    }
+    
+    public function setHost(host: string) Config {
+        this._host = host
+        return this
+    }
+    
+    public function setPort(port: int) Config {
+        this._port = port
+        return this
+    }
+    
+    public function setUsername(username: string) Config {
+        this._username = username
+        return this
+    }
+    
+    public function setPassword(password: string) Config {
+        this._password = password
+        return this
+    }
+    
+    public function setDatabase(database: string) Config {
+        this._database = database
+        return this
+    }
+    
+    public function setCharset(charset: string) Config {
+        this._charset = charset
+        return this
+    }
+    
+    public function setTimeout(timeout: int) Config {
+        this._timeout = timeout
+        return this
+    }
+    
+    public function getHost() string {
+        return this._host
+    }
+    
+    public function getPort() int {
+        return this._port
+    }
+    
+    public function getUsername() string {
+        return this._username
+    }
+    
+    public function getPassword() string {
+        return this._password
+    }
+    
+    public function getDatabase() string {
+        return this._database
+    }
+    
+    public function getCharset() string {
+        return this._charset
+    }
+    
+    public function getTimeout() int {
+        return this._timeout
+    }
+}
+
+

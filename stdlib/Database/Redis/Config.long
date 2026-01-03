@@ -1,10 +1,10 @@
-namespace System.Redis
+namespace Database.Redis
 
 /**
- * RedisConfig - Redis 连接配置类
+ * Config - Redis 连接配置类
  * 
  * 使用示例：
- *   config := new RedisConfig()
+ *   config := new Config()
  *   config.setHost("127.0.0.1")
  *         .setPort(6379)
  *         .setPassword("mypassword")
@@ -12,9 +12,9 @@ namespace System.Redis
  *         .setUsername("default")
  *         .setConnectTimeout(5000)
  *   
- *   client := RedisClient::connectWithConfig(config)
+ *   client := Client::connectWithConfig(config)
  */
-public class RedisConfig {
+public class Config {
     private _host string
     private _port int
     private _username string
@@ -46,57 +46,57 @@ public class RedisConfig {
     
     // ========== 链式设置方法 ==========
     
-    public function setHost(host: string) RedisConfig {
+    public function setHost(host: string) Config {
         this._host = host
         return this
     }
     
-    public function setPort(port: int) RedisConfig {
+    public function setPort(port: int) Config {
         this._port = port
         return this
     }
     
-    public function setUsername(username: string) RedisConfig {
+    public function setUsername(username: string) Config {
         this._username = username
         return this
     }
     
-    public function setPassword(password: string) RedisConfig {
+    public function setPassword(password: string) Config {
         this._password = password
         return this
     }
     
-    public function setDatabase(database: int) RedisConfig {
+    public function setDatabase(database: int) Config {
         this._database = database
         return this
     }
     
-    public function setConnectTimeout(timeout: int) RedisConfig {
+    public function setConnectTimeout(timeout: int) Config {
         this._connectTimeout = timeout
         return this
     }
     
-    public function setReadTimeout(timeout: int) RedisConfig {
+    public function setReadTimeout(timeout: int) Config {
         this._readTimeout = timeout
         return this
     }
     
-    public function setWriteTimeout(timeout: int) RedisConfig {
+    public function setWriteTimeout(timeout: int) Config {
         this._writeTimeout = timeout
         return this
     }
     
-    public function setMaxRetries(retries: int) RedisConfig {
+    public function setMaxRetries(retries: int) Config {
         this._maxRetries = retries
         return this
     }
     
-    public function setRetryInterval(interval: int) RedisConfig {
+    public function setRetryInterval(interval: int) Config {
         this._retryInterval = interval
         return this
     }
     
-    public function setPrefix(prefix: string) RedisConfig {
+    public function setPrefix(prefix: string) Config {
         this._prefix = prefix
         return this
     }
@@ -188,8 +188,8 @@ public class RedisConfig {
     /**
      * clone 克隆配置
      */
-    public function clone() RedisConfig {
-        cfg := new RedisConfig()
+    public function clone() Config {
+        cfg := new Config()
         cfg._host = this._host
         cfg._port = this._port
         cfg._username = this._username
@@ -204,8 +204,5 @@ public class RedisConfig {
         return cfg
     }
 }
-
-
-
 
 

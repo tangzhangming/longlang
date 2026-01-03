@@ -1,0 +1,25 @@
+namespace App.Models
+
+use System.Console
+
+public class User {
+    private name string
+    private age int
+    
+    public function __construct(name: string, age: int) {
+        this.name = name
+        this.age = age
+    }
+    
+    public function greet() {
+        Console::writeLine("Hi, I'm " + this.name + ", " + this.age + " years old.")
+    }
+    
+    public function getName() string {
+        return this.name
+    }
+    
+    public function getAge() int {
+        return this.age
+    }
+}

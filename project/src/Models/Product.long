@@ -1,0 +1,31 @@
+namespace App.Models
+
+public class Product {
+    private id int
+    private name string
+    private price float
+    
+    public function __construct(id: int, name: string, price: float) {
+        this.id = id
+        this.name = name
+        this.price = price
+    }
+    
+    public function getId() int {
+        return this.id
+    }
+    
+    public function getName() string {
+        return this.name
+    }
+    
+    public function getPrice() float {
+        return this.price
+    }
+    
+    public static function setPrice() {
+
+    }
+}
+
+
