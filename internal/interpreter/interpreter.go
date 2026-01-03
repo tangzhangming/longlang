@@ -1493,9 +1493,7 @@ func (i *Interpreter) evalUseStatement(node *parser.UseStatement) Object {
 
 	// 尝试加载命名空间文件（如果尚未加载）
 	loadErr := i.loadNamespaceFile(namespace, symbolName)
-	// 注意：即使加载失败，也继续尝试查找（可能已经在其他地方加载了）
-	_ = loadErr
-
+	
 	// 首先尝试在原始命名空间中查找（支持标准库）
 	targetNamespace := i.namespaceMgr.GetNamespace(namespace)
 
@@ -1556,6 +1554,10 @@ func (i *Interpreter) evalUseStatement(node *parser.UseStatement) Object {
 	}
 
 	if !found {
+		// 如果加载时有错误（如语法错误），报告该错误
+		if loadErr != nil {
+			return newError("%v", loadErr)
+		}
 		return newError("命名空间 %s 中没有找到 %s", namespace, symbolName)
 	}
 

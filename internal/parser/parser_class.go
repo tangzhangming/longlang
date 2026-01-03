@@ -304,6 +304,25 @@ func (p *Parser) parseClassMembers() []ClassMember {
 				}
 			}
 		} else if p.curTokenIs(lexer.IDENT) {
+			// 检查是否是缺少 function 关键字的方法定义
+			// 模式: public/private/protected identifier(
+			if p.peekTokenIs(lexer.LPAREN) {
+				p.errors = append(p.errors, fmt.Sprintf(
+					"语法错误: 方法定义缺少 'function' 关键字，应为 '%s function %s(...)' (行 %d, 列 %d)",
+					accessModifier, p.curToken.Literal, p.curToken.Line, p.curToken.Column))
+				// 错误恢复：跳过这个错误的方法定义
+				for !p.curTokenIs(lexer.EOF) &&
+					!p.curTokenIs(lexer.RBRACE) &&
+					!p.curTokenIs(lexer.PUBLIC) &&
+					!p.curTokenIs(lexer.PRIVATE) &&
+					!p.curTokenIs(lexer.PROTECTED) &&
+					!p.curTokenIs(lexer.ABSTRACT) &&
+					!p.curTokenIs(lexer.AT) {
+					p.nextToken()
+				}
+				continue
+			}
+			
 			if isAbstract {
 				p.errors = append(p.errors, fmt.Sprintf("成员变量不能是抽象的 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 			}
