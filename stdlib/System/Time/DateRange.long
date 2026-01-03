@@ -1,4 +1,6 @@
-namespace System.DateTime
+namespace System.Time
+
+use System.DateTime
 
 /**
  * DateRange 日期范围类
@@ -7,9 +9,11 @@ namespace System.DateTime
  * 
  * 示例：
  *   use System.Console
+ *   use System.DateTime
+ *   use System.Time.DateRange
  *   range := new DateRange(DateTime::create(2026, 1, 1), DateTime::create(2026, 1, 31))
  *   if range.contains(DateTime::now()) {
- *       Console.writeLine("在范围内")
+ *       Console::writeLine("在范围内")
  *   }
  */
 public class DateRange {
@@ -135,3 +139,4 @@ public class DateRange {
         return s.toDateTimeString() + " - " + e.toDateTimeString()
     }
 }
+

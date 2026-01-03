@@ -1,4 +1,4 @@
-namespace System.DateTime
+namespace System.Time
 
 /**
  * Stopwatch 计时器类
@@ -7,10 +7,11 @@ namespace System.DateTime
  * 
  * 示例：
  *   use System.Console
+ *   use System.Time.Stopwatch
  *   sw := Stopwatch::startNew()
  *   // 执行一些操作...
  *   sw.stop()
- *   Console.writeLine("耗时: " + toString(sw.getElapsedMilliseconds()) + " ms")
+ *   Console::writeLine("耗时: " + toString(sw.getElapsedMilliseconds()) + " ms")
  */
 public class Stopwatch {
     private startNano int    // 开始时间（纳秒）
@@ -127,3 +128,4 @@ public class Stopwatch {
         return this.getElapsed().toString()
     }
 }
+

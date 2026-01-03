@@ -1,4 +1,4 @@
-namespace System.Regex
+namespace System
 
 use System.Exception
 
@@ -34,3 +34,4 @@ public class RegexException extends Exception {
         return "RegexException: " + this.getMessage()
     }
 }
+

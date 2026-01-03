@@ -1,4 +1,4 @@
-namespace System.DateTime
+namespace System
 
 /**
  * DateTime 日期时间类
@@ -8,11 +8,12 @@ namespace System.DateTime
  * 
  * 示例：
  *   use System.Console
+ *   use System.DateTime
  *   now := DateTime::now()
- *   Console.writeLine(now.format("yyyy-MM-dd HH:mm:ss"))
+ *   Console::writeLine(now.format("yyyy-MM-dd HH:mm:ss"))
  *   
  *   future := now.addDays(30).addHours(2)
- *   Console.writeLine(future.diffForHumans())  // "in 30 days"
+ *   Console::writeLine(future.diffForHumans())  // "in 30 days"
  */
 public class DateTime {
     private millis int  // 毫秒时间戳
@@ -390,8 +391,9 @@ public class DateTime {
 
     // ========== 差异计算 ==========
 
-    public function diff(other: DateTime) Duration {
+    public function diff(other: DateTime) any {
         diffMs := __datetime_diff(this.millis, other.getTimestampMillis())
+        use System.Time.Duration
         return Duration::fromMilliseconds(diffMs)
     }
 
@@ -594,3 +596,4 @@ public class DateTime {
         return this.setTimezone("Local")
     }
 }
+

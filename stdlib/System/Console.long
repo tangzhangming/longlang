@@ -1,4 +1,4 @@
-namespace System.Console
+namespace System
 
 /**
  * Console 控制台类

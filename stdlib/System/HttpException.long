@@ -1,0 +1,50 @@
+namespace System
+
+use System.Exception
+
+/**
+ * HttpException - HTTP 异常类
+ * 当 HTTP 请求/响应失败时抛出
+ */
+public class HttpException extends Exception {
+    private statusCode int
+    
+    /**
+     * 构造函数
+     * @param message 错误消息
+     * @param statusCode HTTP 状态码（可选）
+     */
+    public function __construct(message: string, statusCode: int = 0) {
+        super::__construct(message)
+        this.statusCode = statusCode
+    }
+    
+    /**
+     * 获取 HTTP 状态码
+     */
+    public function getStatusCode() int {
+        return this.statusCode
+    }
+    
+    /**
+     * 判断是否是客户端错误 (4xx)
+     */
+    public function isClientError() bool {
+        return this.statusCode >= 400 && this.statusCode < 500
+    }
+    
+    /**
+     * 判断是否是服务器错误 (5xx)
+     */
+    public function isServerError() bool {
+        return this.statusCode >= 500 && this.statusCode < 600
+    }
+    
+    public function toString() string {
+        if this.statusCode > 0 {
+            return "HttpException [" + toString(this.statusCode) + "]: " + this.getMessage()
+        }
+        return "HttpException: " + this.getMessage()
+    }
+}
+

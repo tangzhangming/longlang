@@ -1,4 +1,4 @@
-namespace System.Regex
+namespace System
 
 /**
  * Regex 正则表达式类
@@ -20,6 +20,7 @@ public class Regex {
         // 验证正则表达式
         result := __regex_compile(pattern, options)
         if result == null {
+            use System.RegexException
             throw new RegexException("无效的正则表达式模式", pattern)
         }
     }
@@ -66,7 +67,8 @@ public class Regex {
     /**
      * 查找第一个匹配
      */
-    public function find(input: string) Match {
+    public function find(input: string) any {
+        use System.Regex.Match
         data := __regex_match(input, this.pattern, this.options)
         return new Match(data, input)
     }
@@ -75,6 +77,7 @@ public class Regex {
      * 查找所有匹配
      */
     public function findAll(input: string) any {
+        use System.Regex.Match
         dataArray := __regex_match_all(input, this.pattern, this.options)
         results := {}
         for _, data := range dataArray {
@@ -126,3 +129,4 @@ public class Regex {
         return "/" + this.pattern + "/"
     }
 }
+

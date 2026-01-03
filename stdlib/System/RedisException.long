@@ -1,10 +1,9 @@
-namespace System.Redis
+namespace System
 
 use System.Exception
 
 /**
  * RedisException - Redis 异常类
- * 
  * 当 Redis 操作失败时抛出
  */
 public class RedisException extends Exception {
@@ -17,9 +16,4 @@ public class RedisException extends Exception {
         return "RedisException: " + this.getMessage()
     }
 }
-
-
-
-
-
 

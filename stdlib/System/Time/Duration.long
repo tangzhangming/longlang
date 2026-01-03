@@ -1,4 +1,6 @@
-namespace System.DateTime
+namespace System.Time
+
+use System.DateTime
 
 /**
  * Duration 时间间隔类
@@ -7,8 +9,9 @@ namespace System.DateTime
  * 
  * 示例：
  *   use System.Console
+ *   use System.Time.Duration
  *   duration := Duration::fromHours(2).add(Duration::fromMinutes(30))
- *   Console.writeLine(duration.toHumanString())  // "2 hours 30 minutes"
+ *   Console::writeLine(duration.toHumanString())  // "2 hours 30 minutes"
  */
 public class Duration {
     private totalMs int  // 总毫秒数
@@ -275,3 +278,4 @@ fn padZero(n: int, width: int) string {
     }
     return s
 }
+
