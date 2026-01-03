@@ -1,0 +1,396 @@
+namespace App.Database.ORM
+
+use App.Database.Exception.DatabaseException
+
+/**
+ * Model - ORM 模型基类
+ * 
+ * 子类继承后可使用：
+ *   User::find(1)
+ *   User::where("age", ">", 18).get()
+ *   User::create({...})
+ */
+public abstract class Model {
+    // === 内部状态 ===
+    public _exists bool
+    public _original any
+    public _className string
+    public _db any
+    
+    public function __construct() {
+        this._exists = false
+        this._original = map[string]any{}
+        this._className = ""
+        this._db = null
+    }
+    
+    // ========== 静态查询方法（使用 Late Static Binding）==========
+    
+    /**
+     * 创建查询构建器
+     */
+    public static function query() any {
+        className := __called_class_name
+        db := __get_global("__db")
+        return db.model(className)
+    }
+    
+    /**
+     * 按主键查找
+     */
+    public static function find(id: any) any {
+        className := __called_class_name
+        db := __get_global("__db")
+        return db.model(className).find(id)
+    }
+    
+    /**
+     * 按主键查找，不存在则抛异常
+     */
+    public static function findOrFail(id: any) any {
+        className := __called_class_name
+        db := __get_global("__db")
+        return db.model(className).findOrFail(id)
+    }
+    
+    /**
+     * 获取所有记录
+     */
+    public static function all() any {
+        className := __called_class_name
+        db := __get_global("__db")
+        return db.model(className).get()
+    }
+    
+    /**
+     * 条件查询
+     */
+    public static function where(column: string, operatorOrValue: any, value: any = null) any {
+        className := __called_class_name
+        db := __get_global("__db")
+        return db.model(className).where(column, operatorOrValue, value)
+    }
+    
+    /**
+     * 创建新记录
+     */
+    public static function create(attributes: any) any {
+        className := __called_class_name
+        db := __get_global("__db")
+        return db.model(className).create(attributes)
+    }
+    
+    // ========== 实例方法 ==========
+    
+    /**
+     * 保存模型
+     */
+    public function save() bool {
+        if this._exists {
+            return this._performUpdate()
+        } else {
+            return this._performInsert()
+        }
+    }
+    
+    /**
+     * 更新指定字段
+     */
+    public function update(attributes: any) bool {
+        this.fill(attributes)
+        return this.save()
+    }
+    
+    /**
+     * 删除模型
+     */
+    public function delete() bool {
+        if this._exists == false {
+            return false
+        }
+        
+        meta := this._db.getMeta(this._className)
+        if meta == null {
+            throw new DatabaseException("Model not registered: " + this._className)
+        }
+        
+        tableName := meta["table"]
+        primaryKey := meta["primaryKey"]
+        pkValue := this._getFieldValue(primaryKey)
+        
+        conn := this._db.connection()
+        affected := conn.table(tableName).where(primaryKey, pkValue).delete()
+        this._db.release(conn)
+        
+        if affected > 0 {
+            this._exists = false
+            return true
+        }
+        return false
+    }
+    
+    /**
+     * 批量填充属性
+     */
+    public function fill(attributes: any) {
+        meta := this._db.getMeta(this._className)
+        fillable := meta["fillable"]
+        
+        for key, value := range attributes {
+            if this._isFillable(key, fillable) {
+                this._setFieldValue(key, value)
+            }
+        }
+    }
+    
+    /**
+     * 强制填充所有属性
+     */
+    public function forceFill(attributes: any) {
+        for key, value := range attributes {
+            this._setFieldValue(key, value)
+        }
+    }
+    
+    /**
+     * 检查是否有未保存的修改
+     */
+    public function isDirty(key: string = "") bool {
+        dirty := this.getDirty()
+        if key == "" {
+            return len(dirty) > 0
+        }
+        return isset(dirty, key)
+    }
+    
+    /**
+     * 获取修改的字段
+     */
+    public function getDirty() any {
+        dirty := map[string]any{}
+        meta := this._db.getMeta(this._className)
+        columns := meta["columns"]
+        
+        for fieldName, colInfo := range columns {
+            currentValue := this._getFieldValue(fieldName)
+            originalValue := null
+            if isset(this._original, fieldName) {
+                originalValue = this._original[fieldName]
+            }
+            
+            if toString(currentValue) != toString(originalValue) {
+                dirty[fieldName] = currentValue
+            }
+        }
+        
+        return dirty
+    }
+    
+    /**
+     * 获取原始值
+     */
+    public function getOriginal(key: string = "") any {
+        if key == "" {
+            return this._original
+        }
+        if isset(this._original, key) {
+            return this._original[key]
+        }
+        return null
+    }
+    
+    /**
+     * 转换为 map
+     */
+    public function toArray() any {
+        result := map[string]any{}
+        meta := this._db.getMeta(this._className)
+        columns := meta["columns"]
+        hidden := meta["hidden"]
+        
+        for fieldName, colInfo := range columns {
+            if this._isHidden(fieldName, hidden) {
+                continue
+            }
+            result[fieldName] = this._getFieldValue(fieldName)
+        }
+        
+        return result
+    }
+    
+    /**
+     * 转换为 JSON
+     */
+    public function toJson() string {
+        data := this.toArray()
+        return this._mapToJson(data)
+    }
+    
+    /**
+     * 是否存在于数据库
+     */
+    public function exists() bool {
+        return this._exists
+    }
+    
+    // ========== 内部方法 ==========
+    
+    public function _performInsert() bool {
+        meta := this._db.getMeta(this._className)
+        tableName := meta["table"]
+        primaryKey := meta["primaryKey"]
+        columns := meta["columns"]
+        autoIncrement := meta["autoIncrement"]
+        
+        data := map[string]any{}
+        for fieldName, colInfo := range columns {
+            if fieldName == primaryKey && autoIncrement == true {
+                continue
+            }
+            value := this._getFieldValue(fieldName)
+            if value != null && toString(value) != "" && toString(value) != "0" {
+                columnName := colInfo["column"]
+                data[columnName] = value
+            }
+        }
+        
+        conn := this._db.connection()
+        id := conn.table(tableName).insertGetId(data)
+        this._db.release(conn)
+        
+        if id > 0 {
+            this._setFieldValue(primaryKey, id)
+            this._exists = true
+            this._syncOriginal()
+            return true
+        }
+        
+        return false
+    }
+    
+    public function _performUpdate() bool {
+        dirty := this.getDirty()
+        if len(dirty) == 0 {
+            return true
+        }
+        
+        meta := this._db.getMeta(this._className)
+        tableName := meta["table"]
+        primaryKey := meta["primaryKey"]
+        columns := meta["columns"]
+        pkValue := this._getFieldValue(primaryKey)
+        
+        data := map[string]any{}
+        for fieldName, value := range dirty {
+            if isset(columns, fieldName) {
+                colInfo := columns[fieldName]
+                columnName := colInfo["column"]
+                data[columnName] = value
+            }
+        }
+        
+        conn := this._db.connection()
+        affected := conn.table(tableName).where(primaryKey, pkValue).update(data)
+        this._db.release(conn)
+        
+        if affected >= 0 {
+            this._syncOriginal()
+            return true
+        }
+        
+        return false
+    }
+    
+    public function _syncOriginal() {
+        meta := this._db.getMeta(this._className)
+        columns := meta["columns"]
+        
+        this._original = map[string]any{}
+        for fieldName, colInfo := range columns {
+            this._original[fieldName] = this._getFieldValue(fieldName)
+        }
+    }
+    
+    public function _hydrate(data: any, className: string, db: any) {
+        this._className = className
+        this._db = db
+        meta := db.getMeta(className)
+        columns := meta["columns"]
+        
+        for fieldName, colInfo := range columns {
+            columnName := colInfo["column"]
+            if isset(data, columnName) {
+                this._setFieldValue(fieldName, data[columnName])
+            }
+        }
+        
+        this._exists = true
+        this._syncOriginal()
+    }
+    
+    public function _getFieldValue(fieldName: string) any {
+        return __get_field(this, fieldName)
+    }
+    
+    public function _setFieldValue(fieldName: string, value: any) {
+        __set_field(this, fieldName, value)
+    }
+    
+    public function _isFillable(fieldName: string, fillable: any) bool {
+        if fillable == null || len(fillable) == 0 {
+            return true
+        }
+        for i := 0; i < len(fillable); i++ {
+            if fillable[i] == fieldName {
+                return true
+            }
+        }
+        return false
+    }
+    
+    public function _isHidden(fieldName: string, hidden: any) bool {
+        if hidden == null {
+            return false
+        }
+        for i := 0; i < len(hidden); i++ {
+            if hidden[i] == fieldName {
+                return true
+            }
+        }
+        return false
+    }
+    
+    public function _mapToJson(data: any) string {
+        parts := {}
+        
+        for key, value := range data {
+            part := "\"" + key + "\": "
+            
+            valueType := typeof(value)
+            if valueType == "STRING" {
+                part = part + "\"" + toString(value) + "\""
+            } else if value == null {
+                part = part + "null"
+            } else if valueType == "INTEGER" || valueType == "FLOAT" {
+                part = part + toString(value)
+            } else {
+                part = part + "\"" + toString(value) + "\""
+            }
+            
+            parts.push(part)
+        }
+        
+        result := "{"
+        for i := 0; i < len(parts); i++ {
+            if i > 0 {
+                result = result + ", "
+            }
+            result = result + parts[i]
+        }
+        result = result + "}"
+        
+        return result
+    }
+}
+
+

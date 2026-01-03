@@ -1,4 +1,4 @@
-namespace App.Database
+namespace App.Database.Config
 
 /**
  * ConnectionConfig - 单个数据库连接配置
@@ -26,47 +26,47 @@ public class ConnectionConfig {
         this._poolConfig = new PoolConfig()
     }
     
-    public function setDriver(driver: string) any {
+    public function setDriver(driver: string) ConnectionConfig {
         this._driver = driver
         return this
     }
     
-    public function setHost(host: string) any {
+    public function setHost(host: string) ConnectionConfig {
         this._host = host
         return this
     }
     
-    public function setPort(port: int) any {
+    public function setPort(port: int) ConnectionConfig {
         this._port = port
         return this
     }
     
-    public function setUsername(username: string) any {
+    public function setUsername(username: string) ConnectionConfig {
         this._username = username
         return this
     }
     
-    public function setPassword(password: string) any {
+    public function setPassword(password: string) ConnectionConfig {
         this._password = password
         return this
     }
     
-    public function setDatabase(database: string) any {
+    public function setDatabase(database: string) ConnectionConfig {
         this._database = database
         return this
     }
     
-    public function setCharset(charset: string) any {
+    public function setCharset(charset: string) ConnectionConfig {
         this._charset = charset
         return this
     }
     
-    public function setPrefix(prefix: string) any {
+    public function setPrefix(prefix: string) ConnectionConfig {
         this._prefix = prefix
         return this
     }
     
-    public function setPoolConfig(config: any) any {
+    public function setPoolConfig(config: any) ConnectionConfig {
         this._poolConfig = config
         return this
     }

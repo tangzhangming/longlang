@@ -1,0 +1,210 @@
+namespace App.Database.ORM
+
+use App.Database.Exception.DatabaseException
+
+/**
+ * ModelBuilder - 模型查询构建器
+ */
+public class ModelBuilder {
+    private _modelClass string
+    private _queryBuilder any
+    private _connection any
+    private _meta any
+    private _db any
+    
+    public function __construct(modelClass: string, db: any) {
+        this._modelClass = modelClass
+        this._db = db
+        
+        this._meta = db.getMeta(modelClass)
+        if this._meta == null {
+            throw new DatabaseException("Model not registered: " + modelClass)
+        }
+        
+        this._connection = db.connection()
+        tableName := this._meta["table"]
+        this._queryBuilder = this._connection.table(tableName)
+    }
+    
+    // ========== 查询条件 ==========
+    
+    public function where(column: string, operatorOrValue: any, value: any = null) any {
+        this._queryBuilder.where(column, operatorOrValue, value)
+        return this
+    }
+    
+    public function orWhere(column: string, operatorOrValue: any, value: any = null) any {
+        this._queryBuilder.orWhere(column, operatorOrValue, value)
+        return this
+    }
+    
+    public function whereIn(column: string, values: any) any {
+        this._queryBuilder.whereIn(column, values)
+        return this
+    }
+    
+    public function whereNull(column: string) any {
+        this._queryBuilder.whereNull(column)
+        return this
+    }
+    
+    public function whereBetween(column: string, values: any) any {
+        this._queryBuilder.whereBetween(column, values)
+        return this
+    }
+    
+    // ========== 排序和分页 ==========
+    
+    public function orderBy(column: string, direction: string = "asc") any {
+        this._queryBuilder.orderBy(column, direction)
+        return this
+    }
+    
+    public function orderByDesc(column: string) any {
+        this._queryBuilder.orderByDesc(column)
+        return this
+    }
+    
+    public function limit(count: int) any {
+        this._queryBuilder.limit(count)
+        return this
+    }
+    
+    public function offset(count: int) any {
+        this._queryBuilder.offset(count)
+        return this
+    }
+    
+    // ========== 执行查询 ==========
+    
+    public function get() any {
+        rows := this._queryBuilder.get()
+        result := this._hydrateMany(rows)
+        this._db.release(this._connection)
+        return result
+    }
+    
+    public function first() any {
+        this._queryBuilder.limit(1)
+        rows := this._queryBuilder.get()
+        
+        if len(rows) == 0 {
+            this._db.release(this._connection)
+            return null
+        }
+        
+        result := this._hydrateOne(rows[0])
+        this._db.release(this._connection)
+        return result
+    }
+    
+    public function find(id: any) any {
+        primaryKey := this._meta["primaryKey"]
+        this._queryBuilder.where(primaryKey, id)
+        return this.first()
+    }
+    
+    public function findOrFail(id: any) any {
+        result := this.find(id)
+        if result == null {
+            throw new DatabaseException("Model not found with ID: " + toString(id))
+        }
+        return result
+    }
+    
+    public function exists() bool {
+        result := this._queryBuilder.exists()
+        this._db.release(this._connection)
+        return result
+    }
+    
+    // ========== 聚合函数 ==========
+    
+    public function count(column: string = "*") int {
+        result := this._queryBuilder.count(column)
+        this._db.release(this._connection)
+        return result
+    }
+    
+    public function max(column: string) any {
+        result := this._queryBuilder.max(column)
+        this._db.release(this._connection)
+        return result
+    }
+    
+    public function min(column: string) any {
+        result := this._queryBuilder.min(column)
+        this._db.release(this._connection)
+        return result
+    }
+    
+    public function avg(column: string) any {
+        result := this._queryBuilder.avg(column)
+        this._db.release(this._connection)
+        return result
+    }
+    
+    public function sum(column: string) any {
+        result := this._queryBuilder.sum(column)
+        this._db.release(this._connection)
+        return result
+    }
+    
+    // ========== 写操作 ==========
+    
+    public function create(attributes: any) any {
+        instance := this._db.createInstance(this._modelClass)
+        instance.forceFill(attributes)
+        instance.save()
+        return instance
+    }
+    
+    public function update(attributes: any) int {
+        data := this._convertToColumns(attributes)
+        result := this._queryBuilder.update(data)
+        this._db.release(this._connection)
+        return result
+    }
+    
+    public function delete() int {
+        result := this._queryBuilder.delete()
+        this._db.release(this._connection)
+        return result
+    }
+    
+    // ========== 内部方法 ==========
+    
+    private function _hydrateOne(row: any) any {
+        instance := this._db.createInstance(this._modelClass)
+        instance._hydrate(row, this._modelClass, this._db)
+        return instance
+    }
+    
+    private function _hydrateMany(rows: any) any {
+        result := {}
+        for i := 0; i < len(rows); i++ {
+            instance := this._hydrateOne(rows[i])
+            result.push(instance)
+        }
+        return result
+    }
+    
+    private function _convertToColumns(attributes: any) any {
+        columns := this._meta["columns"]
+        data := map[string]any{}
+        
+        for fieldName, value := range attributes {
+            if isset(columns, fieldName) {
+                colInfo := columns[fieldName]
+                columnName := colInfo["column"]
+                data[columnName] = value
+            } else {
+                data[fieldName] = value
+            }
+        }
+        
+        return data
+    }
+}
+
+

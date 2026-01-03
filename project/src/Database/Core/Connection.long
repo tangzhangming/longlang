@@ -1,11 +1,10 @@
-namespace App.Database
+namespace App.Database.Core
 
-use App.Database.QueryBuilder
-use App.Database.DatabaseException
+use App.Database.Exception.DatabaseException
+use App.Database.Core.QueryBuilder
 
 /**
  * Connection - 数据库连接基类
- * 子类需要覆盖实现具体的数据库操作
  */
 public class Connection {
     protected _config any
@@ -18,62 +17,44 @@ public class Connection {
         this._lastInsertId = 0
     }
     
-    // === 查询执行（子类覆盖） ===
+    // === 查询执行（子类需要重写）===
     
-    /**
-     * 执行 SELECT 查询
-     */
     public function select(sql: string, bindings: any) any {
-        throw new DatabaseException("子类必须实现 select 方法")
+        throw new DatabaseException("Method select() must be implemented by subclass")
     }
     
-    /**
-     * 执行 INSERT 并返回影响行数
-     */
     public function insert(sql: string, bindings: any) int {
-        throw new DatabaseException("子类必须实现 insert 方法")
+        throw new DatabaseException("Method insert() must be implemented by subclass")
     }
     
-    /**
-     * 执行 INSERT 并返回自增ID
-     */
     public function insertGetId(sql: string, bindings: any) int {
-        throw new DatabaseException("子类必须实现 insertGetId 方法")
+        throw new DatabaseException("Method insertGetId() must be implemented by subclass")
     }
     
-    /**
-     * 执行 UPDATE 并返回影响行数
-     */
     public function update(sql: string, bindings: any) int {
-        throw new DatabaseException("子类必须实现 update 方法")
+        throw new DatabaseException("Method update() must be implemented by subclass")
     }
     
-    /**
-     * 执行 DELETE 并返回影响行数
-     */
     public function delete(sql: string, bindings: any) int {
-        throw new DatabaseException("子类必须实现 delete 方法")
+        throw new DatabaseException("Method delete() must be implemented by subclass")
     }
     
-    /**
-     * 执行任意 SQL 语句
-     */
     public function statement(sql: string, bindings: any) bool {
-        throw new DatabaseException("子类必须实现 statement 方法")
+        throw new DatabaseException("Method statement() must be implemented by subclass")
     }
     
     // === 事务 ===
     
     public function beginTransaction() bool {
-        throw new DatabaseException("子类必须实现 beginTransaction 方法")
+        throw new DatabaseException("Method beginTransaction() must be implemented by subclass")
     }
     
     public function commit() bool {
-        throw new DatabaseException("子类必须实现 commit 方法")
+        throw new DatabaseException("Method commit() must be implemented by subclass")
     }
     
     public function rollback() bool {
-        throw new DatabaseException("子类必须实现 rollback 方法")
+        throw new DatabaseException("Method rollback() must be implemented by subclass")
     }
     
     public function inTransaction() bool {
@@ -83,25 +64,25 @@ public class Connection {
     // === 连接状态 ===
     
     public function isConnected() bool {
-        throw new DatabaseException("子类必须实现 isConnected 方法")
+        throw new DatabaseException("Method isConnected() must be implemented by subclass")
     }
     
     public function ping() bool {
-        throw new DatabaseException("子类必须实现 ping 方法")
+        throw new DatabaseException("Method ping() must be implemented by subclass")
     }
     
     public function reconnect() {
-        throw new DatabaseException("子类必须实现 reconnect 方法")
+        throw new DatabaseException("Method reconnect() must be implemented by subclass")
     }
     
     public function close() {
-        throw new DatabaseException("子类必须实现 close 方法")
+        throw new DatabaseException("Method close() must be implemented by subclass")
     }
     
     // === 辅助方法 ===
     
     public function getDriverName() string {
-        throw new DatabaseException("子类必须实现 getDriverName 方法")
+        return "unknown"
     }
     
     public function getConfig() any {
@@ -120,7 +101,7 @@ public class Connection {
     }
     
     /**
-     * 转义字符串（防 SQL 注入）
+     * 转义字符串
      */
     public function escape(value: string) string {
         result := ""
@@ -132,12 +113,6 @@ public class Connection {
                 result = result + "\\\""
             } else if ch == "\\" {
                 result = result + "\\\\"
-            } else if ch == "\n" {
-                result = result + "\\n"
-            } else if ch == "\r" {
-                result = result + "\\r"
-            } else if ch == "\t" {
-                result = result + "\\t"
             } else {
                 result = result + ch
             }
@@ -146,7 +121,7 @@ public class Connection {
     }
     
     /**
-     * 预处理 SQL，替换占位符
+     * 预处理 SQL
      */
     public function prepareBindings(sql: string, bindings: any) string {
         if bindings == null || len(bindings) == 0 {
@@ -155,9 +130,8 @@ public class Connection {
         
         result := ""
         bindingIndex := 0
-        i := 0
         
-        for i < len(sql) {
+        for i := 0; i < len(sql); i++ {
             ch := sql.charAt(i)
             if ch == "?" && bindingIndex < len(bindings) {
                 value := bindings[bindingIndex]
@@ -166,14 +140,13 @@ public class Connection {
             } else {
                 result = result + ch
             }
-            i = i + 1
         }
         
         return result
     }
     
     /**
-     * 格式化值为 SQL 字符串
+     * 格式化值为 SQL
      */
     public function _formatValue(value: any) string {
         if value == null {
@@ -182,18 +155,17 @@ public class Connection {
         
         valueType := typeof(value)
         
-        if valueType == "int" || valueType == "float" || valueType == "INTEGER" || valueType == "FLOAT" {
+        if valueType == "INTEGER" || valueType == "FLOAT" {
             return toString(value)
         }
         
-        if valueType == "bool" || valueType == "BOOLEAN" {
+        if valueType == "BOOLEAN" {
             if value {
                 return "1"
             }
             return "0"
         }
         
-        // 字符串类型，需要转义
         return "'" + this.escape(toString(value)) + "'"
     }
 }

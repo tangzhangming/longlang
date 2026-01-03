@@ -1,4 +1,4 @@
-namespace App.Database
+namespace App.Database.Config
 
 /**
  * PoolConfig - 连接池配置
@@ -6,39 +6,39 @@ namespace App.Database
 public class PoolConfig {
     private _minSize int
     private _maxSize int
-    private _idleTimeout int      // 空闲超时（毫秒）
-    private _waitTimeout int      // 获取连接超时（毫秒）
-    private _validateOnBorrow bool // 获取时验证连接
+    private _idleTimeout int
+    private _waitTimeout int
+    private _validateOnBorrow bool
     
     public function __construct() {
         this._minSize = 1
         this._maxSize = 10
-        this._idleTimeout = 60000      // 60秒
-        this._waitTimeout = 5000       // 5秒
+        this._idleTimeout = 60000
+        this._waitTimeout = 5000
         this._validateOnBorrow = true
     }
     
-    public function setMinSize(size: int) any {
+    public function setMinSize(size: int) PoolConfig {
         this._minSize = size
         return this
     }
     
-    public function setMaxSize(size: int) any {
+    public function setMaxSize(size: int) PoolConfig {
         this._maxSize = size
         return this
     }
     
-    public function setIdleTimeout(timeout: int) any {
+    public function setIdleTimeout(timeout: int) PoolConfig {
         this._idleTimeout = timeout
         return this
     }
     
-    public function setWaitTimeout(timeout: int) any {
+    public function setWaitTimeout(timeout: int) PoolConfig {
         this._waitTimeout = timeout
         return this
     }
     
-    public function setValidateOnBorrow(validate: bool) any {
+    public function setValidateOnBorrow(validate: bool) PoolConfig {
         this._validateOnBorrow = validate
         return this
     }

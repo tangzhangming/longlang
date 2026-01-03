@@ -1,25 +1,59 @@
 namespace App.Models
 
-use System.Console
+use App.Database.ORM.Model
 
-public class User {
-    private name string
-    private age int
+/**
+ * User - 用户模型
+ * 
+ * 对应数据库表: users
+ */
+public class User extends Model {
+    // ===== 字段定义 =====
     
-    public function __construct(name: string, age: int) {
-        this.name = name
-        this.age = age
+    public id int
+    public name string
+    public email string
+    public age int
+    public status string
+    public createdAt string
+    
+    public function __construct() {
+        super::__construct()
+        this.status = "active"
     }
     
-    public function greet() {
-        Console::writeLine("Hi, I'm " + this.name + ", " + this.age + " years old.")
+    // ===== 自定义方法 =====
+    
+    public function isAdult() bool {
+        age := parseInt(toString(this.age))
+        return age >= 18
     }
     
-    public function getName() string {
-        return this.name
+    public function getDisplayName() string {
+        return this.name + " <" + this.email + ">"
     }
     
-    public function getAge() int {
-        return this.age
+    // ===== 模型元数据 =====
+    
+    public static function getMeta() any {
+        return map[string]any{
+            "table": "users",
+            "primaryKey": "id",
+            "autoIncrement": true,
+            "columns": map[string]any{
+                "id": map[string]any{"column": "id", "type": "int"},
+                "name": map[string]any{"column": "name", "type": "string"},
+                "email": map[string]any{"column": "email", "type": "string"},
+                "age": map[string]any{"column": "age", "type": "int"},
+                "status": map[string]any{"column": "status", "type": "string"},
+                "createdAt": map[string]any{"column": "created_at", "type": "string"}
+            },
+            "fillable": {"name", "email", "age", "status"},
+            "hidden": {},
+            "factory": function() any {
+                return new User()
+            }
+        }
     }
 }
+

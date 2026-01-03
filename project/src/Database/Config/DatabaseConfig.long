@@ -1,0 +1,43 @@
+namespace App.Database.Config
+
+use App.Database.Exception.DatabaseException
+
+/**
+ * DatabaseConfig - 数据库总配置
+ */
+public class DatabaseConfig {
+    private _default string
+    private _connections any
+
+    public function __construct() {
+        this._default = "default"
+        this._connections = map[string]ConnectionConfig{}
+    }
+
+    public function setDefault(name: string) DatabaseConfig {
+        this._default = name
+        return this
+    }
+
+    public function getDefault() string {
+        return this._default
+    }
+
+    public function addConnection(name: string, config: ConnectionConfig) DatabaseConfig {
+        this._connections[name] = config
+        return this
+    }
+
+    public function getConnection(name: string) ConnectionConfig {
+        if isset(this._connections, name) {
+            return this._connections[name]
+        }
+        throw new DatabaseException("数据库连接配置 '" + name + "' 未找到")
+    }
+
+    public function hasConnection(name: string) bool {
+        return isset(this._connections, name)
+    }
+}
+
+

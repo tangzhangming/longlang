@@ -1,10 +1,10 @@
-namespace App.Database
+namespace App.Database.Drivers
 
-use App.Database.Connection
+use App.Database.Core.Connection
+use App.Database.Config.ConnectionConfig
 use Database.Mysql.Client
 use Database.Mysql.Config
-use Database.Mysql.Result
-use Database.Mysql.Row
+use Database.Mysql.MysqlException
 
 /**
  * MysqlConnection - MySQL 数据库连接实现
@@ -18,9 +18,6 @@ public class MysqlConnection extends Connection {
         this._connect()
     }
     
-    /**
-     * 建立连接
-     */
     private function _connect() {
         mysqlConfig := new Config()
         mysqlConfig.setHost(this._config.getHost())
@@ -33,107 +30,77 @@ public class MysqlConnection extends Connection {
         this._client = Client::connect(mysqlConfig)
     }
     
-    // === 查询执行 ===
-    
-    public function select(sql: string, bindings: any) any {
+    public function select(sql: string, bindings: any = null) any {
         preparedSql := this.prepareBindings(sql, bindings)
         result := this._client.query(preparedSql)
-        
-        // 转换为数组
-        rows := {}
-        for true {
-            row := result.fetch()
-            if row == null {
-                break
-            }
-            rows.push(row.toMap())
-        }
-        return rows
+        return result.toArray()
     }
     
-    public function insert(sql: string, bindings: any) int {
+    public function insert(sql: string, bindings: any = null) int {
         preparedSql := this.prepareBindings(sql, bindings)
         result := this._client.execute(preparedSql)
         this._lastInsertId = result.lastInsertId()
         return result.affectedRows()
     }
     
-    public function insertGetId(sql: string, bindings: any) int {
-        this.insert(sql, bindings)
+    public function insertGetId(sql: string, bindings: any = null) int {
+        preparedSql := this.prepareBindings(sql, bindings)
+        result := this._client.execute(preparedSql)
+        this._lastInsertId = result.lastInsertId()
         return this._lastInsertId
     }
     
-    public function update(sql: string, bindings: any) int {
+    public function update(sql: string, bindings: any = null) int {
         preparedSql := this.prepareBindings(sql, bindings)
         result := this._client.execute(preparedSql)
         return result.affectedRows()
     }
     
-    public function delete(sql: string, bindings: any) int {
+    public function delete(sql: string, bindings: any = null) int {
         preparedSql := this.prepareBindings(sql, bindings)
         result := this._client.execute(preparedSql)
         return result.affectedRows()
     }
     
-    public function statement(sql: string, bindings: any) bool {
+    public function statement(sql: string, bindings: any = null) bool {
         preparedSql := this.prepareBindings(sql, bindings)
-        try {
-            this._client.execute(preparedSql)
-            return true
-        } catch (Exception e) {
-            return false
-        }
+        result := this._client.execute(preparedSql)
+        return result.affectedRows() >= 0
     }
-    
-    // === 事务 ===
     
     public function beginTransaction() bool {
         if this._inTransaction {
             return false
         }
-        result := this._client.beginTransaction()
-        if result {
-            this._inTransaction = true
-        }
-        return result
+        this._client.beginTransaction()
+        this._inTransaction = true
+        return true
     }
     
     public function commit() bool {
         if !this._inTransaction {
             return false
         }
-        result := this._client.commit()
+        this._client.commit()
         this._inTransaction = false
-        return result
+        return true
     }
     
     public function rollback() bool {
         if !this._inTransaction {
             return false
         }
-        result := this._client.rollback()
+        this._client.rollback()
         this._inTransaction = false
-        return result
+        return true
     }
     
-    // === 连接状态 ===
-    
     public function isConnected() bool {
-        if this._client == null {
-            return false
-        }
-        return this._client.isConnected()
+        return this._client != null && this._client.isConnected()
     }
     
     public function ping() bool {
-        if this._client == null {
-            return false
-        }
-        try {
-            return this._client.ping()
-        } catch (Exception e) {
-            return false
-        }
+        return this._client.ping()
     }
     
     public function reconnect() {
@@ -150,13 +117,6 @@ public class MysqlConnection extends Connection {
     
     public function getDriverName() string {
         return "mysql"
-    }
-    
-    /**
-     * 获取底层 MySQL 客户端（高级用法）
-     */
-    public function getClient() any {
-        return this._client
     }
 }
 

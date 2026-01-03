@@ -1,0 +1,146 @@
+namespace App.Database.ORM
+
+use App.Database.Core.ConnectionPool
+use App.Database.Config.DatabaseConfig
+use App.Database.Exception.DatabaseException
+
+/**
+ * DB - 数据库门面类
+ * 
+ * 提供全局数据库访问入口
+ * 存储数据库管理器和模型注册表
+ */
+public class DB {
+    // 实例属性
+    public manager any
+    public connectionName string
+    public registry any
+    public pools any
+    
+    public function __construct() {
+        this.manager = null
+        this.connectionName = ""
+        this.registry = map[string]any{}
+        this.pools = map[string]any{}
+    }
+    
+    /**
+     * 初始化数据库
+     */
+    public function init(config: DatabaseConfig) {
+        this.manager = config
+        this.connectionName = config.getDefault()
+    }
+    
+    /**
+     * 设置连接名
+     */
+    public function setConnection(name: string) {
+        this.connectionName = name
+    }
+    
+    /**
+     * 获取连接
+     */
+    public function connection(name: string = "") any {
+        if name == "" {
+            name = this.connectionName
+        }
+        
+        pool := this._getPool(name)
+        return pool.acquire()
+    }
+    
+    /**
+     * 归还连接
+     */
+    public function release(conn: any, name: string = "") {
+        if name == "" {
+            name = this.connectionName
+        }
+        
+        if isset(this.pools, name) {
+            pool := this.pools[name]
+            pool.release(conn)
+        }
+    }
+    
+    /**
+     * 获取连接池
+     */
+    private function _getPool(name: string) any {
+        if isset(this.pools, name) {
+            return this.pools[name]
+        }
+        
+        connConfig := this.manager.getConnection(name)
+        pool := new ConnectionPool(connConfig)
+        this.pools[name] = pool
+        
+        return pool
+    }
+    
+    /**
+     * 注册模型
+     */
+    public function registerModel(className: string, meta: any) {
+        this.registry[className] = meta
+    }
+    
+    /**
+     * 获取模型元数据
+     */
+    public function getMeta(className: string) any {
+        if isset(this.registry, className) {
+            return this.registry[className]
+        }
+        return null
+    }
+    
+    /**
+     * 创建模型实例
+     */
+    public function createInstance(className: string) any {
+        meta := this.getMeta(className)
+        if meta == null {
+            throw new DatabaseException("Model not registered: " + className)
+        }
+        
+        factory := meta["factory"]
+        if factory != null {
+            instance := factory()
+            instance._db = this
+            instance._className = className
+            return instance
+        }
+        
+        throw new DatabaseException("No factory for model: " + className)
+    }
+    
+    /**
+     * 创建模型查询构建器
+     */
+    public function model(className: string) any {
+        return new ModelBuilder(className, this)
+    }
+    
+    /**
+     * 创建表查询构建器
+     */
+    public function table(tableName: string) any {
+        conn := this.connection()
+        return conn.table(tableName)
+    }
+    
+    /**
+     * 关闭所有连接
+     */
+    public function disconnect() {
+        for name, pool := range this.pools {
+            pool.close()
+        }
+        this.pools = map[string]any{}
+    }
+}
+
+

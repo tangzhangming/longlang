@@ -1,0 +1,168 @@
+namespace App
+
+use System.Console
+use App.Database.ORM.DB
+use App.Database.Config.DatabaseConfig
+use App.Database.Config.ConnectionConfig
+use App.Database.Config.PoolConfig
+use App.Database.Exception.DatabaseException
+use App.Models.User
+
+/**
+ * 新版 Model ORM 测试
+ * 测试 User::find(), User::where() 等静态方法语法
+ */
+public class TestModelNew {
+    
+    public static function main() {
+        Console::writeLine("=== 新版 Model ORM 测试 ===")
+        Console::writeLine("")
+        
+        try {
+            // 1. 初始化数据库
+            Console::writeLine("1. 初始化数据库连接...")
+            
+            poolConfig := new PoolConfig()
+            poolConfig.setMinSize(1).setMaxSize(5)
+            
+            connConfig := new ConnectionConfig()
+            connConfig.setHost("127.0.0.1")
+                      .setPort(3306)
+                      .setUsername("root")
+                      .setPassword("root")
+                      .setDatabase("longlang")
+                      .setCharset("utf8mb4")
+                      .setPoolConfig(poolConfig)
+            
+            dbConfig := new DatabaseConfig()
+            dbConfig.setDefault("mysql").addConnection("mysql", connConfig)
+            
+            // 创建 DB 实例并设置为全局
+            db := new DB()
+            db.init(dbConfig)
+            __set_global("__db", db)
+            
+            // 注册模型
+            db.registerModel("User", User::getMeta())
+            Console::writeLine("   数据库连接成功!")
+            
+            // 2. 创建测试表
+            Console::writeLine("")
+            Console::writeLine("2. 创建测试表...")
+            conn := db.connection()
+            conn.statement("DROP TABLE IF EXISTS users", {})
+            conn.statement("CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100), email VARCHAR(150), age INT, status VARCHAR(20) DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4", {})
+            db.release(conn)
+            Console::writeLine("   表创建成功!")
+            
+            // 3. 测试 User::create()
+            Console::writeLine("")
+            Console::writeLine("3. 测试 User::create()...")
+            
+            user1 := User::create(map[string]any{
+                "name": "Alice",
+                "email": "alice@example.com",
+                "age": 25
+            })
+            Console::writeLine("   创建 Alice, ID: " + toString(user1.id))
+            
+            user2 := User::create(map[string]any{
+                "name": "Bob",
+                "email": "bob@example.com",
+                "age": 30
+            })
+            Console::writeLine("   创建 Bob, ID: " + toString(user2.id))
+            
+            user3 := User::create(map[string]any{
+                "name": "Charlie",
+                "email": "charlie@example.com",
+                "age": 17
+            })
+            Console::writeLine("   创建 Charlie, ID: " + toString(user3.id))
+            
+            // 4. 测试 User::find()
+            Console::writeLine("")
+            Console::writeLine("4. 测试 User::find()...")
+            
+            foundUser := User::find(1)
+            Console::writeLine("   找到用户: " + foundUser.name + ", email: " + foundUser.email)
+            
+            // 5. 测试 User::where()
+            Console::writeLine("")
+            Console::writeLine("5. 测试 User::where()...")
+            
+            adults := User::where("age", ">=", 18).get()
+            Console::writeLine("   成年用户 (" + toString(len(adults)) + " 人):")
+            for i := 0; i < len(adults); i++ {
+                u := adults[i]
+                Console::writeLine("     - " + u.name + " (age: " + toString(u.age) + ")")
+            }
+            
+            // 6. 测试 User::all()
+            Console::writeLine("")
+            Console::writeLine("6. 测试 User::all()...")
+            
+            allUsers := User::all()
+            Console::writeLine("   所有用户 (" + toString(len(allUsers)) + " 人)")
+            
+            // 7. 测试链式查询
+            Console::writeLine("")
+            Console::writeLine("7. 测试链式查询...")
+            
+            users := User::where("status", "active")
+                         .orderBy("age", "desc")
+                         .limit(2)
+                         .get()
+            Console::writeLine("   活跃用户 (前2名):")
+            for i := 0; i < len(users); i++ {
+                u := users[i]
+                Console::writeLine("     - " + u.name + " (age: " + toString(u.age) + ")")
+            }
+            
+            // 8. 测试属性更新
+            Console::writeLine("")
+            Console::writeLine("8. 测试属性更新...")
+            
+            updateUser := User::find(1)
+            Console::writeLine("   更新前: " + updateUser.name)
+            updateUser.name = "Alice Updated"
+            updateUser.save()
+            
+            verifyUser := User::find(1)
+            Console::writeLine("   更新后: " + verifyUser.name)
+            
+            // 9. 测试自定义方法
+            Console::writeLine("")
+            Console::writeLine("9. 测试自定义方法...")
+            Console::writeLine("   Alice.isAdult(): " + toString(foundUser.isAdult()))
+            Console::writeLine("   Charlie.isAdult(): " + toString(user3.isAdult()))
+            
+            // 10. 测试 ::class 语法
+            Console::writeLine("")
+            Console::writeLine("10. 测试 ::class 语法...")
+            Console::writeLine("   User::class = " + User::class)
+            
+            // 11. 清理
+            Console::writeLine("")
+            Console::writeLine("11. 清理...")
+            
+            conn = db.connection()
+            conn.statement("DROP TABLE users", {})
+            db.release(conn)
+            Console::writeLine("    测试表已删除")
+            
+            db.disconnect()
+            Console::writeLine("    连接已关闭")
+            
+            Console::writeLine("")
+            Console::writeLine("=== 测试完成 ===")
+            
+        } catch (DatabaseException e) {
+            Console::writeLine("数据库错误: " + e.getMessage())
+        } catch (Exception e) {
+            Console::writeLine("错误: " + e.getMessage())
+        }
+    }
+}
+
+
