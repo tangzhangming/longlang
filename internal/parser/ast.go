@@ -941,6 +941,20 @@ func (sae *StaticAccessExpression) String() string {
 	return sae.ClassName.String() + "::" + sae.Name.String()
 }
 
+// ClassLiteralExpression 类名字面量表达式
+// 对应语法：ClassName::class
+// 例如：User::class 返回 "User"
+type ClassLiteralExpression struct {
+	Token     lexer.Token // class 关键字对应的 token
+	ClassName *Identifier // 类名
+}
+
+func (cle *ClassLiteralExpression) expressionNode()      {}
+func (cle *ClassLiteralExpression) TokenLiteral() string { return cle.Token.Literal }
+func (cle *ClassLiteralExpression) String() string {
+	return cle.ClassName.String() + "::class"
+}
+
 // MemberAccessExpression 成员访问表达式
 // 对应语法：object.member
 // 例如：user.getName()

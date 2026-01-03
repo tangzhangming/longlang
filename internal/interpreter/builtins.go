@@ -231,6 +231,145 @@ func registerBuiltins(env *Environment) {
 		return &String{Value: string(args[0].Type())}
 	}})
 
+	// 注册全局 __get_field 函数
+	// __get_field(object, fieldName) - 获取对象字段值（反射）
+	env.Set("__get_field", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 2 {
+			return newError("__get_field 函数需要2个参数，得到 %d 个", len(args))
+		}
+
+		instance, ok := args[0].(*Instance)
+		if !ok {
+			return newError("__get_field 第一个参数必须是类实例，得到 %s", args[0].Type())
+		}
+
+		fieldName, ok := args[1].(*String)
+		if !ok {
+			return newError("__get_field 第二个参数必须是字符串，得到 %s", args[1].Type())
+		}
+
+		// 尝试获取字段值
+		if field, exists := instance.Fields[fieldName.Value]; exists {
+			return field
+		}
+
+		return &Null{}
+	}})
+
+	// 注册全局 __set_field 函数
+	// __set_field(object, fieldName, value) - 设置对象字段值（反射）
+	env.Set("__set_field", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 3 {
+			return newError("__set_field 函数需要3个参数，得到 %d 个", len(args))
+		}
+
+		instance, ok := args[0].(*Instance)
+		if !ok {
+			return newError("__set_field 第一个参数必须是类实例，得到 %s", args[0].Type())
+		}
+
+		fieldName, ok := args[1].(*String)
+		if !ok {
+			return newError("__set_field 第二个参数必须是字符串，得到 %s", args[1].Type())
+		}
+
+		// 设置字段值
+		instance.Fields[fieldName.Value] = args[2]
+
+		return &Null{}
+	}})
+
+	// 注册全局 __get_class_name 函数
+	// __get_class_name(object) - 获取对象的类名
+	env.Set("__get_class_name", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("__get_class_name 函数需要1个参数，得到 %d 个", len(args))
+		}
+
+		instance, ok := args[0].(*Instance)
+		if !ok {
+			return newError("__get_class_name 参数必须是类实例，得到 %s", args[0].Type())
+		}
+
+		if instance.Class != nil {
+			return &String{Value: instance.Class.Name}
+		}
+
+		return &String{Value: ""}
+	}})
+
+}
+
+// registerCalledClassBuiltin 注册 __called_class 内置函数
+// 这个函数在运行时被调用，返回当前静态方法调用的类名
+func registerCalledClassBuiltin(env *Environment) {
+	// __called_class() - 获取当前静态方法调用时的类名（Late Static Binding）
+	// 类似 PHP 的 static::class 或 get_called_class()
+	env.Set("__called_class", &Builtin{Fn: func(args ...Object) Object {
+		// 从环境中获取 __called_class_name 变量（由静态方法调用时设置）
+		calledClass, found := env.Get("__called_class_name")
+		if !found {
+			return newError("__called_class 只能在静态方法内部使用")
+		}
+		if str, ok := calledClass.(*String); ok {
+			return str
+		}
+		return &String{Value: ""}
+	}})
+}
+
+// 全局变量存储
+var globalVariables = make(map[string]Object)
+
+// registerGlobalBuiltins 注册全局变量相关的内置函数
+func registerGlobalBuiltins(env *Environment) {
+	// __set_global(name, value) - 设置全局变量
+	env.Set("__set_global", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 2 {
+			return newError("__set_global 需要2个参数，得到 %d 个", len(args))
+		}
+
+		name, ok := args[0].(*String)
+		if !ok {
+			return newError("__set_global 第一个参数必须是字符串，得到 %s", args[0].Type())
+		}
+
+		globalVariables[name.Value] = args[1]
+		return &Null{}
+	}})
+
+	// __get_global(name) - 获取全局变量
+	env.Set("__get_global", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("__get_global 需要1个参数，得到 %d 个", len(args))
+		}
+
+		name, ok := args[0].(*String)
+		if !ok {
+			return newError("__get_global 第一个参数必须是字符串，得到 %s", args[0].Type())
+		}
+
+		if val, exists := globalVariables[name.Value]; exists {
+			return val
+		}
+
+		return &Null{}
+	}})
+
+	// __has_global(name) - 检查全局变量是否存在
+	env.Set("__has_global", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("__has_global 需要1个参数，得到 %d 个", len(args))
+		}
+
+		name, ok := args[0].(*String)
+		if !ok {
+			return newError("__has_global 第一个参数必须是字符串，得到 %s", args[0].Type())
+		}
+
+		_, exists := globalVariables[name.Value]
+		return &Boolean{Value: exists}
+	}})
 }
 
 // BuiltinObject 内置对象（用于命名空间，如 fmt）

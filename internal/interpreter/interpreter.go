@@ -77,6 +77,8 @@ func New() *Interpreter {
 	registerCryptoBuiltins(env)
 	// 注册正则表达式内置函数
 	registerRegexBuiltins(env)
+	// 注册全局变量内置函数
+	registerGlobalBuiltins(env)
 	// 注册日期时间内置函数
 	registerDateTimeBuiltins(env)
 	// 注册控制台内置函数
@@ -280,6 +282,8 @@ func (i *Interpreter) Eval(node parser.Node) Object {
 		return i.evalStaticCallExpression(node)
 	case *parser.StaticAccessExpression:
 		return i.evalStaticAccessExpression(node)
+	case *parser.ClassLiteralExpression:
+		return i.evalClassLiteralExpression(node)
 	case *parser.ArrayLiteral:
 		return i.evalArrayLiteral(node)
 	case *parser.TypedArrayLiteral:
@@ -2567,11 +2571,13 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 		return newError("%s 不是一个类", className)
 	}
 
-	// 获取静态方法
-	method, ok := class.StaticMethods[methodName]
-	if !ok {
+	// 获取静态方法（包括从父类继承的）
+	method, foundClass := i.findStaticMethod(class, methodName)
+	if method == nil {
 		return newError("类 %s 没有静态方法: %s", className, methodName)
 	}
+	// 注意：foundClass 是定义该方法的类，但 className 是实际调用的类名（用于 Late Static Binding）
+	_ = foundClass
 
 	// 求值参数
 	args := i.evalExpressions(node.Arguments)
@@ -2583,6 +2589,10 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 	env := NewEnclosedEnvironment(method.Env)
 	// 在静态方法中提供 self（指向当前类），支持 self::xxx
 	env.Set("self", class)
+	// 设置 __called_class_name，支持 Late Static Binding
+	// 当调用 User::find() 时，className 是 "User"
+	// 当继承的子类调用父类静态方法时，className 仍然是实际调用的类名
+	env.Set("__called_class_name", &String{Value: className})
 
 	// 绑定参数（支持可变参数）
 	argIdx := 0
@@ -2647,6 +2657,22 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 
 	evaluated := i.evalBlockStatementWithEnv(body, env)
 	return unwrapReturnValue(evaluated)
+}
+
+// findStaticMethod 在类及其父类中查找静态方法
+// 返回找到的方法和定义该方法的类
+func (i *Interpreter) findStaticMethod(class *Class, methodName string) (*ClassMethod, *Class) {
+	// 先在当前类中查找
+	if method, ok := class.StaticMethods[methodName]; ok {
+		return method, class
+	}
+	
+	// 如果当前类没有，递归查找父类
+	if class.Parent != nil {
+		return i.findStaticMethod(class.Parent, methodName)
+	}
+	
+	return nil, nil
 }
 
 // evalSuperMethodCall 执行父类方法调用 super::method()
@@ -2813,6 +2839,47 @@ func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpres
 
 	// 检查访问权限（暂时所有常量都可以访问，后续可以添加访问控制）
 	return constant.Value
+}
+
+// evalClassLiteralExpression 执行类名字面量表达式
+// 对应语法：ClassName::class 返回类名字符串
+func (i *Interpreter) evalClassLiteralExpression(node *parser.ClassLiteralExpression) Object {
+	className := node.ClassName.Value
+
+	// 处理 self::class 的情况
+	if className == "self" {
+		selfObj, found := i.env.Get("self")
+		if !found {
+			return newError("self 只能在类方法内部使用")
+		}
+		class, ok := selfObj.(*Class)
+		if !ok {
+			return newError("self 必须指向一个类")
+		}
+		return &String{Value: class.Name}
+	}
+
+	// 处理 static::class 的情况（Late Static Binding）
+	if className == "static" {
+		// 从环境中获取 __called_class
+		calledClass, found := i.env.Get("__called_class")
+		if found {
+			if str, ok := calledClass.(*String); ok {
+				return str
+			}
+		}
+		// 如果没有 __called_class，回退到 self
+		selfObj, found := i.env.Get("self")
+		if found {
+			if class, ok := selfObj.(*Class); ok {
+				return &String{Value: class.Name}
+			}
+		}
+		return newError("static 只能在类方法内部使用")
+	}
+
+	// 普通类名：User::class 返回 "User"
+	return &String{Value: className}
 }
 
 // applyBoundMethod 执行绑定方法

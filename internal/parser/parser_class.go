@@ -557,6 +557,15 @@ func (p *Parser) parseStaticCallExpression(left Expression) Expression {
 
 	p.nextToken()
 
+	// 检查是否是 ::class 语法（获取类名字符串）
+	if p.curTokenIs(lexer.CLASS) {
+		exp := &ClassLiteralExpression{
+			Token:     p.curToken,
+			ClassName: className,
+		}
+		return exp
+	}
+
 	if !p.curTokenIs(lexer.IDENT) {
 		p.errors = append(p.errors, fmt.Sprintf("期望方法名或常量名 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 		return nil
