@@ -246,3 +246,4 @@ func annotationsToArray(annotations []*AnnotationInstance) *Array {
 // 全局环境引用（用于内置函数访问）
 var globalEnv *Environment
 
+

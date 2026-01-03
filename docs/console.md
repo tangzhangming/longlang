@@ -172,3 +172,4 @@ class Main {
 3. 将所有的 `fmt.print` 替换为 `Console.write`
 4. 移除所有 `fmt.printf` 调用，改用字符串拼接或 `Console.writeLine` 的多参数形式
 
+
