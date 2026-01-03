@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/tangzhangming/longlang/internal/compiler"
 	"github.com/tangzhangming/longlang/internal/config"
 	"github.com/tangzhangming/longlang/internal/interpreter"
 	"github.com/tangzhangming/longlang/internal/lexer"
@@ -37,6 +38,16 @@ func main() {
 			os.Exit(1)
 		}
 		cmdRun(os.Args[2])
+	case "build":
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "用法: %s build <文件路径> [-o <输出目录>]\n", os.Args[0])
+			os.Exit(1)
+		}
+		outputDir := ""
+		if len(os.Args) >= 5 && os.Args[3] == "-o" {
+			outputDir = os.Args[4]
+		}
+		cmdBuild(os.Args[2], outputDir)
 	case "new":
 		if len(os.Args) < 3 {
 			fmt.Fprintf(os.Stderr, "用法: %s new <项目名称>\n", os.Args[0])
@@ -62,6 +73,7 @@ func printUsage() {
 	fmt.Println("命令:")
 	fmt.Println("  version     显示版本信息")
 	fmt.Println("  run <file>  运行指定的 .long 文件")
+	fmt.Println("  build <file> [-o <dir>]  编译 .long 文件为 Go 程序")
 	fmt.Println("  new <name>  创建一个新项目")
 	fmt.Println("  help        显示帮助信息")
 	fmt.Println()
@@ -146,6 +158,37 @@ func cmdRun(filename string) {
 		fmt.Fprintf(os.Stderr, "%s\n", result.Inspect())
 		os.Exit(1)
 	}
+}
+
+// cmdBuild 编译指定的文件
+func cmdBuild(filename string, outputDir string) {
+	// 检查文件扩展名
+	if !strings.HasSuffix(filename, ".long") {
+		fmt.Fprintf(os.Stderr, "警告: 文件 %s 不是 .long 文件\n", filename)
+	}
+
+	// 创建编译器
+	comp := compiler.NewCompiler()
+
+	// 设置输出目录
+	if outputDir == "" {
+		absFilename, _ := filepath.Abs(filename)
+		projectRoot := findProjectRoot(filepath.Dir(absFilename))
+		outputDir = filepath.Join(projectRoot, "build")
+	}
+
+	comp.SetOutputDir(outputDir)
+
+	// 编译项目
+	if err := comp.CompileProject(filename); err != nil {
+		fmt.Fprintf(os.Stderr, "编译错误: %s\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("编译成功！输出目录: %s\n", outputDir)
+	fmt.Printf("运行以下命令编译为可执行文件:\n")
+	fmt.Printf("  cd %s\n", outputDir)
+	fmt.Printf("  go build -o app\n")
 }
 
 // cmdNew 创建新项目

@@ -9,8 +9,7 @@ public class Application {
     public static function main() {
         Console::writeLine("Hello from Application!")
         
-        var user = new User("张三", 25)
-        user.greet()
+
         
         var product = new Product(1, "测试产品", 99.99)
         Console::writeLine("Product: " + product.getName())
