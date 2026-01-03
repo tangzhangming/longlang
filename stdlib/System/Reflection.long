@@ -5,10 +5,11 @@ namespace System
  * 提供运行时获取类、方法、字段元数据的能力
  */
 public class Reflection {
+    
+    // ========== 类注解 ==========
+    
     /**
      * 获取类的注解列表
-     * @param className 类名
-     * @return 注解数组，每个元素是一个 map，包含 name 和 arguments
      */
     public static function getClassAnnotations(className: string) any {
         return __get_class_annotations(className)
@@ -16,9 +17,6 @@ public class Reflection {
     
     /**
      * 检查类是否有指定注解
-     * @param className 类名
-     * @param annName 注解名
-     * @return 如果有返回 true
      */
     public static function hasClassAnnotation(className: string, annName: string) bool {
         annotations := __get_class_annotations(className)
@@ -27,30 +25,78 @@ public class Reflection {
     
     /**
      * 获取类上的指定注解
-     * @param className 类名
-     * @param annName 注解名
-     * @return 注解 map 或 null
      */
     public static function getClassAnnotation(className: string, annName: string) any {
         annotations := __get_class_annotations(className)
-        return __get_annotation(annotations, annName)
-    }
-    
-    /**
-     * 获取注解的参数值
-     * @param ann 注解对象
-     * @param paramName 参数名
-     * @return 参数值或 null
-     */
-    public static function getAnnotationParam(ann: any, paramName: string) any {
+        ann := __get_annotation(annotations, annName)
         if ann == null {
             return null
         }
-        args := ann["arguments"]
-        if args == null {
+        return ann["arguments"]
+    }
+    
+    // ========== 字段操作 ==========
+    
+    /**
+     * 获取类的字段列表
+     */
+    public static function getClassFields(className: string) any {
+        return __get_class_fields(className)
+    }
+    
+    /**
+     * 获取字段的注解列表
+     */
+    public static function getFieldAnnotations(className: string, fieldName: string) any {
+        return __get_field_annotations(className, fieldName)
+    }
+    
+    /**
+     * 检查字段是否有指定注解
+     */
+    public static function hasFieldAnnotation(className: string, fieldName: string, annName: string) bool {
+        return __has_field_annotation(className, fieldName, annName)
+    }
+    
+    /**
+     * 获取字段的指定注解
+     */
+    public static function getFieldAnnotation(className: string, fieldName: string, annName: string) any {
+        ann := __get_field_annotation(className, fieldName, annName)
+        if ann == null {
             return null
         }
-        return args[paramName]
+        return ann["arguments"]
+    }
+    
+    // ========== 实例操作 ==========
+    
+    /**
+     * 创建类的新实例
+     */
+    public static function newInstance(className: string) any {
+        return __new_instance(className)
+    }
+    
+    /**
+     * 获取对象的类名
+     */
+    public static function getClassName(obj: any) string {
+        return __get_class_name(obj)
+    }
+    
+    /**
+     * 获取实例字段的值
+     */
+    public static function getFieldValue(obj: any, fieldName: string) any {
+        return __get_field_value(obj, fieldName)
+    }
+    
+    /**
+     * 设置实例字段的值
+     */
+    public static function setFieldValue(obj: any, fieldName: string, value: any) {
+        __set_field_value(obj, fieldName, value)
     }
 }
 

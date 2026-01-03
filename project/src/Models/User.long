@@ -2,19 +2,37 @@ namespace App.Models
 
 use App.Database.ORM.Model
 
-/**
- * User - 用户模型
- * 
- * 对应数据库表: users
- */
+@Table(name: "users")
 public class User extends Model {
-    // ===== 字段定义 =====
     
+    @Id
     public id int
+    
+    @Column
+    @Fillable
     public name string
+    
+    @Column(name: "email_address")
+    @Fillable
     public email string
+    
+    @Column
+    @Fillable
     public age int
+    
+    @Column
+    @Fillable
     public status string
+    
+    @Column
+    @Hidden
+    public password string
+    
+    @Column
+    public views int
+    
+    @Column(name: "created_at")
+    @CreatedAt
     public createdAt string
     
     public function __construct() {
@@ -22,8 +40,7 @@ public class User extends Model {
         this.status = "active"
     }
     
-    // ===== 自定义方法 =====
-    
+    // 自定义方法
     public function isAdult() bool {
         age := parseInt(toString(this.age))
         return age >= 18
@@ -31,29 +48,6 @@ public class User extends Model {
     
     public function getDisplayName() string {
         return this.name + " <" + this.email + ">"
-    }
-    
-    // ===== 模型元数据 =====
-    
-    public static function getMeta() any {
-        return map[string]any{
-            "table": "users",
-            "primaryKey": "id",
-            "autoIncrement": true,
-            "columns": map[string]any{
-                "id": map[string]any{"column": "id", "type": "int"},
-                "name": map[string]any{"column": "name", "type": "string"},
-                "email": map[string]any{"column": "email", "type": "string"},
-                "age": map[string]any{"column": "age", "type": "int"},
-                "status": map[string]any{"column": "status", "type": "string"},
-                "createdAt": map[string]any{"column": "created_at", "type": "string"}
-            },
-            "fillable": {"name", "email", "age", "status"},
-            "hidden": {},
-            "factory": function() any {
-                return new User()
-            }
-        }
     }
 }
 

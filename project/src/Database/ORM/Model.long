@@ -1,83 +1,97 @@
 namespace App.Database.ORM
 
+use System.Reflection
 use App.Database.Exception.DatabaseException
+use App.Database.ORM.ModelBuilder
 
 /**
  * Model - ORM 模型基类
  * 
- * 子类继承后可使用：
- *   User::find(1)
- *   User::where("age", ">", 18).get()
- *   User::create({...})
+ * 使用方式:
+ *   Model::setConnection(conn)
+ *   User::query().find(1)
+ *   User::query().where("age", ">", 18).get()
  */
-public abstract class Model {
-    // === 内部状态 ===
+public class Model {
+    // 实例状态
     public _exists bool
     public _original any
-    public _className string
-    public _db any
     
     public function __construct() {
         this._exists = false
         this._original = map[string]any{}
-        this._className = ""
-        this._db = null
     }
     
-    // ========== 静态查询方法（使用 Late Static Binding）==========
+    // ========== 静态方法 ==========
+    
+    /**
+     * 设置数据库连接
+     */
+    public static function setConnection(conn: any) {
+        __set_global("__model_connection", conn)
+    }
+    
+    /**
+     * 获取数据库连接
+     */
+    public static function getConnection() any {
+        conn := __get_global("__model_connection")
+        if conn == null {
+            throw new DatabaseException("Model connection not set. Call Model::setConnection() first.")
+        }
+        return conn
+    }
     
     /**
      * 创建查询构建器
      */
     public static function query() any {
         className := __called_class_name
-        db := __get_global("__db")
-        return db.model(className)
-    }
-    
-    /**
-     * 按主键查找
-     */
-    public static function find(id: any) any {
-        className := __called_class_name
-        db := __get_global("__db")
-        return db.model(className).find(id)
-    }
-    
-    /**
-     * 按主键查找，不存在则抛异常
-     */
-    public static function findOrFail(id: any) any {
-        className := __called_class_name
-        db := __get_global("__db")
-        return db.model(className).findOrFail(id)
-    }
-    
-    /**
-     * 获取所有记录
-     */
-    public static function all() any {
-        className := __called_class_name
-        db := __get_global("__db")
-        return db.model(className).get()
-    }
-    
-    /**
-     * 条件查询
-     */
-    public static function where(column: string, operatorOrValue: any, value: any = null) any {
-        className := __called_class_name
-        db := __get_global("__db")
-        return db.model(className).where(column, operatorOrValue, value)
+        return new ModelBuilder(className)
     }
     
     /**
      * 创建新记录
+     * @param attributes 属性数据
+     * @return 创建的模型实例
      */
     public static function create(attributes: any) any {
         className := __called_class_name
-        db := __get_global("__db")
-        return db.model(className).create(attributes)
+        meta := Model::_getMeta(className)
+        
+        // 创建实例
+        instance := __create_instance(className)
+        
+        // 填充属性
+        fillable := meta["fillable"]
+        columns := meta["columns"]
+        
+        for fieldName, colInfo := range columns {
+            if isset(attributes, fieldName) {
+                if Model::_isFillable(fieldName, fillable) {
+                    Reflection::setFieldValue(instance, fieldName, attributes[fieldName])
+                }
+            }
+        }
+        
+        // 保存
+        instance.save()
+        return instance
+    }
+    
+    /**
+     * 检查字段是否可填充
+     */
+    private static function _isFillable(fieldName: string, fillable: any) bool {
+        if fillable == null || len(fillable) == 0 {
+            return true
+        }
+        for i := 0; i < len(fillable); i++ {
+            if fillable[i] == fieldName {
+                return true
+            }
+        }
+        return false
     }
     
     // ========== 实例方法 ==========
@@ -86,41 +100,32 @@ public abstract class Model {
      * 保存模型
      */
     public function save() bool {
+        className := Reflection::getClassName(this)
+        meta := Model::_getMeta(className)
+        
         if this._exists {
-            return this._performUpdate()
+            return this._performUpdate(meta)
         } else {
-            return this._performInsert()
+            return this._performInsert(meta)
         }
-    }
-    
-    /**
-     * 更新指定字段
-     */
-    public function update(attributes: any) bool {
-        this.fill(attributes)
-        return this.save()
     }
     
     /**
      * 删除模型
      */
     public function delete() bool {
-        if this._exists == false {
+        if !this._exists {
             return false
         }
         
-        meta := this._db.getMeta(this._className)
-        if meta == null {
-            throw new DatabaseException("Model not registered: " + this._className)
-        }
-        
+        className := Reflection::getClassName(this)
+        meta := Model::_getMeta(className)
         tableName := meta["table"]
         primaryKey := meta["primaryKey"]
-        pkValue := this._getFieldValue(primaryKey)
+        pkValue := Reflection::getFieldValue(this, primaryKey)
         
-        conn := this._db.connection()
+        conn := Model::getConnection()
         affected := conn.table(tableName).where(primaryKey, pkValue).delete()
-        this._db.release(conn)
         
         if affected > 0 {
             this._exists = false
@@ -130,49 +135,23 @@ public abstract class Model {
     }
     
     /**
-     * 批量填充属性
+     * 检查是否有修改
      */
-    public function fill(attributes: any) {
-        meta := this._db.getMeta(this._className)
-        fillable := meta["fillable"]
-        
-        for key, value := range attributes {
-            if this._isFillable(key, fillable) {
-                this._setFieldValue(key, value)
-            }
-        }
-    }
-    
-    /**
-     * 强制填充所有属性
-     */
-    public function forceFill(attributes: any) {
-        for key, value := range attributes {
-            this._setFieldValue(key, value)
-        }
-    }
-    
-    /**
-     * 检查是否有未保存的修改
-     */
-    public function isDirty(key: string = "") bool {
-        dirty := this.getDirty()
-        if key == "" {
-            return len(dirty) > 0
-        }
-        return isset(dirty, key)
+    public function isDirty() bool {
+        return len(this.getDirty()) > 0
     }
     
     /**
      * 获取修改的字段
      */
     public function getDirty() any {
-        dirty := map[string]any{}
-        meta := this._db.getMeta(this._className)
+        className := Reflection::getClassName(this)
+        meta := Model::_getMeta(className)
         columns := meta["columns"]
+        dirty := map[string]any{}
         
         for fieldName, colInfo := range columns {
-            currentValue := this._getFieldValue(fieldName)
+            currentValue := Reflection::getFieldValue(this, fieldName)
             originalValue := null
             if isset(this._original, fieldName) {
                 originalValue = this._original[fieldName]
@@ -187,32 +166,27 @@ public abstract class Model {
     }
     
     /**
-     * 获取原始值
-     */
-    public function getOriginal(key: string = "") any {
-        if key == "" {
-            return this._original
-        }
-        if isset(this._original, key) {
-            return this._original[key]
-        }
-        return null
-    }
-    
-    /**
      * 转换为 map
      */
     public function toArray() any {
-        result := map[string]any{}
-        meta := this._db.getMeta(this._className)
+        className := Reflection::getClassName(this)
+        meta := Model::_getMeta(className)
         columns := meta["columns"]
         hidden := meta["hidden"]
+        result := map[string]any{}
         
         for fieldName, colInfo := range columns {
-            if this._isHidden(fieldName, hidden) {
+            isHidden := false
+            for i := 0; i < len(hidden); i++ {
+                if hidden[i] == fieldName {
+                    isHidden = true
+                    break
+                }
+            }
+            if isHidden {
                 continue
             }
-            result[fieldName] = this._getFieldValue(fieldName)
+            result[fieldName] = Reflection::getFieldValue(this, fieldName)
         }
         
         return result
@@ -223,160 +197,18 @@ public abstract class Model {
      */
     public function toJson() string {
         data := this.toArray()
-        return this._mapToJson(data)
-    }
-    
-    /**
-     * 是否存在于数据库
-     */
-    public function exists() bool {
-        return this._exists
-    }
-    
-    // ========== 内部方法 ==========
-    
-    public function _performInsert() bool {
-        meta := this._db.getMeta(this._className)
-        tableName := meta["table"]
-        primaryKey := meta["primaryKey"]
-        columns := meta["columns"]
-        autoIncrement := meta["autoIncrement"]
-        
-        data := map[string]any{}
-        for fieldName, colInfo := range columns {
-            if fieldName == primaryKey && autoIncrement == true {
-                continue
-            }
-            value := this._getFieldValue(fieldName)
-            if value != null && toString(value) != "" && toString(value) != "0" {
-                columnName := colInfo["column"]
-                data[columnName] = value
-            }
-        }
-        
-        conn := this._db.connection()
-        id := conn.table(tableName).insertGetId(data)
-        this._db.release(conn)
-        
-        if id > 0 {
-            this._setFieldValue(primaryKey, id)
-            this._exists = true
-            this._syncOriginal()
-            return true
-        }
-        
-        return false
-    }
-    
-    public function _performUpdate() bool {
-        dirty := this.getDirty()
-        if len(dirty) == 0 {
-            return true
-        }
-        
-        meta := this._db.getMeta(this._className)
-        tableName := meta["table"]
-        primaryKey := meta["primaryKey"]
-        columns := meta["columns"]
-        pkValue := this._getFieldValue(primaryKey)
-        
-        data := map[string]any{}
-        for fieldName, value := range dirty {
-            if isset(columns, fieldName) {
-                colInfo := columns[fieldName]
-                columnName := colInfo["column"]
-                data[columnName] = value
-            }
-        }
-        
-        conn := this._db.connection()
-        affected := conn.table(tableName).where(primaryKey, pkValue).update(data)
-        this._db.release(conn)
-        
-        if affected >= 0 {
-            this._syncOriginal()
-            return true
-        }
-        
-        return false
-    }
-    
-    public function _syncOriginal() {
-        meta := this._db.getMeta(this._className)
-        columns := meta["columns"]
-        
-        this._original = map[string]any{}
-        for fieldName, colInfo := range columns {
-            this._original[fieldName] = this._getFieldValue(fieldName)
-        }
-    }
-    
-    public function _hydrate(data: any, className: string, db: any) {
-        this._className = className
-        this._db = db
-        meta := db.getMeta(className)
-        columns := meta["columns"]
-        
-        for fieldName, colInfo := range columns {
-            columnName := colInfo["column"]
-            if isset(data, columnName) {
-                this._setFieldValue(fieldName, data[columnName])
-            }
-        }
-        
-        this._exists = true
-        this._syncOriginal()
-    }
-    
-    public function _getFieldValue(fieldName: string) any {
-        return __get_field(this, fieldName)
-    }
-    
-    public function _setFieldValue(fieldName: string, value: any) {
-        __set_field(this, fieldName, value)
-    }
-    
-    public function _isFillable(fieldName: string, fillable: any) bool {
-        if fillable == null || len(fillable) == 0 {
-            return true
-        }
-        for i := 0; i < len(fillable); i++ {
-            if fillable[i] == fieldName {
-                return true
-            }
-        }
-        return false
-    }
-    
-    public function _isHidden(fieldName: string, hidden: any) bool {
-        if hidden == null {
-            return false
-        }
-        for i := 0; i < len(hidden); i++ {
-            if hidden[i] == fieldName {
-                return true
-            }
-        }
-        return false
-    }
-    
-    public function _mapToJson(data: any) string {
         parts := {}
         
         for key, value := range data {
             part := "\"" + key + "\": "
-            
             valueType := typeof(value)
             if valueType == "STRING" {
                 part = part + "\"" + toString(value) + "\""
             } else if value == null {
                 part = part + "null"
-            } else if valueType == "INTEGER" || valueType == "FLOAT" {
-                part = part + toString(value)
             } else {
-                part = part + "\"" + toString(value) + "\""
+                part = part + toString(value)
             }
-            
             parts.push(part)
         }
         
@@ -387,10 +219,173 @@ public abstract class Model {
             }
             result = result + parts[i]
         }
-        result = result + "}"
+        return result + "}"
+    }
+    
+    // ========== 内部方法 ==========
+    
+    public function _performInsert(meta: any) bool {
+        tableName := meta["table"]
+        primaryKey := meta["primaryKey"]
+        columns := meta["columns"]
         
-        return result
+        data := map[string]any{}
+        for fieldName, colInfo := range columns {
+            if fieldName == primaryKey {
+                continue
+            }
+            value := Reflection::getFieldValue(this, fieldName)
+            if value != null {
+                columnName := colInfo["column"]
+                data[columnName] = value
+            }
+        }
+        
+        conn := Model::getConnection()
+        id := conn.table(tableName).insertGetId(data)
+        
+        if id > 0 {
+            Reflection::setFieldValue(this, primaryKey, id)
+            this._exists = true
+            this._syncOriginal(meta)
+            return true
+        }
+        return false
+    }
+    
+    public function _performUpdate(meta: any) bool {
+        dirty := this.getDirty()
+        if len(dirty) == 0 {
+            return true
+        }
+        
+        tableName := meta["table"]
+        primaryKey := meta["primaryKey"]
+        columns := meta["columns"]
+        pkValue := Reflection::getFieldValue(this, primaryKey)
+        
+        data := map[string]any{}
+        for fieldName, value := range dirty {
+            if isset(columns, fieldName) {
+                colInfo := columns[fieldName]
+                columnName := colInfo["column"]
+                data[columnName] = value
+            }
+        }
+        
+        conn := Model::getConnection()
+        affected := conn.table(tableName).where(primaryKey, pkValue).update(data)
+        
+        if affected >= 0 {
+            this._syncOriginal(meta)
+            return true
+        }
+        return false
+    }
+    
+    public function _syncOriginal(meta: any) {
+        columns := meta["columns"]
+        this._original = map[string]any{}
+        for fieldName, colInfo := range columns {
+            this._original[fieldName] = Reflection::getFieldValue(this, fieldName)
+        }
+    }
+    
+    public function _hydrate(data: any, meta: any) {
+        columns := meta["columns"]
+        for fieldName, colInfo := range columns {
+            columnName := colInfo["column"]
+            if isset(data, columnName) {
+                Reflection::setFieldValue(this, fieldName, data[columnName])
+            }
+        }
+        this._exists = true
+        this._syncOriginal(meta)
+    }
+    
+    /**
+     * 通过反射读取注解获取模型元数据
+     */
+    public static function _getMeta(className: string) any {
+        // 获取表名
+        tableName := className.lower() + "s"
+        tableAnnotation := Reflection::getClassAnnotation(className, "Table")
+        if tableAnnotation != null {
+            if isset(tableAnnotation, "name") {
+                val := tableAnnotation["name"]
+                if val != null {
+                    tableName = val
+                }
+            }
+        }
+        
+        // 获取字段信息
+        fields := Reflection::getClassFields(className)
+        columns := map[string]any{}
+        primaryKey := "id"
+        hidden := {}
+        fillable := {}
+        createdAt := ""
+        updatedAt := ""
+        
+        for fieldName, fieldInfo := range fields {
+            // 跳过内部字段
+            if fieldName.startsWith("_") {
+                continue
+            }
+            
+            // 检查 @Id
+            if Reflection::hasFieldAnnotation(className, fieldName, "Id") {
+                primaryKey = fieldName
+            }
+            
+            // 获取列名
+            columnName := fieldName
+            colAnnotation := Reflection::getFieldAnnotation(className, fieldName, "Column")
+            if colAnnotation != null {
+                if isset(colAnnotation, "name") {
+                    colVal := colAnnotation["name"]
+                    if colVal != null && colVal != "" {
+                        columnName = colVal
+                    }
+                }
+            }
+            
+            columns[fieldName] = map[string]any{
+                "column": columnName,
+                "type": fieldInfo["type"]
+            }
+            
+            // 检查 @Hidden
+            if Reflection::hasFieldAnnotation(className, fieldName, "Hidden") {
+                hidden.push(fieldName)
+            }
+            
+            // 检查 @Fillable
+            if Reflection::hasFieldAnnotation(className, fieldName, "Fillable") {
+                fillable.push(fieldName)
+            }
+            
+            // 检查 @CreatedAt
+            if Reflection::hasFieldAnnotation(className, fieldName, "CreatedAt") {
+                createdAt = fieldName
+            }
+            
+            // 检查 @UpdatedAt
+            if Reflection::hasFieldAnnotation(className, fieldName, "UpdatedAt") {
+                updatedAt = fieldName
+            }
+        }
+        
+        return map[string]any{
+            "table": tableName,
+            "primaryKey": primaryKey,
+            "columns": columns,
+            "hidden": hidden,
+            "fillable": fillable,
+            "createdAt": createdAt,
+            "updatedAt": updatedAt
+        }
     }
 }
-
 

@@ -15,10 +15,19 @@ public class MysqlConnection extends Connection {
     public function __construct(config: any) {
         super::__construct(config)
         this._client = null
-        this._connect()
+        this._doConnect()
     }
     
-    private function _connect() {
+    /**
+     * 连接到数据库（如果尚未连接）
+     */
+    public function connect() {
+        if this._client == null {
+            this._doConnect()
+        }
+    }
+    
+    private function _doConnect() {
         mysqlConfig := new Config()
         mysqlConfig.setHost(this._config.getHost())
                    .setPort(this._config.getPort())

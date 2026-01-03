@@ -89,7 +89,9 @@ func New() *Interpreter {
 	globalEnv = env
 	// 注册异常类
 	registerExceptionClasses(env)
-	return &Interpreter{
+	
+	// 创建解释器实例
+	interp := &Interpreter{
 		env:               env,
 		stdlibPath:        "stdlib", // 默认标准库路径
 		loadedModules:     make(map[string]*Module),
@@ -100,6 +102,11 @@ func New() *Interpreter {
 		loadingNamespaces: make(map[string]bool),
 		callStack:         make([]StackFrame, 0),
 	}
+	
+	// 设置全局解释器引用（用于 __create_instance）
+	SetGlobalInterpreter(interp)
+	
+	return interp
 }
 
 // SetStdlibPath 设置标准库目录路径
@@ -2167,6 +2174,82 @@ func (i *Interpreter) initInstanceFields(instance *Instance, class *Class) {
 			instance.Fields[name] = &Null{}
 		}
 	}
+}
+
+// CreateInstance 创建类实例并调用构造函数（供内置函数使用）
+func (i *Interpreter) CreateInstance(className string, constructorArgs []Object) Object {
+	// 从全局环境获取类
+	classObj, ok := i.env.Get(className)
+	if !ok {
+		// 尝试从命名空间获取
+		for _, ns := range i.namespaceMgr.namespaces {
+			if class, found := ns.GetClass(className); found {
+				classObj = class
+				ok = true
+				break
+			}
+		}
+	}
+
+	if !ok {
+		return newError("未定义的类: %s", className)
+	}
+
+	class, ok := classObj.(*Class)
+	if !ok {
+		return newError("%s 不是一个类", className)
+	}
+
+	// 创建实例
+	instance := &Instance{
+		Class:  class,
+		Fields: make(map[string]Object),
+	}
+
+	// 初始化成员变量
+	i.initInstanceFields(instance, class)
+
+	// 调用构造函数（如果存在）
+	if constructor, ok := class.GetMethod("__construct"); ok {
+		// 创建新的环境，绑定 this
+		constructorEnv := NewEnclosedEnvironment(class.Env)
+		constructorEnv.Set("this", instance)
+		constructorEnv.Set("self", class)
+		if class.Parent != nil {
+			constructorEnv.Set("super", class.Parent)
+		}
+
+		// 绑定参数
+		params := constructor.Parameters
+		for idx, param := range params {
+			if p, ok := param.(*parser.FunctionParameter); ok {
+				if idx < len(constructorArgs) {
+					constructorEnv.Set(p.Name.Value, constructorArgs[idx])
+				} else if p.DefaultValue != nil {
+					val := i.Eval(p.DefaultValue)
+					constructorEnv.Set(p.Name.Value, val)
+				} else {
+					constructorEnv.Set(p.Name.Value, &Null{})
+				}
+			}
+		}
+
+		// 执行构造函数体
+		oldEnv := i.env
+		i.env = constructorEnv
+		var result Object
+		if body, ok := constructor.Body.(*parser.BlockStatement); ok {
+			result = i.evalBlockStatement(body)
+		}
+		i.env = oldEnv
+
+		// 检查构造函数中是否有异常
+		if isThrownException(result) || isError(result) {
+			return result
+		}
+	}
+
+	return instance
 }
 
 // evalMemberAccessExpression 执行成员访问表达式

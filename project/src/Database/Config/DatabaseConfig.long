@@ -1,18 +1,130 @@
 namespace App.Database.Config
 
 use App.Database.Exception.DatabaseException
+use App.Database.Config.PoolConfig
 
 /**
- * DatabaseConfig - 数据库总配置
+ * DatabaseConfig - 数据库配置
+ * 
+ * 支持两种使用方式:
+ * 1. 直接配置单连接（简单模式）
+ * 2. 管理多个连接配置
  */
 public class DatabaseConfig {
     private _default string
     private _connections any
+    
+    // 单连接模式的配置
+    private _driver string
+    private _host string
+    private _port int
+    private _username string
+    private _password string
+    private _database string
+    private _charset string
+    private _prefix string
+    private _poolConfig any
 
     public function __construct() {
         this._default = "default"
         this._connections = map[string]ConnectionConfig{}
+        
+        // 单连接模式默认值
+        this._driver = "mysql"
+        this._host = "127.0.0.1"
+        this._port = 3306
+        this._username = "root"
+        this._password = ""
+        this._database = ""
+        this._charset = "utf8mb4"
+        this._prefix = ""
+        this._poolConfig = new PoolConfig()
     }
+    
+    // ========== 单连接模式（简单用法）==========
+    
+    public function setDriver(driver: string) DatabaseConfig {
+        this._driver = driver
+        return this
+    }
+    
+    public function setHost(host: string) DatabaseConfig {
+        this._host = host
+        return this
+    }
+    
+    public function setPort(port: int) DatabaseConfig {
+        this._port = port
+        return this
+    }
+    
+    public function setUsername(username: string) DatabaseConfig {
+        this._username = username
+        return this
+    }
+    
+    public function setPassword(password: string) DatabaseConfig {
+        this._password = password
+        return this
+    }
+    
+    public function setDatabase(database: string) DatabaseConfig {
+        this._database = database
+        return this
+    }
+    
+    public function setCharset(charset: string) DatabaseConfig {
+        this._charset = charset
+        return this
+    }
+    
+    public function setPrefix(prefix: string) DatabaseConfig {
+        this._prefix = prefix
+        return this
+    }
+    
+    public function setPoolConfig(config: any) DatabaseConfig {
+        this._poolConfig = config
+        return this
+    }
+    
+    public function getDriver() string {
+        return this._driver
+    }
+    
+    public function getHost() string {
+        return this._host
+    }
+    
+    public function getPort() int {
+        return this._port
+    }
+    
+    public function getUsername() string {
+        return this._username
+    }
+    
+    public function getPassword() string {
+        return this._password
+    }
+    
+    public function getDatabase() string {
+        return this._database
+    }
+    
+    public function getCharset() string {
+        return this._charset
+    }
+    
+    public function getPrefix() string {
+        return this._prefix
+    }
+    
+    public function getPoolConfig() any {
+        return this._poolConfig
+    }
+
+    // ========== 多连接模式 ==========
 
     public function setDefault(name: string) DatabaseConfig {
         this._default = name
@@ -38,6 +150,22 @@ public class DatabaseConfig {
     public function hasConnection(name: string) bool {
         return isset(this._connections, name)
     }
+    
+    /**
+     * 将当前配置转换为 ConnectionConfig
+     */
+    public function toConnectionConfig() ConnectionConfig {
+        config := new ConnectionConfig()
+        config.setDriver(this._driver)
+              .setHost(this._host)
+              .setPort(this._port)
+              .setUsername(this._username)
+              .setPassword(this._password)
+              .setDatabase(this._database)
+              .setCharset(this._charset)
+              .setPrefix(this._prefix)
+              .setPoolConfig(this._poolConfig)
+        return config
+    }
 }
-
 

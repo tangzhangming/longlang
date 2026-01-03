@@ -208,6 +208,305 @@ func registerAnnotationBuiltins(env *Environment) {
 		
 		return &Null{}
 	}})
+
+	// __get_class_fields - 获取类的字段列表
+	env.Set("__get_class_fields", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("__get_class_fields 需要1个参数")
+		}
+
+		className, ok := args[0].(*String)
+		if !ok {
+			return newError("__get_class_fields 参数必须是字符串（类名）")
+		}
+
+		// 从全局环境获取类
+		classObj, ok := globalEnv.Get(className.Value)
+		if !ok {
+			return &Map{Pairs: make(map[string]Object), Keys: []string{}, KeyType: "string", ValueType: "any"}
+		}
+
+		class, ok := classObj.(*Class)
+		if !ok {
+			return &Map{Pairs: make(map[string]Object), Keys: []string{}, KeyType: "string", ValueType: "any"}
+		}
+
+		// 返回字段信息
+		fieldsMap := &Map{
+			Pairs:     make(map[string]Object),
+			Keys:      []string{},
+			KeyType:   "string",
+			ValueType: "any",
+		}
+
+		for name, field := range class.Variables {
+			fieldInfo := &Map{
+				Pairs:     make(map[string]Object),
+				Keys:      []string{},
+				KeyType:   "string",
+				ValueType: "any",
+			}
+			fieldInfo.Set("type", &String{Value: field.Type})
+			fieldInfo.Set("access", &String{Value: field.AccessModifier})
+			fieldsMap.Set(name, fieldInfo)
+		}
+
+		return fieldsMap
+	}})
+
+	// __get_field_annotations - 获取字段的注解列表
+	env.Set("__get_field_annotations", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 2 {
+			return newError("__get_field_annotations 需要2个参数")
+		}
+
+		className, ok := args[0].(*String)
+		if !ok {
+			return newError("__get_field_annotations 第一个参数必须是字符串（类名）")
+		}
+
+		fieldName, ok := args[1].(*String)
+		if !ok {
+			return newError("__get_field_annotations 第二个参数必须是字符串（字段名）")
+		}
+
+		// 从全局环境获取类
+		classObj, ok := globalEnv.Get(className.Value)
+		if !ok {
+			return &Array{Elements: []Object{}}
+		}
+
+		class, ok := classObj.(*Class)
+		if !ok {
+			return &Array{Elements: []Object{}}
+		}
+
+		// 获取字段
+		field, ok := class.Variables[fieldName.Value]
+		if !ok {
+			return &Array{Elements: []Object{}}
+		}
+
+		// 返回字段注解
+		return annotationsToArray(field.Annotations)
+	}})
+
+	// __has_field_annotation - 检查字段是否有指定注解
+	env.Set("__has_field_annotation", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 3 {
+			return newError("__has_field_annotation 需要3个参数")
+		}
+
+		className, ok := args[0].(*String)
+		if !ok {
+			return &Boolean{Value: false}
+		}
+
+		fieldName, ok := args[1].(*String)
+		if !ok {
+			return &Boolean{Value: false}
+		}
+
+		annName, ok := args[2].(*String)
+		if !ok {
+			return &Boolean{Value: false}
+		}
+
+		// 从全局环境获取类
+		classObj, ok := globalEnv.Get(className.Value)
+		if !ok {
+			return &Boolean{Value: false}
+		}
+
+		class, ok := classObj.(*Class)
+		if !ok {
+			return &Boolean{Value: false}
+		}
+
+		// 获取字段
+		field, ok := class.Variables[fieldName.Value]
+		if !ok {
+			return &Boolean{Value: false}
+		}
+
+		// 检查注解
+		for _, ann := range field.Annotations {
+			if ann.Name == annName.Value {
+				return &Boolean{Value: true}
+			}
+		}
+
+		return &Boolean{Value: false}
+	}})
+
+	// __get_field_annotation - 获取字段的指定注解
+	env.Set("__get_field_annotation", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 3 {
+			return newError("__get_field_annotation 需要3个参数")
+		}
+
+		className, ok := args[0].(*String)
+		if !ok {
+			return &Null{}
+		}
+
+		fieldName, ok := args[1].(*String)
+		if !ok {
+			return &Null{}
+		}
+
+		annName, ok := args[2].(*String)
+		if !ok {
+			return &Null{}
+		}
+
+		// 从全局环境获取类
+		classObj, ok := globalEnv.Get(className.Value)
+		if !ok {
+			return &Null{}
+		}
+
+		class, ok := classObj.(*Class)
+		if !ok {
+			return &Null{}
+		}
+
+		// 获取字段
+		field, ok := class.Variables[fieldName.Value]
+		if !ok {
+			return &Null{}
+		}
+
+		// 查找注解
+		for _, ann := range field.Annotations {
+			if ann.Name == annName.Value {
+				annMap := &Map{
+					Pairs:     make(map[string]Object),
+					Keys:      []string{},
+					KeyType:   "string",
+					ValueType: "any",
+				}
+				annMap.Set("name", &String{Value: ann.Name})
+
+				argsMap := &Map{
+					Pairs:     make(map[string]Object),
+					Keys:      []string{},
+					KeyType:   "string",
+					ValueType: "any",
+				}
+				for key, val := range ann.Arguments {
+					argsMap.Set(key, val)
+				}
+				annMap.Set("arguments", argsMap)
+
+				return annMap
+			}
+		}
+
+		return &Null{}
+	}})
+
+	// __new_instance - 创建类的新实例（不调用构造函数）
+	env.Set("__new_instance", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("__new_instance 需要1个参数")
+		}
+
+		className, ok := args[0].(*String)
+		if !ok {
+			return newError("__new_instance 参数必须是字符串（类名）")
+		}
+
+		// 从全局环境获取类
+		classObj, ok := globalEnv.Get(className.Value)
+		if !ok {
+			return newError("未定义的类: %s", className.Value)
+		}
+
+		class, ok := classObj.(*Class)
+		if !ok {
+			return newError("%s 不是一个类", className.Value)
+		}
+
+		// 创建实例
+		instance := &Instance{
+			Class:  class,
+			Fields: make(map[string]Object),
+		}
+
+		// 初始化字段默认值
+		for name, field := range class.Variables {
+			if field.DefaultValue != nil {
+				instance.Fields[name] = field.DefaultValue
+			} else {
+				instance.Fields[name] = &Null{}
+			}
+		}
+
+		return instance
+	}})
+
+	// __get_field_value - 获取实例字段的值
+	env.Set("__get_field_value", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 2 {
+			return newError("__get_field_value 需要2个参数")
+		}
+
+		instance, ok := args[0].(*Instance)
+		if !ok {
+			return newError("__get_field_value 第一个参数必须是类实例")
+		}
+
+		fieldName, ok := args[1].(*String)
+		if !ok {
+			return newError("__get_field_value 第二个参数必须是字符串（字段名）")
+		}
+
+		if val, ok := instance.Fields[fieldName.Value]; ok {
+			return val
+		}
+
+		return &Null{}
+	}})
+
+	// __set_field_value - 设置实例字段的值
+	env.Set("__set_field_value", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 3 {
+			return newError("__set_field_value 需要3个参数")
+		}
+
+		instance, ok := args[0].(*Instance)
+		if !ok {
+			return newError("__set_field_value 第一个参数必须是类实例")
+		}
+
+		fieldName, ok := args[1].(*String)
+		if !ok {
+			return newError("__set_field_value 第二个参数必须是字符串（字段名）")
+		}
+
+		instance.Fields[fieldName.Value] = args[2]
+		return &Null{}
+	}})
+
+	// __create_instance - 创建类实例并调用构造函数
+	env.Set("__create_instance", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) < 1 {
+			return newError("__create_instance 需要至少1个参数")
+		}
+
+		className, ok := args[0].(*String)
+		if !ok {
+			return newError("__create_instance 第一个参数必须是字符串（类名）")
+		}
+
+		if globalInterpreter == nil {
+			return newError("解释器未初始化")
+		}
+
+		// 使用解释器创建实例
+		return globalInterpreter.CreateInstance(className.Value, args[1:])
+	}})
 }
 
 // annotationsToArray 将注解实例列表转换为数组
@@ -245,6 +544,14 @@ func annotationsToArray(annotations []*AnnotationInstance) *Array {
 
 // 全局环境引用（用于内置函数访问）
 var globalEnv *Environment
+
+// 全局解释器引用（用于创建实例）
+var globalInterpreter *Interpreter
+
+// SetGlobalInterpreter 设置全局解释器引用
+func SetGlobalInterpreter(i *Interpreter) {
+	globalInterpreter = i
+}
 
 
 

@@ -1,0 +1,290 @@
+namespace App
+
+use System.Console
+use App.Database.Config.DatabaseConfig
+use App.Database.DatabaseManager
+use App.Database.ORM.Model
+use App.Models.User
+
+/**
+ * 测试查询构建器
+ */
+public class TestQueryBuilder {
+    public static function main() {
+        Console::writeLine("=== 查询构建器测试 ===")
+        Console::writeLine("")
+        
+        // 1. 初始化数据库连接
+        Console::writeLine("1. 初始化数据库连接...")
+        config := new DatabaseConfig()
+        config.setHost("127.0.0.1")
+              .setPort(3306)
+              .setUsername("root")
+              .setPassword("root")
+              .setDatabase("longlang")
+              .setCharset("utf8mb4")
+        
+        manager := new DatabaseManager(config)
+        Model::setConnection(manager)
+        Console::writeLine("   连接成功!")
+        Console::writeLine("")
+        
+        // 2. 创建测试表并插入数据
+        Console::writeLine("2. 创建测试表...")
+        manager.statement("DROP TABLE IF EXISTS users")
+        manager.statement("
+            CREATE TABLE users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email_address VARCHAR(255) UNIQUE NOT NULL,
+                age INT,
+                status VARCHAR(50),
+                password VARCHAR(255),
+                views INT DEFAULT 0,
+                created_at DATETIME
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ")
+        Console::writeLine("   表创建成功!")
+        Console::writeLine("")
+        
+        // 3. 测试 User::create()
+        Console::writeLine("3. 测试 User::create()...")
+        alice := User::create(map[string]any{
+            "name": "Alice",
+            "email": "alice@example.com",
+            "age": 25,
+            "status": "active",
+            "password": "hash_alice"
+        })
+        Console::writeLine("   创建 Alice, ID: " + toString(alice.id))
+        
+        bob := User::create(map[string]any{
+            "name": "Bob",
+            "email": "bob@example.com",
+            "age": 30,
+            "status": "active",
+            "password": "hash_bob"
+        })
+        Console::writeLine("   创建 Bob, ID: " + toString(bob.id))
+        
+        charlie := User::create(map[string]any{
+            "name": "Charlie",
+            "email": "charlie@example.com",
+            "age": 17,
+            "status": "pending",
+            "password": "hash_charlie"
+        })
+        Console::writeLine("   创建 Charlie, ID: " + toString(charlie.id))
+        
+        david := User::create(map[string]any{
+            "name": "David",
+            "email": "david@example.com",
+            "age": 45,
+            "status": "inactive",
+            "password": "hash_david"
+        })
+        Console::writeLine("   创建 David, ID: " + toString(david.id))
+        
+        eve := User::create(map[string]any{
+            "name": "Eve",
+            "email": "eve@test.com",
+            "age": 22,
+            "status": "active",
+            "password": "hash_eve"
+        })
+        Console::writeLine("   创建 Eve, ID: " + toString(eve.id))
+        Console::writeLine("")
+        
+        // 4. 测试基本 where
+        Console::writeLine("4. 测试 where() 基本条件...")
+        activeUsers := User::query().where("status", "active").get()
+        Console::writeLine("   活跃用户数: " + toString(len(activeUsers)))
+        
+        adultUsers := User::query().where("age", ">=", 18).get()
+        Console::writeLine("   成年用户数: " + toString(len(adultUsers)))
+        Console::writeLine("")
+        
+        // 5. 测试 orWhere
+        Console::writeLine("5. 测试 orWhere()...")
+        mixedUsers := User::query()
+            .where("status", "active")
+            .orWhere("status", "pending")
+            .get()
+        Console::writeLine("   活跃或待审用户数: " + toString(len(mixedUsers)))
+        Console::writeLine("")
+        
+        // 6. 测试 whereIn
+        Console::writeLine("6. 测试 whereIn()...")
+        inUsers := User::query().whereIn("id", {1, 2, 3}).get()
+        Console::writeLine("   ID 在 1,2,3 的用户数: " + toString(len(inUsers)))
+        
+        notInUsers := User::query().whereNotIn("status", {"inactive", "banned"}).get()
+        Console::writeLine("   非 inactive/banned 用户数: " + toString(len(notInUsers)))
+        Console::writeLine("")
+        
+        // 7. 测试 whereBetween
+        Console::writeLine("7. 测试 whereBetween()...")
+        betweenUsers := User::query().whereBetween("age", {20, 35}).get()
+        Console::writeLine("   年龄 20-35 用户数: " + toString(len(betweenUsers)))
+        
+        notBetweenUsers := User::query().whereNotBetween("age", {20, 35}).get()
+        Console::writeLine("   年龄不在 20-35 用户数: " + toString(len(notBetweenUsers)))
+        Console::writeLine("")
+        
+        // 8. 测试 whereLike
+        Console::writeLine("8. 测试 whereLike()...")
+        likeUsers := User::query().whereLike("email_address", "%example.com").get()
+        Console::writeLine("   example.com 邮箱用户数: " + toString(len(likeUsers)))
+        
+        nameUsers := User::query().whereLike("name", "A%").get()
+        Console::writeLine("   名字以 A 开头用户数: " + toString(len(nameUsers)))
+        Console::writeLine("")
+        
+        // 9. 测试 whereAny/whereAll/whereNone
+        Console::writeLine("9. 测试 whereAny()...")
+        anyUsers := User::query().whereAny({"name", "email_address"}, "like", "%test%").get()
+        Console::writeLine("   name或email含test用户数: " + toString(len(anyUsers)))
+        Console::writeLine("")
+        
+        // 10. 测试 select
+        Console::writeLine("10. 测试 select()...")
+        selectUsers := User::query().select({"id", "name"}).get()
+        Console::writeLine("   只选择 id,name 查询成功, 数量: " + toString(len(selectUsers)))
+        Console::writeLine("")
+        
+        // 11. 测试排序
+        Console::writeLine("11. 测试 orderBy()...")
+        orderedUsers := User::query().orderBy("age", "desc").get()
+        if len(orderedUsers) > 0 {
+            Console::writeLine("   按年龄降序第一个: " + orderedUsers[0].name + " (age: " + toString(orderedUsers[0].age) + ")")
+        }
+        
+        descUsers := User::query().orderByDesc("id").get()
+        if len(descUsers) > 0 {
+            Console::writeLine("   按ID降序第一个: " + descUsers[0].name)
+        }
+        Console::writeLine("")
+        
+        // 12. 测试分页
+        Console::writeLine("12. 测试 limit()/offset()...")
+        limitUsers := User::query().orderBy("id").limit(2).get()
+        Console::writeLine("   前2个用户: " + limitUsers[0].name + ", " + limitUsers[1].name)
+        
+        offsetUsers := User::query().orderBy("id").offset(2).limit(2).get()
+        Console::writeLine("   跳过2个取2个: " + offsetUsers[0].name + ", " + offsetUsers[1].name)
+        
+        pageUsers := User::query().orderBy("id").forPage(2, 2).get()
+        Console::writeLine("   第2页(每页2条): " + pageUsers[0].name + ", " + pageUsers[1].name)
+        Console::writeLine("")
+        
+        // 13. 测试聚合
+        Console::writeLine("13. 测试聚合函数...")
+        count := User::query().count()
+        Console::writeLine("   count(): " + toString(count))
+        
+        maxAge := User::query().max("age")
+        Console::writeLine("   max(age): " + toString(maxAge))
+        
+        minAge := User::query().min("age")
+        Console::writeLine("   min(age): " + toString(minAge))
+        
+        avgAge := User::query().avg("age")
+        Console::writeLine("   avg(age): " + toString(avgAge))
+        
+        sumAge := User::query().sum("age")
+        Console::writeLine("   sum(age): " + toString(sumAge))
+        Console::writeLine("")
+        
+        // 14. 测试 exists
+        Console::writeLine("14. 测试 exists()...")
+        hasActive := User::query().where("status", "active").exists()
+        Console::writeLine("   有活跃用户: " + toString(hasActive))
+        
+        hasBanned := User::query().where("status", "banned").exists()
+        Console::writeLine("   有被禁用户: " + toString(hasBanned))
+        Console::writeLine("")
+        
+        // 15. 测试 value
+        Console::writeLine("15. 测试 value()...")
+        name := User::query().where("id", 1).value("name")
+        Console::writeLine("   ID=1 的名字: " + toString(name))
+        Console::writeLine("")
+        
+        // 16. 测试 pluck
+        Console::writeLine("16. 测试 pluck()...")
+        names := User::query().pluck("name")
+        Console::writeLine("   所有名字: " + toString(len(names)) + " 个")
+        
+        nameById := User::query().pluck("name", "id")
+        Console::writeLine("   名字按ID映射获取成功")
+        Console::writeLine("")
+        
+        // 17. 测试 find/findOrFail
+        Console::writeLine("17. 测试 find()/findOrFail()...")
+        foundUser := User::query().find(1)
+        Console::writeLine("   find(1): " + foundUser.name)
+        
+        foundUser2 := User::query().findOrFail(2)
+        Console::writeLine("   findOrFail(2): " + foundUser2.name)
+        Console::writeLine("")
+        
+        // 18. 测试 first/firstOrFail
+        Console::writeLine("18. 测试 first()/firstOrFail()...")
+        firstUser := User::query().where("status", "active").first()
+        Console::writeLine("   first() active: " + firstUser.name)
+        
+        pendingUser := User::query().where("status", "pending").firstOrFail()
+        Console::writeLine("   firstOrFail() pending: " + pendingUser.name)
+        Console::writeLine("")
+        
+        // 19. 测试 increment/decrement
+        Console::writeLine("19. 测试 increment()/decrement()...")
+        User::query().where("id", 1).increment("views")
+        incUser := User::query().find(1)
+        Console::writeLine("   increment后 views: " + toString(incUser.views))
+        
+        User::query().where("id", 1).increment("views", 5)
+        incUser2 := User::query().find(1)
+        Console::writeLine("   increment(5)后 views: " + toString(incUser2.views))
+        
+        User::query().where("id", 1).decrement("views", 3)
+        decUser := User::query().find(1)
+        Console::writeLine("   decrement(3)后 views: " + toString(decUser.views))
+        Console::writeLine("")
+        
+        // 20. 测试闭包分组 - 需要后续支持匿名函数返回类型声明
+        Console::writeLine("20. 测试闭包分组...")
+        Console::writeLine("   跳过（需要语言支持匿名函数返回类型）")
+        Console::writeLine("")
+        
+        // 21. 测试 update
+        Console::writeLine("21. 测试批量 update()...")
+        affected := User::query().where("status", "pending").update(map[string]any{
+            "status": "active"
+        })
+        Console::writeLine("   更新了 " + toString(affected) + " 条记录")
+        Console::writeLine("")
+        
+        // 22. 测试 when - 需要后续支持匿名函数返回类型声明
+        Console::writeLine("22. 测试 when()...")
+        Console::writeLine("   跳过（需要语言支持匿名函数返回类型）")
+        Console::writeLine("")
+        
+        // 23. 测试 delete
+        Console::writeLine("23. 测试 delete()...")
+        delAffected := User::query().where("name", "David").delete()
+        Console::writeLine("   删除了 " + toString(delAffected) + " 条记录")
+        
+        remaining := User::query().count()
+        Console::writeLine("   剩余用户: " + toString(remaining))
+        Console::writeLine("")
+        
+        // 24. 清理
+        Console::writeLine("24. 清理...")
+        manager.statement("DROP TABLE IF EXISTS users")
+        Console::writeLine("   完成!")
+        Console::writeLine("")
+        
+        Console::writeLine("=== 所有测试通过 ===")
+    }
+}

@@ -4,6 +4,7 @@ use App.Database.Exception.DatabaseException
 
 /**
  * QueryBuilder - SQL 查询构建器
+ * 支持 Laravel 风格的链式查询
  */
 public class QueryBuilder {
     private _connection any
@@ -18,6 +19,9 @@ public class QueryBuilder {
     private _limit int
     private _offset int
     private _bindings any
+    private _selectRaw string
+    private _orderRaw string
+    private _havingRaw string
     
     public function __construct(connection: any, table: string) {
         this._connection = connection
@@ -32,6 +36,9 @@ public class QueryBuilder {
         this._limit = 0
         this._offset = 0
         this._bindings = {}
+        this._selectRaw = ""
+        this._orderRaw = ""
+        this._havingRaw = ""
     }
     
     private function _prefixTable(table: string) string {
@@ -56,14 +63,9 @@ public class QueryBuilder {
         return this
     }
     
-    public function addSelect(columns: any) any {
-        if typeof(columns) == "ARRAY" {
-            for i := 0; i < len(columns); i++ {
-                this._columns.push(columns[i])
-            }
-        } else {
-            this._columns.push(columns)
-        }
+    public function selectRaw(expression: string, bindings: any = {}) any {
+        this._selectRaw = expression
+        this._addBindings(bindings)
         return this
     }
     
@@ -74,7 +76,12 @@ public class QueryBuilder {
     
     // ==================== WHERE ====================
     
-    public function where(column: string, operatorOrValue: any, value: any = null) any {
+    public function where(column: any, operatorOrValue: any = null, value: any = null) any {
+        // 检查是否是闭包
+        if typeof(column) == "FUNCTION" {
+            return this._whereNested(column, "AND")
+        }
+        
         if value == null {
             this._wheres.push(map[string]any{
                 "type": "basic",
@@ -95,7 +102,11 @@ public class QueryBuilder {
         return this
     }
     
-    public function orWhere(column: string, operatorOrValue: any, value: any = null) any {
+    public function orWhere(column: any, operatorOrValue: any = null, value: any = null) any {
+        if typeof(column) == "FUNCTION" {
+            return this._whereNested(column, "OR")
+        }
+        
         if value == null {
             this._wheres.push(map[string]any{
                 "type": "basic",
@@ -116,6 +127,58 @@ public class QueryBuilder {
         return this
     }
     
+    public function whereNot(column: any, operatorOrValue: any = null, value: any = null) any {
+        if typeof(column) == "FUNCTION" {
+            return this._whereNested(column, "AND NOT")
+        }
+        
+        if value == null {
+            this._wheres.push(map[string]any{
+                "type": "basic",
+                "column": column,
+                "operator": "!=",
+                "value": operatorOrValue,
+                "boolean": "AND"
+            })
+        } else {
+            // NOT (column operator value)
+            this._wheres.push(map[string]any{
+                "type": "not",
+                "column": column,
+                "operator": operatorOrValue,
+                "value": value,
+                "boolean": "AND"
+            })
+        }
+        return this
+    }
+    
+    public function orWhereNot(column: any, operatorOrValue: any = null, value: any = null) any {
+        if typeof(column) == "FUNCTION" {
+            return this._whereNested(column, "OR NOT")
+        }
+        
+        if value == null {
+            this._wheres.push(map[string]any{
+                "type": "basic",
+                "column": column,
+                "operator": "!=",
+                "value": operatorOrValue,
+                "boolean": "OR"
+            })
+        } else {
+            this._wheres.push(map[string]any{
+                "type": "not",
+                "column": column,
+                "operator": operatorOrValue,
+                "value": value,
+                "boolean": "OR"
+            })
+        }
+        return this
+    }
+    
+    // WHERE IN
     public function whereIn(column: string, values: any) any {
         this._wheres.push(map[string]any{
             "type": "in",
@@ -138,6 +201,29 @@ public class QueryBuilder {
         return this
     }
     
+    public function orWhereIn(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "in",
+            "column": column,
+            "values": values,
+            "not": false,
+            "boolean": "OR"
+        })
+        return this
+    }
+    
+    public function orWhereNotIn(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "in",
+            "column": column,
+            "values": values,
+            "not": true,
+            "boolean": "OR"
+        })
+        return this
+    }
+    
+    // WHERE NULL
     public function whereNull(column: string) any {
         this._wheres.push(map[string]any{
             "type": "null",
@@ -158,6 +244,27 @@ public class QueryBuilder {
         return this
     }
     
+    public function orWhereNull(column: string) any {
+        this._wheres.push(map[string]any{
+            "type": "null",
+            "column": column,
+            "not": false,
+            "boolean": "OR"
+        })
+        return this
+    }
+    
+    public function orWhereNotNull(column: string) any {
+        this._wheres.push(map[string]any{
+            "type": "null",
+            "column": column,
+            "not": true,
+            "boolean": "OR"
+        })
+        return this
+    }
+    
+    // WHERE BETWEEN
     public function whereBetween(column: string, values: any) any {
         this._wheres.push(map[string]any{
             "type": "between",
@@ -169,6 +276,178 @@ public class QueryBuilder {
         return this
     }
     
+    public function whereNotBetween(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "between",
+            "column": column,
+            "values": values,
+            "not": true,
+            "boolean": "AND"
+        })
+        return this
+    }
+    
+    public function orWhereBetween(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "between",
+            "column": column,
+            "values": values,
+            "not": false,
+            "boolean": "OR"
+        })
+        return this
+    }
+    
+    public function orWhereNotBetween(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "between",
+            "column": column,
+            "values": values,
+            "not": true,
+            "boolean": "OR"
+        })
+        return this
+    }
+    
+    // WHERE LIKE
+    public function whereLike(column: string, value: string) any {
+        this._wheres.push(map[string]any{
+            "type": "like",
+            "column": column,
+            "value": value,
+            "not": false,
+            "boolean": "AND"
+        })
+        return this
+    }
+    
+    public function whereNotLike(column: string, value: string) any {
+        this._wheres.push(map[string]any{
+            "type": "like",
+            "column": column,
+            "value": value,
+            "not": true,
+            "boolean": "AND"
+        })
+        return this
+    }
+    
+    public function orWhereLike(column: string, value: string) any {
+        this._wheres.push(map[string]any{
+            "type": "like",
+            "column": column,
+            "value": value,
+            "not": false,
+            "boolean": "OR"
+        })
+        return this
+    }
+    
+    public function orWhereNotLike(column: string, value: string) any {
+        this._wheres.push(map[string]any{
+            "type": "like",
+            "column": column,
+            "value": value,
+            "not": true,
+            "boolean": "OR"
+        })
+        return this
+    }
+    
+    // WHERE COLUMN
+    public function whereColumn(first: string, operatorOrSecond: any, second: string = "") any {
+        if second == "" {
+            this._wheres.push(map[string]any{
+                "type": "column",
+                "first": first,
+                "operator": "=",
+                "second": operatorOrSecond,
+                "boolean": "AND"
+            })
+        } else {
+            this._wheres.push(map[string]any{
+                "type": "column",
+                "first": first,
+                "operator": operatorOrSecond,
+                "second": second,
+                "boolean": "AND"
+            })
+        }
+        return this
+    }
+    
+    // WHERE ANY/ALL/NONE
+    public function whereAny(columns: any, operator: string, value: any) any {
+        this._wheres.push(map[string]any{
+            "type": "any",
+            "columns": columns,
+            "operator": operator,
+            "value": value,
+            "boolean": "AND"
+        })
+        return this
+    }
+    
+    public function whereAll(columns: any, operator: string, value: any) any {
+        this._wheres.push(map[string]any{
+            "type": "all",
+            "columns": columns,
+            "operator": operator,
+            "value": value,
+            "boolean": "AND"
+        })
+        return this
+    }
+    
+    public function whereNone(columns: any, operator: string, value: any) any {
+        this._wheres.push(map[string]any{
+            "type": "none",
+            "columns": columns,
+            "operator": operator,
+            "value": value,
+            "boolean": "AND"
+        })
+        return this
+    }
+    
+    // WHERE RAW
+    public function whereRaw(sql: string, bindings: any = {}) any {
+        this._wheres.push(map[string]any{
+            "type": "raw",
+            "sql": sql,
+            "boolean": "AND"
+        })
+        this._addBindings(bindings)
+        return this
+    }
+    
+    public function orWhereRaw(sql: string, bindings: any = {}) any {
+        this._wheres.push(map[string]any{
+            "type": "raw",
+            "sql": sql,
+            "boolean": "OR"
+        })
+        this._addBindings(bindings)
+        return this
+    }
+    
+    // 嵌套条件
+    private function _whereNested(callback: any, boolean: string) any {
+        // 创建子查询构建器
+        nested := new QueryBuilder(this._connection, this._table)
+        // 调用回调
+        callback(nested)
+        // 将子查询的条件添加到当前查询
+        if len(nested._wheres) > 0 {
+            this._wheres.push(map[string]any{
+                "type": "nested",
+                "query": nested,
+                "boolean": boolean
+            })
+        }
+        return this
+    }
+    
     // ==================== ORDER BY ====================
     
     public function orderBy(column: string, direction: string = "asc") any {
@@ -177,6 +456,7 @@ public class QueryBuilder {
             dir = "ASC"
         }
         this._orders.push(map[string]any{
+            "type": "column",
             "column": column,
             "direction": dir
         })
@@ -187,12 +467,60 @@ public class QueryBuilder {
         return this.orderBy(column, "desc")
     }
     
+    public function orderByRaw(sql: string, bindings: any = {}) any {
+        this._orderRaw = sql
+        this._addBindings(bindings)
+        return this
+    }
+    
     public function latest(column: string = "created_at") any {
         return this.orderBy(column, "desc")
     }
     
     public function oldest(column: string = "created_at") any {
         return this.orderBy(column, "asc")
+    }
+    
+    // ==================== GROUP BY ====================
+    
+    public function groupBy(columns: any) any {
+        if typeof(columns) == "ARRAY" {
+            for i := 0; i < len(columns); i++ {
+                this._groups.push(columns[i])
+            }
+        } else {
+            this._groups.push(columns)
+        }
+        return this
+    }
+    
+    // ==================== HAVING ====================
+    
+    public function having(column: string, operatorOrValue: any = null, value: any = null) any {
+        if value == null {
+            this._havings.push(map[string]any{
+                "type": "basic",
+                "column": column,
+                "operator": "=",
+                "value": operatorOrValue,
+                "boolean": "AND"
+            })
+        } else {
+            this._havings.push(map[string]any{
+                "type": "basic",
+                "column": column,
+                "operator": operatorOrValue,
+                "value": value,
+                "boolean": "AND"
+            })
+        }
+        return this
+    }
+    
+    public function havingRaw(sql: string, bindings: any = {}) any {
+        this._havingRaw = sql
+        this._addBindings(bindings)
+        return this
     }
     
     // ==================== LIMIT / OFFSET ====================
@@ -215,11 +543,19 @@ public class QueryBuilder {
         return this.offset(offset)
     }
     
+    public function forPage(page: int, perPage: int = 15) any {
+        return this.offset((page - 1) * perPage).limit(perPage)
+    }
+    
     // ==================== 执行查询 ====================
     
     public function get() any {
         sql := this._compileSelect()
         return this._connection.select(sql, this._bindings)
+    }
+    
+    public function toSql() string {
+        return this._compileSelect()
     }
     
     public function first() any {
@@ -241,12 +577,8 @@ public class QueryBuilder {
         return len(result) > 0
     }
     
-    public function doesntExist() bool {
-        return !this.exists()
-    }
-    
     public function count(column: string = "*") int {
-        sql := "SELECT COUNT(" + column + ") AS aggregate FROM " + this._table + this._compileWheres()
+        sql := "SELECT COUNT(" + column + ") AS aggregate FROM " + this._table + this._compileWheres() + this._compileGroups()
         result := this._connection.select(sql, this._bindings)
         if len(result) > 0 {
             return parseInt(toString(result[0]["aggregate"]))
@@ -292,19 +624,32 @@ public class QueryBuilder {
     
     public function value(column: string) any {
         result := this.select(column).first()
-        if result != null {
+        if result != null && isset(result, column) {
             return result[column]
         }
         return null
     }
     
-    public function pluck(column: string) any {
-        results := this.select(column).get()
-        values := {}
-        for i := 0; i < len(results); i++ {
-            values.push(results[i][column])
+    public function pluck(column: string, key: string = "") any {
+        results := this.get()
+        if key == "" {
+            values := {}
+            for i := 0; i < len(results); i++ {
+                if isset(results[i], column) {
+                    values.push(results[i][column])
+                }
+            }
+            return values
+        } else {
+            values := map[string]any{}
+            for i := 0; i < len(results); i++ {
+                if isset(results[i], column) && isset(results[i], key) {
+                    k := toString(results[i][key])
+                    values[k] = results[i][column]
+                }
+            }
+            return values
         }
-        return values
     }
     
     // ==================== INSERT / UPDATE / DELETE ====================
@@ -329,27 +674,31 @@ public class QueryBuilder {
         return this._connection.delete(sql, this._bindings)
     }
     
-    public function increment(column: string, amount: int = 1) int {
-        sql := "UPDATE " + this._table + " SET " + column + " = " + column + " + " + toString(amount) + this._compileWheres()
+    public function increment(column: string, amount: int = 1, extra: any = {}) int {
+        sets := column + " = " + column + " + " + toString(amount)
+        for key, value := range extra {
+            sets = sets + ", " + key + " = " + this._connection._formatValue(value)
+        }
+        sql := "UPDATE " + this._table + " SET " + sets + this._compileWheres()
         return this._connection.update(sql, this._bindings)
     }
     
-    public function decrement(column: string, amount: int = 1) int {
-        sql := "UPDATE " + this._table + " SET " + column + " = " + column + " - " + toString(amount) + this._compileWheres()
+    public function decrement(column: string, amount: int = 1, extra: any = {}) int {
+        sets := column + " = " + column + " - " + toString(amount)
+        for key, value := range extra {
+            sets = sets + ", " + key + " = " + this._connection._formatValue(value)
+        }
+        sql := "UPDATE " + this._table + " SET " + sets + this._compileWheres()
         return this._connection.update(sql, this._bindings)
-    }
-    
-    // ==================== 调试 ====================
-    
-    public function toSql() string {
-        return this._compileSelect()
-    }
-    
-    public function getBindings() any {
-        return this._bindings
     }
     
     // ==================== 内部编译方法 ====================
+    
+    private function _addBindings(bindings: any) {
+        for i := 0; i < len(bindings); i++ {
+            this._bindings.push(bindings[i])
+        }
+    }
     
     private function _compileSelect() string {
         sql := "SELECT "
@@ -358,7 +707,9 @@ public class QueryBuilder {
             sql = sql + "DISTINCT "
         }
         
-        if len(this._columns) == 0 {
+        if this._selectRaw != "" {
+            sql = sql + this._selectRaw
+        } else if len(this._columns) == 0 {
             sql = sql + "*"
         } else {
             sql = sql + this._implode(this._columns, ", ")
@@ -407,6 +758,100 @@ public class QueryBuilder {
         }
         
         sql := " WHERE "
+        
+        for i := 0; i < len(this._wheres); i++ {
+            w := this._wheres[i]
+            
+            if i > 0 {
+                boolOp := "AND"
+                if isset(w, "boolean") {
+                    boolOp = toString(w["boolean"])
+                }
+                sql = sql + " " + boolOp + " "
+            }
+            
+            wType := w["type"]
+            
+            if wType == "basic" {
+                sql = sql + w["column"] + " " + w["operator"] + " " + this._connection._formatValue(w["value"])
+            } else if wType == "not" {
+                sql = sql + "NOT (" + w["column"] + " " + w["operator"] + " " + this._connection._formatValue(w["value"]) + ")"
+            } else if wType == "in" {
+                values := w["values"]
+                valueStrs := {}
+                for j := 0; j < len(values); j++ {
+                    valueStrs.push(this._connection._formatValue(values[j]))
+                }
+                inStr := this._implode(valueStrs, ", ")
+                if w["not"] {
+                    sql = sql + w["column"] + " NOT IN (" + inStr + ")"
+                } else {
+                    sql = sql + w["column"] + " IN (" + inStr + ")"
+                }
+            } else if wType == "null" {
+                if w["not"] {
+                    sql = sql + w["column"] + " IS NOT NULL"
+                } else {
+                    sql = sql + w["column"] + " IS NULL"
+                }
+            } else if wType == "between" {
+                values := w["values"]
+                if w["not"] {
+                    sql = sql + w["column"] + " NOT BETWEEN " + this._connection._formatValue(values[0]) + " AND " + this._connection._formatValue(values[1])
+                } else {
+                    sql = sql + w["column"] + " BETWEEN " + this._connection._formatValue(values[0]) + " AND " + this._connection._formatValue(values[1])
+                }
+            } else if wType == "like" {
+                if w["not"] {
+                    sql = sql + w["column"] + " NOT LIKE " + this._connection._formatValue(w["value"])
+                } else {
+                    sql = sql + w["column"] + " LIKE " + this._connection._formatValue(w["value"])
+                }
+            } else if wType == "column" {
+                sql = sql + w["first"] + " " + w["operator"] + " " + w["second"]
+            } else if wType == "raw" {
+                sql = sql + w["sql"]
+            } else if wType == "nested" {
+                nested := w["query"]
+                nestedSql := nested._compileWheresContent()
+                sql = sql + "(" + nestedSql + ")"
+            } else if wType == "any" {
+                // (col1 op val OR col2 op val OR ...)
+                columns := w["columns"]
+                parts := {}
+                for j := 0; j < len(columns); j++ {
+                    parts.push(columns[j] + " " + w["operator"] + " " + this._connection._formatValue(w["value"]))
+                }
+                sql = sql + "(" + this._implode(parts, " OR ") + ")"
+            } else if wType == "all" {
+                // (col1 op val AND col2 op val AND ...)
+                columns := w["columns"]
+                parts := {}
+                for j := 0; j < len(columns); j++ {
+                    parts.push(columns[j] + " " + w["operator"] + " " + this._connection._formatValue(w["value"]))
+                }
+                sql = sql + "(" + this._implode(parts, " AND ") + ")"
+            } else if wType == "none" {
+                // NOT (col1 op val OR col2 op val OR ...)
+                columns := w["columns"]
+                parts := {}
+                for j := 0; j < len(columns); j++ {
+                    parts.push(columns[j] + " " + w["operator"] + " " + this._connection._formatValue(w["value"]))
+                }
+                sql = sql + "NOT (" + this._implode(parts, " OR ") + ")"
+            }
+        }
+        
+        return sql
+    }
+    
+    // 编译 WHERE 内容（不含 WHERE 关键字，用于嵌套）
+    private function _compileWheresContent() string {
+        if len(this._wheres) == 0 {
+            return "1=1"
+        }
+        
+        sql := ""
         first := true
         
         for i := 0; i < len(this._wheres); i++ {
@@ -439,12 +884,11 @@ public class QueryBuilder {
                 } else {
                     sql = sql + w["column"] + " IS NULL"
                 }
-            } else if wType == "between" {
-                values := w["values"]
+            } else if wType == "like" {
                 if w["not"] {
-                    sql = sql + w["column"] + " NOT BETWEEN " + this._connection._formatValue(values[0]) + " AND " + this._connection._formatValue(values[1])
+                    sql = sql + w["column"] + " NOT LIKE " + this._connection._formatValue(w["value"])
                 } else {
-                    sql = sql + w["column"] + " BETWEEN " + this._connection._formatValue(values[0]) + " AND " + this._connection._formatValue(values[1])
+                    sql = sql + w["column"] + " LIKE " + this._connection._formatValue(w["value"])
                 }
             }
         }
@@ -468,6 +912,10 @@ public class QueryBuilder {
     }
     
     private function _compileOrders() string {
+        if this._orderRaw != "" {
+            return " ORDER BY " + this._orderRaw
+        }
+        
         if len(this._orders) == 0 {
             return ""
         }
@@ -489,6 +937,10 @@ public class QueryBuilder {
     }
     
     private function _compileHavings() string {
+        if this._havingRaw != "" {
+            return " HAVING " + this._havingRaw
+        }
+        
         if len(this._havings) == 0 {
             return ""
         }
@@ -532,5 +984,4 @@ public class QueryBuilder {
         return result
     }
 }
-
 

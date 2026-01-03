@@ -1,0 +1,49 @@
+namespace App.Database.ORM
+
+/**
+ * @Table - 定义模型对应的数据库表名
+ */
+@Annotation(target: "CLASS")
+public class Table {
+    public name string
+}
+
+/**
+ * @Id - 标记主键字段
+ */
+@Annotation(target: "FIELD")
+public class Id {}
+
+/**
+ * @Column - 标记数据库字段，可指定列名
+ */
+@Annotation(target: "FIELD")
+public class Column {
+    public name string = ""
+}
+
+/**
+ * @Hidden - 标记序列化时隐藏的字段
+ */
+@Annotation(target: "FIELD")
+public class Hidden {}
+
+/**
+ * @Fillable - 标记可批量赋值的字段
+ */
+@Annotation(target: "FIELD")
+public class Fillable {}
+
+/**
+ * @CreatedAt - 标记创建时间字段
+ */
+@Annotation(target: "FIELD")
+public class CreatedAt {}
+
+/**
+ * @UpdatedAt - 标记更新时间字段
+ */
+@Annotation(target: "FIELD")
+public class UpdatedAt {}
+
+

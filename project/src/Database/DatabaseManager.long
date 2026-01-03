@@ -1,0 +1,119 @@
+namespace App.Database
+
+use App.Database.Config.DatabaseConfig
+use App.Database.Config.ConnectionConfig
+use App.Database.Core.QueryBuilder
+use App.Database.Drivers.MysqlConnection
+use App.Database.Exception.DatabaseException
+
+/**
+ * DatabaseManager - 数据库管理器
+ * 
+ * 提供数据库连接管理和查询入口
+ */
+public class DatabaseManager {
+    private _config any
+    private _connection any
+    
+    public function __construct(config: any) {
+        this._config = config
+        this._connection = null
+    }
+    
+    /**
+     * 获取配置
+     */
+    public function getConfig() any {
+        return this._config
+    }
+    
+    /**
+     * 获取数据库连接
+     */
+    public function connection() any {
+        if this._connection == null {
+            this._connection = this._createConnection()
+        }
+        return this._connection
+    }
+    
+    /**
+     * 创建查询构建器
+     */
+    public function table(table: string) QueryBuilder {
+        return new QueryBuilder(this.connection(), table)
+    }
+    
+    /**
+     * 执行 SELECT 查询
+     */
+    public function select(sql: string, bindings: any = {}) any {
+        return this.connection().select(sql, bindings)
+    }
+    
+    /**
+     * 执行 INSERT 并返回 ID
+     */
+    public function insertGetId(sql: string, bindings: any = {}) int {
+        return this.connection().insertGetId(sql, bindings)
+    }
+    
+    /**
+     * 执行 UPDATE
+     */
+    public function update(sql: string, bindings: any = {}) int {
+        return this.connection().update(sql, bindings)
+    }
+    
+    /**
+     * 执行 DELETE
+     */
+    public function delete(sql: string, bindings: any = {}) int {
+        return this.connection().delete(sql, bindings)
+    }
+    
+    /**
+     * 执行任意 SQL 语句
+     */
+    public function statement(sql: string, bindings: any = {}) bool {
+        return this.connection().statement(sql, bindings)
+    }
+    
+    /**
+     * 开始事务
+     */
+    public function beginTransaction() {
+        this.connection().beginTransaction()
+    }
+    
+    /**
+     * 提交事务
+     */
+    public function commit() {
+        this.connection().commit()
+    }
+    
+    /**
+     * 回滚事务
+     */
+    public function rollback() {
+        this.connection().rollback()
+    }
+    
+    /**
+     * 创建数据库连接
+     */
+    private function _createConnection() any {
+        driver := this._config.getDriver()
+        
+        if driver == "mysql" {
+            conn := new MysqlConnection(this._config)
+            conn.connect()
+            return conn
+        }
+        
+        throw new DatabaseException("不支持的数据库驱动: " + driver)
+    }
+}
+
+

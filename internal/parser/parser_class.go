@@ -331,11 +331,11 @@ func (p *Parser) parseClassMembers() []ClassMember {
 			if variable != nil {
 				variable.Annotations = memberAnnotations
 				members = append(members, variable)
-				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.EOF) {
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.AT) && !p.curTokenIs(lexer.EOF) {
 					p.nextToken()
 				}
 			} else {
-				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.EOF) {
+				if !p.curTokenIs(lexer.RBRACE) && !p.curTokenIs(lexer.PUBLIC) && !p.curTokenIs(lexer.PRIVATE) && !p.curTokenIs(lexer.PROTECTED) && !p.curTokenIs(lexer.ABSTRACT) && !p.curTokenIs(lexer.AT) && !p.curTokenIs(lexer.EOF) {
 					p.nextToken()
 				}
 			}

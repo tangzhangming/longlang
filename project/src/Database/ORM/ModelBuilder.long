@@ -1,195 +1,578 @@
 namespace App.Database.ORM
 
+use System.Reflection
 use App.Database.Exception.DatabaseException
 
 /**
  * ModelBuilder - 模型查询构建器
+ * 
+ * 所有查询方法都支持链式调用
  */
 public class ModelBuilder {
     private _modelClass string
-    private _queryBuilder any
-    private _connection any
     private _meta any
-    private _db any
+    private _queryBuilder any
     
-    public function __construct(modelClass: string, db: any) {
+    public function __construct(modelClass: string) {
         this._modelClass = modelClass
-        this._db = db
+        this._meta = Model::_getMeta(modelClass)
         
-        this._meta = db.getMeta(modelClass)
-        if this._meta == null {
-            throw new DatabaseException("Model not registered: " + modelClass)
-        }
-        
-        this._connection = db.connection()
+        conn := Model::getConnection()
         tableName := this._meta["table"]
-        this._queryBuilder = this._connection.table(tableName)
+        this._queryBuilder = conn.table(tableName)
     }
     
-    // ========== 查询条件 ==========
+    // ========== WHERE 条件 ==========
     
-    public function where(column: string, operatorOrValue: any, value: any = null) any {
-        this._queryBuilder.where(column, operatorOrValue, value)
+    /**
+     * 添加 WHERE 条件
+     * where("name", "test") 或 where("age", ">=", 18)
+     */
+    public function where(column: any, operatorOrValue: any = null, value: any = null) ModelBuilder {
+        if typeof(column) == "FUNCTION" {
+            // 闭包条件
+            this._queryBuilder.where(column)
+        } else {
+            this._queryBuilder.where(column, operatorOrValue, value)
+        }
         return this
     }
     
-    public function orWhere(column: string, operatorOrValue: any, value: any = null) any {
-        this._queryBuilder.orWhere(column, operatorOrValue, value)
+    /**
+     * 添加 OR WHERE 条件
+     */
+    public function orWhere(column: any, operatorOrValue: any = null, value: any = null) ModelBuilder {
+        if typeof(column) == "FUNCTION" {
+            this._queryBuilder.orWhere(column)
+        } else {
+            this._queryBuilder.orWhere(column, operatorOrValue, value)
+        }
         return this
     }
     
-    public function whereIn(column: string, values: any) any {
+    /**
+     * 添加 WHERE NOT 条件
+     */
+    public function whereNot(column: any, operatorOrValue: any = null, value: any = null) ModelBuilder {
+        if typeof(column) == "FUNCTION" {
+            this._queryBuilder.whereNot(column)
+        } else {
+            this._queryBuilder.whereNot(column, operatorOrValue, value)
+        }
+        return this
+    }
+    
+    /**
+     * 添加 OR WHERE NOT 条件
+     */
+    public function orWhereNot(column: any, operatorOrValue: any = null, value: any = null) ModelBuilder {
+        if typeof(column) == "FUNCTION" {
+            this._queryBuilder.orWhereNot(column)
+        } else {
+            this._queryBuilder.orWhereNot(column, operatorOrValue, value)
+        }
+        return this
+    }
+    
+    // ========== WHERE IN ==========
+    
+    /**
+     * WHERE IN 条件
+     */
+    public function whereIn(column: string, values: any) ModelBuilder {
         this._queryBuilder.whereIn(column, values)
         return this
     }
     
-    public function whereNull(column: string) any {
+    /**
+     * WHERE NOT IN 条件
+     */
+    public function whereNotIn(column: string, values: any) ModelBuilder {
+        this._queryBuilder.whereNotIn(column, values)
+        return this
+    }
+    
+    /**
+     * OR WHERE IN 条件
+     */
+    public function orWhereIn(column: string, values: any) ModelBuilder {
+        this._queryBuilder.orWhereIn(column, values)
+        return this
+    }
+    
+    /**
+     * OR WHERE NOT IN 条件
+     */
+    public function orWhereNotIn(column: string, values: any) ModelBuilder {
+        this._queryBuilder.orWhereNotIn(column, values)
+        return this
+    }
+    
+    // ========== WHERE NULL ==========
+    
+    /**
+     * WHERE IS NULL 条件
+     */
+    public function whereNull(column: string) ModelBuilder {
         this._queryBuilder.whereNull(column)
         return this
     }
     
-    public function whereBetween(column: string, values: any) any {
+    /**
+     * WHERE IS NOT NULL 条件
+     */
+    public function whereNotNull(column: string) ModelBuilder {
+        this._queryBuilder.whereNotNull(column)
+        return this
+    }
+    
+    /**
+     * OR WHERE IS NULL 条件
+     */
+    public function orWhereNull(column: string) ModelBuilder {
+        this._queryBuilder.orWhereNull(column)
+        return this
+    }
+    
+    /**
+     * OR WHERE IS NOT NULL 条件
+     */
+    public function orWhereNotNull(column: string) ModelBuilder {
+        this._queryBuilder.orWhereNotNull(column)
+        return this
+    }
+    
+    // ========== WHERE BETWEEN ==========
+    
+    /**
+     * WHERE BETWEEN 条件
+     */
+    public function whereBetween(column: string, values: any) ModelBuilder {
         this._queryBuilder.whereBetween(column, values)
         return this
     }
     
-    // ========== 排序和分页 ==========
+    /**
+     * WHERE NOT BETWEEN 条件
+     */
+    public function whereNotBetween(column: string, values: any) ModelBuilder {
+        this._queryBuilder.whereNotBetween(column, values)
+        return this
+    }
     
-    public function orderBy(column: string, direction: string = "asc") any {
+    /**
+     * OR WHERE BETWEEN 条件
+     */
+    public function orWhereBetween(column: string, values: any) ModelBuilder {
+        this._queryBuilder.orWhereBetween(column, values)
+        return this
+    }
+    
+    /**
+     * OR WHERE NOT BETWEEN 条件
+     */
+    public function orWhereNotBetween(column: string, values: any) ModelBuilder {
+        this._queryBuilder.orWhereNotBetween(column, values)
+        return this
+    }
+    
+    // ========== WHERE LIKE ==========
+    
+    /**
+     * WHERE LIKE 条件
+     */
+    public function whereLike(column: string, value: string) ModelBuilder {
+        this._queryBuilder.whereLike(column, value)
+        return this
+    }
+    
+    /**
+     * WHERE NOT LIKE 条件
+     */
+    public function whereNotLike(column: string, value: string) ModelBuilder {
+        this._queryBuilder.whereNotLike(column, value)
+        return this
+    }
+    
+    /**
+     * OR WHERE LIKE 条件
+     */
+    public function orWhereLike(column: string, value: string) ModelBuilder {
+        this._queryBuilder.orWhereLike(column, value)
+        return this
+    }
+    
+    /**
+     * OR WHERE NOT LIKE 条件
+     */
+    public function orWhereNotLike(column: string, value: string) ModelBuilder {
+        this._queryBuilder.orWhereNotLike(column, value)
+        return this
+    }
+    
+    // ========== WHERE COLUMN ==========
+    
+    /**
+     * WHERE 列比较条件
+     */
+    public function whereColumn(first: string, operatorOrSecond: any, second: string = "") ModelBuilder {
+        this._queryBuilder.whereColumn(first, operatorOrSecond, second)
+        return this
+    }
+    
+    // ========== WHERE ANY/ALL/NONE ==========
+    
+    /**
+     * WHERE ANY - 任一列匹配
+     * whereAny({"name", "email"}, "like", "%test%")
+     */
+    public function whereAny(columns: any, operator: string, value: any) ModelBuilder {
+        this._queryBuilder.whereAny(columns, operator, value)
+        return this
+    }
+    
+    /**
+     * WHERE ALL - 所有列匹配
+     */
+    public function whereAll(columns: any, operator: string, value: any) ModelBuilder {
+        this._queryBuilder.whereAll(columns, operator, value)
+        return this
+    }
+    
+    /**
+     * WHERE NONE - 无列匹配
+     */
+    public function whereNone(columns: any, operator: string, value: any) ModelBuilder {
+        this._queryBuilder.whereNone(columns, operator, value)
+        return this
+    }
+    
+    // ========== RAW ==========
+    
+    /**
+     * 原生 WHERE 条件
+     */
+    public function whereRaw(sql: string, bindings: any = {}) ModelBuilder {
+        this._queryBuilder.whereRaw(sql, bindings)
+        return this
+    }
+    
+    /**
+     * 原生 OR WHERE 条件
+     */
+    public function orWhereRaw(sql: string, bindings: any = {}) ModelBuilder {
+        this._queryBuilder.orWhereRaw(sql, bindings)
+        return this
+    }
+    
+    /**
+     * 原生 SELECT
+     */
+    public function selectRaw(expression: string, bindings: any = {}) ModelBuilder {
+        this._queryBuilder.selectRaw(expression, bindings)
+        return this
+    }
+    
+    /**
+     * 原生 ORDER BY
+     */
+    public function orderByRaw(sql: string, bindings: any = {}) ModelBuilder {
+        this._queryBuilder.orderByRaw(sql, bindings)
+        return this
+    }
+    
+    /**
+     * 原生 HAVING
+     */
+    public function havingRaw(sql: string, bindings: any = {}) ModelBuilder {
+        this._queryBuilder.havingRaw(sql, bindings)
+        return this
+    }
+    
+    // ========== SELECT ==========
+    
+    /**
+     * 选择字段
+     */
+    public function select(columns: any) ModelBuilder {
+        this._queryBuilder.select(columns)
+        return this
+    }
+    
+    /**
+     * 去重
+     */
+    public function distinct() ModelBuilder {
+        this._queryBuilder.distinct()
+        return this
+    }
+    
+    // ========== 排序 ==========
+    
+    /**
+     * 排序
+     */
+    public function orderBy(column: string, direction: string = "asc") ModelBuilder {
         this._queryBuilder.orderBy(column, direction)
         return this
     }
     
-    public function orderByDesc(column: string) any {
+    /**
+     * 降序排序
+     */
+    public function orderByDesc(column: string) ModelBuilder {
         this._queryBuilder.orderByDesc(column)
         return this
     }
     
-    public function limit(count: int) any {
+    /**
+     * 按时间降序（最新的在前）
+     */
+    public function latest(column: string = "created_at") ModelBuilder {
+        this._queryBuilder.latest(column)
+        return this
+    }
+    
+    /**
+     * 按时间升序（最早的在前）
+     */
+    public function oldest(column: string = "created_at") ModelBuilder {
+        this._queryBuilder.oldest(column)
+        return this
+    }
+    
+    // ========== 分组 ==========
+    
+    /**
+     * 分组
+     */
+    public function groupBy(columns: any) ModelBuilder {
+        this._queryBuilder.groupBy(columns)
+        return this
+    }
+    
+    /**
+     * HAVING 条件
+     */
+    public function having(column: string, operator: any = null, value: any = null) ModelBuilder {
+        this._queryBuilder.having(column, operator, value)
+        return this
+    }
+    
+    // ========== 分页 ==========
+    
+    /**
+     * 限制数量
+     */
+    public function limit(count: int) ModelBuilder {
         this._queryBuilder.limit(count)
         return this
     }
     
-    public function offset(count: int) any {
+    /**
+     * 限制数量（别名）
+     */
+    public function take(count: int) ModelBuilder {
+        return this.limit(count)
+    }
+    
+    /**
+     * 偏移量
+     */
+    public function offset(count: int) ModelBuilder {
         this._queryBuilder.offset(count)
         return this
     }
     
-    // ========== 执行查询 ==========
-    
-    public function get() any {
-        rows := this._queryBuilder.get()
-        result := this._hydrateMany(rows)
-        this._db.release(this._connection)
-        return result
+    /**
+     * 偏移量（别名）
+     */
+    public function skip(count: int) ModelBuilder {
+        return this.offset(count)
     }
     
+    /**
+     * 分页
+     */
+    public function forPage(page: int, perPage: int = 15) ModelBuilder {
+        this._queryBuilder.forPage(page, perPage)
+        return this
+    }
+    
+    // ========== 条件执行 ==========
+    
+    /**
+     * 条件执行
+     * when(condition, callback)
+     */
+    public function when(condition: bool, callback: any) ModelBuilder {
+        if condition {
+            callback(this)
+        }
+        return this
+    }
+    
+    // ========== 查询执行 ==========
+    
+    /**
+     * 获取所有结果
+     */
+    public function get() any {
+        rows := this._queryBuilder.get()
+        return this._hydrateMany(rows)
+    }
+    
+    /**
+     * 获取第一条
+     */
     public function first() any {
         this._queryBuilder.limit(1)
         rows := this._queryBuilder.get()
-        
         if len(rows) == 0 {
-            this._db.release(this._connection)
             return null
         }
-        
-        result := this._hydrateOne(rows[0])
-        this._db.release(this._connection)
+        return this._hydrateOne(rows[0])
+    }
+    
+    /**
+     * 获取第一条，不存在则抛异常
+     */
+    public function firstOrFail() any {
+        result := this.first()
+        if result == null {
+            throw new DatabaseException("No query results for model: " + this._modelClass)
+        }
         return result
     }
     
+    /**
+     * 按主键查找
+     */
     public function find(id: any) any {
         primaryKey := this._meta["primaryKey"]
-        this._queryBuilder.where(primaryKey, id)
-        return this.first()
+        return this.where(primaryKey, id).first()
     }
     
+    /**
+     * 按主键查找，不存在则抛异常
+     */
     public function findOrFail(id: any) any {
         result := this.find(id)
         if result == null {
-            throw new DatabaseException("Model not found with ID: " + toString(id))
+            throw new DatabaseException("No query results for model: " + this._modelClass + " with id " + toString(id))
         }
         return result
     }
     
+    /**
+     * 获取单个值
+     */
+    public function value(column: string) any {
+        this._queryBuilder.limit(1)
+        rows := this._queryBuilder.get()
+        if len(rows) == 0 {
+            return null
+        }
+        row := rows[0]
+        if isset(row, column) {
+            return row[column]
+        }
+        return null
+    }
+    
+    /**
+     * 获取单列值数组
+     * pluck("name") => {"Alice", "Bob"}
+     * pluck("name", "id") => {1: "Alice", 2: "Bob"}
+     */
+    public function pluck(column: string, key: string = "") any {
+        rows := this._queryBuilder.get()
+        if key == "" {
+            result := {}
+            for i := 0; i < len(rows); i++ {
+                row := rows[i]
+                if isset(row, column) {
+                    result.push(row[column])
+                }
+            }
+            return result
+        } else {
+            result := map[string]any{}
+            for i := 0; i < len(rows); i++ {
+                row := rows[i]
+                if isset(row, column) && isset(row, key) {
+                    k := toString(row[key])
+                    result[k] = row[column]
+                }
+            }
+            return result
+        }
+    }
+    
+    // ========== 聚合 ==========
+    
+    /**
+     * 检查是否存在
+     */
     public function exists() bool {
-        result := this._queryBuilder.exists()
-        this._db.release(this._connection)
-        return result
+        return this._queryBuilder.exists()
     }
     
-    // ========== 聚合函数 ==========
-    
+    /**
+     * 获取记录数
+     */
     public function count(column: string = "*") int {
-        result := this._queryBuilder.count(column)
-        this._db.release(this._connection)
-        return result
+        return this._queryBuilder.count(column)
     }
     
+    /**
+     * 获取最大值
+     */
     public function max(column: string) any {
-        result := this._queryBuilder.max(column)
-        this._db.release(this._connection)
-        return result
+        return this._queryBuilder.max(column)
     }
     
+    /**
+     * 获取最小值
+     */
     public function min(column: string) any {
-        result := this._queryBuilder.min(column)
-        this._db.release(this._connection)
-        return result
+        return this._queryBuilder.min(column)
     }
     
+    /**
+     * 获取平均值
+     */
     public function avg(column: string) any {
-        result := this._queryBuilder.avg(column)
-        this._db.release(this._connection)
-        return result
+        return this._queryBuilder.avg(column)
     }
     
+    /**
+     * 获取总和
+     */
     public function sum(column: string) any {
-        result := this._queryBuilder.sum(column)
-        this._db.release(this._connection)
-        return result
+        return this._queryBuilder.sum(column)
     }
     
     // ========== 写操作 ==========
     
-    public function create(attributes: any) any {
-        instance := this._db.createInstance(this._modelClass)
-        instance.forceFill(attributes)
-        instance.save()
-        return instance
+    /**
+     * 插入数据
+     */
+    public function insert(values: any) bool {
+        return this._queryBuilder.insert(values)
     }
     
+    /**
+     * 插入并获取ID
+     */
+    public function insertGetId(values: any) int {
+        return this._queryBuilder.insertGetId(values)
+    }
+    
+    /**
+     * 批量更新
+     */
     public function update(attributes: any) int {
-        data := this._convertToColumns(attributes)
-        result := this._queryBuilder.update(data)
-        this._db.release(this._connection)
-        return result
-    }
-    
-    public function delete() int {
-        result := this._queryBuilder.delete()
-        this._db.release(this._connection)
-        return result
-    }
-    
-    // ========== 内部方法 ==========
-    
-    private function _hydrateOne(row: any) any {
-        instance := this._db.createInstance(this._modelClass)
-        instance._hydrate(row, this._modelClass, this._db)
-        return instance
-    }
-    
-    private function _hydrateMany(rows: any) any {
-        result := {}
-        for i := 0; i < len(rows); i++ {
-            instance := this._hydrateOne(rows[i])
-            result.push(instance)
-        }
-        return result
-    }
-    
-    private function _convertToColumns(attributes: any) any {
         columns := this._meta["columns"]
         data := map[string]any{}
         
@@ -199,12 +582,49 @@ public class ModelBuilder {
                 columnName := colInfo["column"]
                 data[columnName] = value
             } else {
+                // 直接使用字段名（可能是数据库列名）
                 data[fieldName] = value
             }
         }
         
-        return data
+        return this._queryBuilder.update(data)
+    }
+    
+    /**
+     * 自增
+     */
+    public function increment(column: string, amount: int = 1, extra: any = {}) int {
+        return this._queryBuilder.increment(column, amount, extra)
+    }
+    
+    /**
+     * 自减
+     */
+    public function decrement(column: string, amount: int = 1, extra: any = {}) int {
+        return this._queryBuilder.decrement(column, amount, extra)
+    }
+    
+    /**
+     * 批量删除
+     */
+    public function delete() int {
+        return this._queryBuilder.delete()
+    }
+    
+    // ========== 内部方法 ==========
+    
+    private function _hydrateOne(row: any) any {
+        instance := __create_instance(this._modelClass)
+        instance._hydrate(row, this._meta)
+        return instance
+    }
+    
+    private function _hydrateMany(rows: any) any {
+        result := {}
+        for i := 0; i < len(rows); i++ {
+            result.push(this._hydrateOne(rows[i]))
+        }
+        return result
     }
 }
-
 
