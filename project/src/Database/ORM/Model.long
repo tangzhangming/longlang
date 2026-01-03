@@ -13,6 +13,9 @@ use App.Database.ORM.ModelBuilder
  *   User::query().where("age", ">", 18).get()
  */
 public class Model {
+    // 静态字段：数据库连接
+    private static _connection any
+    
     // 实例状态
     public _exists bool
     public _original any
@@ -28,14 +31,14 @@ public class Model {
      * 设置数据库连接
      */
     public static function setConnection(conn: any) {
-        __set_global("__model_connection", conn)
+        Model::_connection = conn
     }
     
     /**
      * 获取数据库连接
      */
     public static function getConnection() any {
-        conn := __get_global("__model_connection")
+        conn := Model::_connection
         if conn == null {
             throw new DatabaseException("Model connection not set. Call Model::setConnection() first.")
         }

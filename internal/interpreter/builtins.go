@@ -318,60 +318,6 @@ func registerCalledClassBuiltin(env *Environment) {
 	}})
 }
 
-// 全局变量存储
-var globalVariables = make(map[string]Object)
-
-// registerGlobalBuiltins 注册全局变量相关的内置函数
-func registerGlobalBuiltins(env *Environment) {
-	// __set_global(name, value) - 设置全局变量
-	env.Set("__set_global", &Builtin{Fn: func(args ...Object) Object {
-		if len(args) != 2 {
-			return newError("__set_global 需要2个参数，得到 %d 个", len(args))
-		}
-
-		name, ok := args[0].(*String)
-		if !ok {
-			return newError("__set_global 第一个参数必须是字符串，得到 %s", args[0].Type())
-		}
-
-		globalVariables[name.Value] = args[1]
-		return &Null{}
-	}})
-
-	// __get_global(name) - 获取全局变量
-	env.Set("__get_global", &Builtin{Fn: func(args ...Object) Object {
-		if len(args) != 1 {
-			return newError("__get_global 需要1个参数，得到 %d 个", len(args))
-		}
-
-		name, ok := args[0].(*String)
-		if !ok {
-			return newError("__get_global 第一个参数必须是字符串，得到 %s", args[0].Type())
-		}
-
-		if val, exists := globalVariables[name.Value]; exists {
-			return val
-		}
-
-		return &Null{}
-	}})
-
-	// __has_global(name) - 检查全局变量是否存在
-	env.Set("__has_global", &Builtin{Fn: func(args ...Object) Object {
-		if len(args) != 1 {
-			return newError("__has_global 需要1个参数，得到 %d 个", len(args))
-		}
-
-		name, ok := args[0].(*String)
-		if !ok {
-			return newError("__has_global 第一个参数必须是字符串，得到 %s", args[0].Type())
-		}
-
-		_, exists := globalVariables[name.Value]
-		return &Boolean{Value: exists}
-	}})
-}
-
 // BuiltinObject 内置对象（用于命名空间，如 fmt）
 // 用于组织相关的内置函数，实现命名空间功能
 // 例如：fmt.Println 中的 fmt 就是一个 BuiltinObject

@@ -130,6 +130,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(lexer.LBRACKET, p.parseArrayTypeOrLiteral)
 	p.registerPrefix(lexer.MAP, p.parseMapLiteral)
 	p.registerPrefix(lexer.MATCH, p.parseMatchExpression)
+	p.registerPrefix(lexer.STATIC, p.parseStaticKeyword) // 支持 static::xxx 语法
 
 	// 注册中缀解析函数
 	p.infixParseFns = make(map[lexer.TokenType]infixParseFn)

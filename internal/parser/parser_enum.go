@@ -110,8 +110,8 @@ func (p *Parser) parseEnumBody(stmt *EnumStatement) {
 					}
 				}
 			} else if p.curTokenIs(lexer.IDENT) {
-				// 字段定义
-				variable := p.parseClassVariable(accessModifier)
+				// 字段定义（枚举字段不支持静态）
+				variable := p.parseClassVariable(accessModifier, false)
 				if variable != nil {
 					stmt.Variables = append(stmt.Variables, variable)
 				}

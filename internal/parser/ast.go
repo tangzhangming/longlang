@@ -760,10 +760,11 @@ type ClassMember interface {
 }
 
 // ClassVariable 类成员变量
-// 对应语法：访问修饰符 变量名 类型 或 访问修饰符 变量名 类型 = 值
+// 对应语法：访问修饰符 [static] 变量名 类型 或 访问修饰符 [static] 变量名 类型 = 值
 type ClassVariable struct {
 	Token          lexer.Token   // 访问修饰符对应的 token
 	AccessModifier string        // 访问修饰符：public, private, protected
+	IsStatic       bool          // 是否是静态字段
 	Name           *Identifier   // 变量名
 	Type           *Identifier   // 变量类型
 	Value          Expression    // 初始值（可选）
@@ -774,7 +775,11 @@ func (cv *ClassVariable) classMemberNode()      {}
 func (cv *ClassVariable) TokenLiteral() string { return cv.Token.Literal }
 func (cv *ClassVariable) String() string {
 	var out string
-	out += cv.AccessModifier + " " + cv.Name.String() + " " + cv.Type.String()
+	out += cv.AccessModifier + " "
+	if cv.IsStatic {
+		out += "static "
+	}
+	out += cv.Name.String() + " " + cv.Type.String()
 	if cv.Value != nil {
 		out += " = " + cv.Value.String()
 	}

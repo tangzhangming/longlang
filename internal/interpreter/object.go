@@ -430,20 +430,22 @@ type InterfaceMethod struct {
 // Class 类对象
 // 表示一个类定义，包含类的方法和成员变量定义
 type Class struct {
-	Name          string                    // 类名
-	Parent        *Class                    // 父类（用于继承）
-	Interfaces    []*Interface              // 实现的接口列表
-	Variables     map[string]*ClassVariable // 成员变量定义
-	Constants     map[string]*ClassConstant // 常量定义
-	Methods       map[string]*ClassMethod   // 实例方法
-	StaticMethods map[string]*ClassMethod   // 静态方法
-	Env           *Environment              // 类定义时的环境（用于闭包）
-	IsExported    bool                      // 是否为导出类（与文件名相同）
-	IsAbstract    bool                      // 是否是抽象类
-	IsPublic      bool                      // 是否是公开类（可被其他命名空间访问）
-	IsInternal    bool                      // 是否是内部类（仅命名空间树内可访问，默认）
-	Namespace     string                    // 所属命名空间
-	Annotations   []*AnnotationInstance     // 类上的注解列表
+	Name            string                    // 类名
+	Parent          *Class                    // 父类（用于继承）
+	Interfaces      []*Interface              // 实现的接口列表
+	Variables       map[string]*ClassVariable // 实例成员变量定义
+	StaticVariables map[string]*ClassVariable // 静态成员变量定义
+	StaticFields    map[string]Object         // 静态字段值存储
+	Constants       map[string]*ClassConstant // 常量定义
+	Methods         map[string]*ClassMethod   // 实例方法
+	StaticMethods   map[string]*ClassMethod   // 静态方法
+	Env             *Environment              // 类定义时的环境（用于闭包）
+	IsExported      bool                      // 是否为导出类（与文件名相同）
+	IsAbstract      bool                      // 是否是抽象类
+	IsPublic        bool                      // 是否是公开类（可被其他命名空间访问）
+	IsInternal      bool                      // 是否是内部类（仅命名空间树内可访问，默认）
+	Namespace       string                    // 所属命名空间
+	Annotations     []*AnnotationInstance     // 类上的注解列表
 }
 
 func (c *Class) Type() ObjectType { return CLASS_OBJ }
@@ -541,6 +543,7 @@ type ClassVariable struct {
 	Name           string                // 变量名
 	Type           string                // 变量类型
 	AccessModifier string                // 访问修饰符：public, private, protected
+	IsStatic       bool                  // 是否是静态字段
 	DefaultValue   Object                // 默认值（可选）
 	Annotations    []*AnnotationInstance // 字段上的注解列表
 }

@@ -77,8 +77,6 @@ func New() *Interpreter {
 	registerCryptoBuiltins(env)
 	// 注册正则表达式内置函数
 	registerRegexBuiltins(env)
-	// 注册全局变量内置函数
-	registerGlobalBuiltins(env)
 	// 注册日期时间内置函数
 	registerDateTimeBuiltins(env)
 	// 注册控制台内置函数
@@ -1798,18 +1796,20 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 	}
 
 	class := &Class{
-		Name:          node.Name.Value,
-		Variables:     make(map[string]*ClassVariable),
-		Constants:     make(map[string]*ClassConstant),
-		Methods:       make(map[string]*ClassMethod),
-		StaticMethods: make(map[string]*ClassMethod),
-		Env:           i.env,
-		IsExported:    isExported,
-		IsAbstract:    node.IsAbstract,
-		IsPublic:      node.IsPublic,
-		IsInternal:    node.IsInternal,
-		Namespace:     currentNS,
-		Annotations:   i.convertAnnotationsToInstances(node.Annotations),
+		Name:            node.Name.Value,
+		Variables:       make(map[string]*ClassVariable),
+		StaticVariables: make(map[string]*ClassVariable),
+		StaticFields:    make(map[string]Object),
+		Constants:       make(map[string]*ClassConstant),
+		Methods:         make(map[string]*ClassMethod),
+		StaticMethods:   make(map[string]*ClassMethod),
+		Env:             i.env,
+		IsExported:      isExported,
+		IsAbstract:      node.IsAbstract,
+		IsPublic:        node.IsPublic,
+		IsInternal:      node.IsInternal,
+		Namespace:       currentNS,
+		Annotations:     i.convertAnnotationsToInstances(node.Annotations),
 	}
 
 	// 处理继承
@@ -1884,12 +1884,26 @@ func (i *Interpreter) evalClassStatement(node *parser.ClassStatement) Object {
 			if m.Value != nil {
 				defaultValue = i.Eval(m.Value)
 			}
-			class.Variables[m.Name.Value] = &ClassVariable{
+			classVar := &ClassVariable{
 				Name:           m.Name.Value,
 				Type:           m.Type.Value,
 				AccessModifier: m.AccessModifier,
+				IsStatic:       m.IsStatic,
 				DefaultValue:   defaultValue,
 				Annotations:    i.convertAnnotationsToInstances(m.Annotations),
+			}
+			if m.IsStatic {
+				// 静态变量
+				class.StaticVariables[m.Name.Value] = classVar
+				// 初始化静态字段值
+				if defaultValue != nil {
+					class.StaticFields[m.Name.Value] = defaultValue
+				} else {
+					class.StaticFields[m.Name.Value] = &Null{}
+				}
+			} else {
+				// 实例变量
+				class.Variables[m.Name.Value] = classVar
 			}
 		case *parser.ClassMethod:
 			// 处理方法
@@ -2440,6 +2454,9 @@ func (i *Interpreter) evalAssignmentExpression(node *parser.AssignmentExpression
 			return indexObj
 		}
 		return i.evalArrayAssignment(arrayObj, indexObj, val)
+	case *parser.StaticAccessExpression:
+		// 静态字段赋值：ClassName::staticField = value
+		return i.evalStaticFieldAssignment(left, val)
 	default:
 		return newError("无效的赋值目标")
 	}
@@ -2571,72 +2588,128 @@ func (i *Interpreter) evalSuperExpression() Object {
 }
 
 // evalStaticCallExpression 执行静态方法调用
-// 支持：ClassName::method(), self::method(), super::method(), EnumName::method()
+// 支持：ClassName::method(), self::method(), super::method(), static::method(), EnumName::method()
 func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression) Object {
 	// 获取类定义
 	className := node.ClassName.Value
 	methodName := node.Method.Value
+	calledClassName := className // 用于 Late Static Binding
 
 	// 处理 super:: 的情况（调用父类方法）
 	if className == "super" {
 		return i.evalSuperMethodCall(methodName, node.Arguments)
 	}
 
-	// 首先从当前环境查找（向后兼容）
-	classObj, ok := i.env.Get(className)
+	var classObj Object
+	var ok bool
 
-	// 如果当前环境找不到，且存在当前命名空间，从当前命名空间查找
-	if !ok && i.currentNamespace != nil {
-		// 查找类
-		if class, found := i.currentNamespace.GetClass(className); found {
-			classObj = class
-			ok = true
+	// 处理 self:: 的情况
+	if className == "self" {
+		selfObj, found := i.env.Get("self")
+		if !found {
+			return newError("self 只能在类方法内部使用")
 		}
-		// 查找枚举
-		if !ok {
-			if enum, found := i.currentNamespace.GetEnum(className); found {
-				classObj = enum
-				ok = true
+		classObj = selfObj
+		ok = true
+		if class, isClass := classObj.(*Class); isClass {
+			calledClassName = class.Name
+		}
+	} else if className == "static" {
+		// 处理 static:: 的情况（Late Static Binding）
+		// 先尝试从 __called_class_name 获取实际调用的类
+		calledClassNameObj, found := i.env.Get("__called_class_name")
+		if found {
+			if str, strOk := calledClassNameObj.(*String); strOk {
+				calledClassName = str.Value
 			}
 		}
-		
-		// 如果在当前命名空间中没找到，尝试自动加载同命名空间下的类文件
-		if !ok {
-			loadErr := i.loadNamespaceFile(i.currentNamespace.FullName, className)
-			if loadErr == nil {
-				// 重新尝试查找
-				if class, found := i.currentNamespace.GetClass(className); found {
-					classObj = class
+		// 如果没有找到，回退到 self
+		if calledClassName == "static" || calledClassName == "" {
+			selfObj, found := i.env.Get("self")
+			if !found {
+				return newError("static 只能在类方法内部使用")
+			}
+			classObj = selfObj
+			ok = true
+			if class, isClass := classObj.(*Class); isClass {
+				calledClassName = class.Name
+			}
+		} else {
+			// 根据类名查找类
+			classObj, ok = i.env.Get(calledClassName)
+			if !ok && i.currentNamespace != nil {
+				if c, f := i.currentNamespace.GetClass(calledClassName); f {
+					classObj = c
 					ok = true
 				}
-				if !ok {
-					if enum, found := i.currentNamespace.GetEnum(className); found {
-						classObj = enum
+			}
+			if !ok {
+				for _, ns := range i.namespaceMgr.namespaces {
+					if c, f := ns.GetClass(calledClassName); f {
+						classObj = c
 						ok = true
+						break
 					}
 				}
 			}
 		}
-	}
+	} else {
+		// 首先从当前环境查找（向后兼容）
+		classObj, ok = i.env.Get(className)
 
-	// 如果还是找不到，从所有命名空间中查找
-	if !ok {
-		for _, ns := range i.namespaceMgr.namespaces {
-			if class, found := ns.GetClass(className); found {
+		// 如果当前环境找不到，且存在当前命名空间，从当前命名空间查找
+		if !ok && i.currentNamespace != nil {
+			// 查找类
+			if class, found := i.currentNamespace.GetClass(className); found {
 				classObj = class
 				ok = true
-				break
 			}
-			if enum, found := ns.GetEnum(className); found {
-				classObj = enum
-				ok = true
-				break
+			// 查找枚举
+			if !ok {
+				if enum, found := i.currentNamespace.GetEnum(className); found {
+					classObj = enum
+					ok = true
+				}
+			}
+			
+			// 如果在当前命名空间中没找到，尝试自动加载同命名空间下的类文件
+			if !ok {
+				loadErr := i.loadNamespaceFile(i.currentNamespace.FullName, className)
+				if loadErr == nil {
+					// 重新尝试查找
+					if class, found := i.currentNamespace.GetClass(className); found {
+						classObj = class
+						ok = true
+					}
+					if !ok {
+						if enum, found := i.currentNamespace.GetEnum(className); found {
+							classObj = enum
+							ok = true
+						}
+					}
+				}
 			}
 		}
-	}
 
-	if !ok {
-		return newError("未定义的类或枚举: %s", className)
+		// 如果还是找不到，从所有命名空间中查找
+		if !ok {
+			for _, ns := range i.namespaceMgr.namespaces {
+				if class, found := ns.GetClass(className); found {
+					classObj = class
+					ok = true
+					break
+				}
+				if enum, found := ns.GetEnum(className); found {
+					classObj = enum
+					ok = true
+					break
+				}
+			}
+		}
+
+		if !ok {
+			return newError("未定义的类或枚举: %s", className)
+		}
 	}
 
 	// 检查是否是枚举类型
@@ -2857,15 +2930,16 @@ func (i *Interpreter) evalSuperMethodCall(methodName string, arguments []parser.
 	return unwrapReturnValue(evaluated)
 }
 
-// evalStaticAccessExpression 执行静态访问（常量访问或枚举成员访问）
+// evalStaticAccessExpression 执行静态访问（常量访问、静态字段访问或枚举成员访问）
 func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpression) Object {
 	className := node.ClassName.Value
 	memberName := node.Name.Value
 
 	var class *Class
 	var ok bool
+	var calledClassName string // 用于 static:: 的 Late Static Binding
 
-	// 处理 self:: 的情况
+	// 处理 self:: 的情况（当前定义类）
 	if className == "self" {
 		// 从环境中获取 self（应该在类方法内部）
 		selfObj, found := i.env.Get("self")
@@ -2875,6 +2949,53 @@ func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpres
 		class, ok = selfObj.(*Class)
 		if !ok {
 			return newError("self 必须指向一个类")
+		}
+		calledClassName = class.Name
+	} else if className == "static" {
+		// 处理 static:: 的情况（Late Static Binding，实际调用类）
+		// 先尝试从 __called_class_name 获取实际调用的类
+		calledClassNameObj, found := i.env.Get("__called_class_name")
+		if found {
+			if str, ok := calledClassNameObj.(*String); ok {
+				calledClassName = str.Value
+			}
+		}
+		// 如果没有找到，回退到 self
+		if calledClassName == "" {
+			selfObj, found := i.env.Get("self")
+			if !found {
+				return newError("static 只能在类方法内部使用")
+			}
+			class, ok = selfObj.(*Class)
+			if !ok {
+				return newError("static 必须指向一个类")
+			}
+			calledClassName = class.Name
+		} else {
+			// 根据类名查找类
+			classObj, found := i.env.Get(calledClassName)
+			if !found && i.currentNamespace != nil {
+				if c, f := i.currentNamespace.GetClass(calledClassName); f {
+					classObj = c
+					found = true
+				}
+			}
+			if !found {
+				for _, ns := range i.namespaceMgr.namespaces {
+					if c, f := ns.GetClass(calledClassName); f {
+						classObj = c
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				return newError("未定义的类: %s", calledClassName)
+			}
+			class, ok = classObj.(*Class)
+			if !ok {
+				return newError("%s 不是一个类", calledClassName)
+			}
 		}
 	} else {
 		// 获取类或枚举定义
@@ -2912,16 +3033,200 @@ func (i *Interpreter) evalStaticAccessExpression(node *parser.StaticAccessExpres
 		if !ok {
 			return newError("%s 不是一个类", className)
 		}
+		calledClassName = className
 	}
 
-	// 获取常量
-	constant, ok := class.GetConstant(memberName)
-	if !ok {
-		return newError("类 %s 没有常量: %s", class.Name, memberName)
+	// 首先尝试获取常量
+	if constant, constOk := class.GetConstant(memberName); constOk {
+		// 检查访问权限
+		if constant.AccessModifier == "private" {
+			// 检查是否在同一个类内部
+			if !i.isInsideClass(class.Name) {
+				return newError("无法访问类 %s 的私有常量: %s", class.Name, memberName)
+			}
+		}
+		return constant.Value
 	}
 
-	// 检查访问权限（暂时所有常量都可以访问，后续可以添加访问控制）
-	return constant.Value
+	// 然后尝试获取静态字段
+	staticField, fieldClass := i.getStaticField(class, memberName)
+	if staticField != nil {
+		// 检查访问权限
+		staticVar := i.getStaticVariableDefinition(fieldClass, memberName)
+		if staticVar != nil && staticVar.AccessModifier == "private" {
+			// 检查是否在同一个类内部
+			if !i.isInsideClass(fieldClass.Name) {
+				return newError("无法访问类 %s 的私有静态字段: %s", fieldClass.Name, memberName)
+			}
+		}
+		return staticField
+	}
+
+	return newError("类 %s 没有常量或静态字段: %s", class.Name, memberName)
+}
+
+// getStaticField 获取静态字段值（包括从父类继承的）
+// 子类同名静态字段会隐藏父类的（和 C# 一样）
+func (i *Interpreter) getStaticField(class *Class, name string) (Object, *Class) {
+	// 先在当前类中查找
+	if class.StaticFields != nil {
+		if value, ok := class.StaticFields[name]; ok {
+			return value, class
+		}
+	}
+	// 如果当前类没有，递归查找父类
+	if class.Parent != nil {
+		return i.getStaticField(class.Parent, name)
+	}
+	return nil, nil
+}
+
+// getStaticVariableDefinition 获取静态字段定义（用于访问控制检查）
+func (i *Interpreter) getStaticVariableDefinition(class *Class, name string) *ClassVariable {
+	if class.StaticVariables != nil {
+		if variable, ok := class.StaticVariables[name]; ok {
+			return variable
+		}
+	}
+	if class.Parent != nil {
+		return i.getStaticVariableDefinition(class.Parent, name)
+	}
+	return nil
+}
+
+// isInsideClass 检查当前是否在指定类的方法内部
+func (i *Interpreter) isInsideClass(className string) bool {
+	// 检查 self 环境变量
+	selfObj, found := i.env.Get("self")
+	if found {
+		if class, ok := selfObj.(*Class); ok {
+			if class.Name == className {
+				return true
+			}
+		}
+	}
+	// 检查 this 实例
+	thisObj, found := i.env.Get("this")
+	if found {
+		if instance, ok := thisObj.(*Instance); ok {
+			if instance.Class.Name == className {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// evalStaticFieldAssignment 执行静态字段赋值
+func (i *Interpreter) evalStaticFieldAssignment(node *parser.StaticAccessExpression, val Object) Object {
+	className := node.ClassName.Value
+	fieldName := node.Name.Value
+
+	var class *Class
+	var ok bool
+
+	// 处理 self:: 的情况
+	if className == "self" {
+		selfObj, found := i.env.Get("self")
+		if !found {
+			return newError("self 只能在类方法内部使用")
+		}
+		class, ok = selfObj.(*Class)
+		if !ok {
+			return newError("self 必须指向一个类")
+		}
+	} else if className == "static" {
+		// 处理 static:: 的情况（Late Static Binding）
+		calledClassNameObj, found := i.env.Get("__called_class_name")
+		if found {
+			if str, strOk := calledClassNameObj.(*String); strOk {
+				classObj, classFound := i.env.Get(str.Value)
+				if !classFound && i.currentNamespace != nil {
+					if c, f := i.currentNamespace.GetClass(str.Value); f {
+						classObj = c
+						classFound = true
+					}
+				}
+				if !classFound {
+					for _, ns := range i.namespaceMgr.namespaces {
+						if c, f := ns.GetClass(str.Value); f {
+							classObj = c
+							classFound = true
+							break
+						}
+					}
+				}
+				if classFound {
+					class, ok = classObj.(*Class)
+				}
+			}
+		}
+		if class == nil {
+			selfObj, found := i.env.Get("self")
+			if !found {
+				return newError("static 只能在类方法内部使用")
+			}
+			class, ok = selfObj.(*Class)
+			if !ok {
+				return newError("static 必须指向一个类")
+			}
+		}
+	} else {
+		// 获取类定义
+		classObj, found := i.env.Get(className)
+		if !found && i.currentNamespace != nil {
+			if c, f := i.currentNamespace.GetClass(className); f {
+				classObj = c
+				found = true
+			}
+		}
+		if !found {
+			for _, ns := range i.namespaceMgr.namespaces {
+				if c, f := ns.GetClass(className); f {
+					classObj = c
+					found = true
+					break
+				}
+			}
+		}
+		if !found {
+			return newError("未定义的类: %s", className)
+		}
+		class, ok = classObj.(*Class)
+		if !ok {
+			return newError("%s 不是一个类", className)
+		}
+	}
+
+	// 检查是否是常量（常量不能被赋值）
+	if _, constOk := class.GetConstant(fieldName); constOk {
+		return newError("无法给常量 %s::%s 赋值", class.Name, fieldName)
+	}
+
+	// 查找静态字段定义（用于访问控制和确定要赋值的类）
+	// 子类同名静态字段会隐藏父类的
+	targetClass := class
+	for targetClass != nil {
+		if targetClass.StaticVariables != nil {
+			if staticVar, exists := targetClass.StaticVariables[fieldName]; exists {
+				// 检查访问权限
+				if staticVar.AccessModifier == "private" {
+					if !i.isInsideClass(targetClass.Name) {
+						return newError("无法访问类 %s 的私有静态字段: %s", targetClass.Name, fieldName)
+					}
+				}
+				// 赋值给当前类的静态字段（如果子类有同名字段，赋值给子类的）
+				if class.StaticFields == nil {
+					class.StaticFields = make(map[string]Object)
+				}
+				class.StaticFields[fieldName] = val
+				return val
+			}
+		}
+		targetClass = targetClass.Parent
+	}
+
+	return newError("类 %s 没有静态字段: %s", class.Name, fieldName)
 }
 
 // evalClassLiteralExpression 执行类名字面量表达式

@@ -326,8 +326,8 @@ func (p *Parser) parseClassMembers() []ClassMember {
 			if isAbstract {
 				p.errors = append(p.errors, fmt.Sprintf("成员变量不能是抽象的 (行 %d, 列 %d)", p.curToken.Line, p.curToken.Column))
 			}
-			// 成员变量
-			variable := p.parseClassVariable(accessModifier)
+			// 成员变量（可能是静态的）
+			variable := p.parseClassVariable(accessModifier, isStatic)
 			if variable != nil {
 				variable.Annotations = memberAnnotations
 				members = append(members, variable)
@@ -349,10 +349,12 @@ func (p *Parser) parseClassMembers() []ClassMember {
 }
 
 // parseClassVariable 解析类成员变量
-func (p *Parser) parseClassVariable(accessModifier string) *ClassVariable {
+// 语法：访问修饰符 [static] 变量名 类型 [= 初始值]
+func (p *Parser) parseClassVariable(accessModifier string, isStatic bool) *ClassVariable {
 	variable := &ClassVariable{
 		Token:          p.curToken,
 		AccessModifier: accessModifier,
+		IsStatic:       isStatic,
 	}
 
 	if !p.curTokenIs(lexer.IDENT) {
@@ -517,6 +519,13 @@ func (p *Parser) parseThisExpression() Expression {
 // parseSuperExpression 解析 super 表达式
 func (p *Parser) parseSuperExpression() Expression {
 	return &SuperExpression{Token: p.curToken}
+}
+
+// parseStaticKeyword 解析 static 关键字（用于 static::xxx 语法）
+// static:: 用于 Late Static Binding，类似于 PHP
+func (p *Parser) parseStaticKeyword() Expression {
+	// 将 static 作为特殊的标识符返回
+	return &Identifier{Token: p.curToken, Value: "static"}
 }
 
 // parseNewExpression 解析 new 表达式
