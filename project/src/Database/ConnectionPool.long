@@ -1,0 +1,172 @@
+namespace App.Database
+
+use App.Database.MysqlConnection
+use App.Database.DatabaseException
+
+/**
+ * ConnectionPool - 数据库连接池
+ */
+public class ConnectionPool {
+    private _connConfig any
+    private _poolConfig any
+    private _available any
+    private _inUse int          // 使用中的数量
+    private _created int        // 已创建总数
+    private _closed bool        // 是否已关闭
+    
+    public function __construct(connConfig: any) {
+        this._connConfig = connConfig
+        this._poolConfig = connConfig.getPoolConfig()
+        this._available = {}
+        this._inUse = 0
+        this._created = 0
+        this._closed = false
+        
+        // 预创建最小连接数
+        this._initMinConnections()
+    }
+    
+    /**
+     * 初始化最小连接数
+     */
+    private function _initMinConnections() {
+        minSize := this._poolConfig.getMinSize()
+        for i := 0; i < minSize; i++ {
+            conn := this._createConnection()
+            if conn != null {
+                this._available.push(conn)
+            }
+        }
+    }
+    
+    /**
+     * 创建新连接
+     */
+    private function _createConnection() any {
+        driver := this._connConfig.getDriver()
+        
+        if driver == "mysql" {
+            conn := new MysqlConnection(this._connConfig)
+            this._created = this._created + 1
+            return conn
+        }
+        
+        throw new DatabaseException("不支持的数据库驱动: " + driver)
+    }
+    
+    /**
+     * 验证连接是否有效
+     */
+    private function _validateConnection(conn: any) bool {
+        if conn == null {
+            return false
+        }
+        
+        if !conn.isConnected() {
+            return false
+        }
+        
+        if this._poolConfig.getValidateOnBorrow() {
+            return conn.ping()
+        }
+        
+        return true
+    }
+    
+    /**
+     * 获取连接
+     */
+    public function acquire() any {
+        if this._closed {
+            throw new DatabaseException("连接池已关闭")
+        }
+        
+        // 尝试从可用连接中获取
+        for len(this._available) > 0 {
+            conn := this._available.pop()
+            
+            if this._validateConnection(conn) {
+                this._inUse = this._inUse + 1
+                return conn
+            } else {
+                // 连接无效，销毁它
+                conn.close()
+                this._created = this._created - 1
+            }
+        }
+        
+        // 没有可用连接，检查是否可以创建新连接
+        if this._created < this._poolConfig.getMaxSize() {
+            conn := this._createConnection()
+            this._inUse = this._inUse + 1
+            return conn
+        }
+        
+        // 已达到最大连接数
+        throw new DatabaseException("连接池已满，无法获取连接")
+    }
+    
+    /**
+     * 归还连接
+     */
+    public function release(conn: any) {
+        if this._closed {
+            conn.close()
+            return
+        }
+        
+        if conn == null {
+            return
+        }
+        
+        this._inUse = this._inUse - 1
+        
+        // 如果连接还有效，放回池中
+        if this._validateConnection(conn) && !conn.inTransaction() {
+            this._available.push(conn)
+        } else {
+            // 连接无效或还在事务中，销毁它
+            conn.close()
+            this._created = this._created - 1
+        }
+    }
+    
+    /**
+     * 关闭连接池
+     */
+    public function close() {
+        this._closed = true
+        
+        // 关闭所有可用连接
+        for len(this._available) > 0 {
+            conn := this._available.pop()
+            if conn != null {
+                conn.close()
+            }
+        }
+        
+        this._created = 0
+        this._inUse = 0
+    }
+    
+    /**
+     * 获取池状态
+     */
+    public function getStats() any {
+        return map[string]any{
+            "available": len(this._available),
+            "inUse": this._inUse,
+            "created": this._created,
+            "maxSize": this._poolConfig.getMaxSize()
+        }
+    }
+    
+    /**
+     * 是否已关闭
+     */
+    public function isClosed() bool {
+        return this._closed
+    }
+}
+
+

@@ -1,0 +1,200 @@
+namespace App.Database
+
+use App.Database.QueryBuilder
+use App.Database.DatabaseException
+
+/**
+ * Connection - 数据库连接基类
+ * 子类需要覆盖实现具体的数据库操作
+ */
+public class Connection {
+    protected _config any
+    protected _inTransaction bool
+    protected _lastInsertId int
+    
+    public function __construct(config: any) {
+        this._config = config
+        this._inTransaction = false
+        this._lastInsertId = 0
+    }
+    
+    // === 查询执行（子类覆盖） ===
+    
+    /**
+     * 执行 SELECT 查询
+     */
+    public function select(sql: string, bindings: any) any {
+        throw new DatabaseException("子类必须实现 select 方法")
+    }
+    
+    /**
+     * 执行 INSERT 并返回影响行数
+     */
+    public function insert(sql: string, bindings: any) int {
+        throw new DatabaseException("子类必须实现 insert 方法")
+    }
+    
+    /**
+     * 执行 INSERT 并返回自增ID
+     */
+    public function insertGetId(sql: string, bindings: any) int {
+        throw new DatabaseException("子类必须实现 insertGetId 方法")
+    }
+    
+    /**
+     * 执行 UPDATE 并返回影响行数
+     */
+    public function update(sql: string, bindings: any) int {
+        throw new DatabaseException("子类必须实现 update 方法")
+    }
+    
+    /**
+     * 执行 DELETE 并返回影响行数
+     */
+    public function delete(sql: string, bindings: any) int {
+        throw new DatabaseException("子类必须实现 delete 方法")
+    }
+    
+    /**
+     * 执行任意 SQL 语句
+     */
+    public function statement(sql: string, bindings: any) bool {
+        throw new DatabaseException("子类必须实现 statement 方法")
+    }
+    
+    // === 事务 ===
+    
+    public function beginTransaction() bool {
+        throw new DatabaseException("子类必须实现 beginTransaction 方法")
+    }
+    
+    public function commit() bool {
+        throw new DatabaseException("子类必须实现 commit 方法")
+    }
+    
+    public function rollback() bool {
+        throw new DatabaseException("子类必须实现 rollback 方法")
+    }
+    
+    public function inTransaction() bool {
+        return this._inTransaction
+    }
+    
+    // === 连接状态 ===
+    
+    public function isConnected() bool {
+        throw new DatabaseException("子类必须实现 isConnected 方法")
+    }
+    
+    public function ping() bool {
+        throw new DatabaseException("子类必须实现 ping 方法")
+    }
+    
+    public function reconnect() {
+        throw new DatabaseException("子类必须实现 reconnect 方法")
+    }
+    
+    public function close() {
+        throw new DatabaseException("子类必须实现 close 方法")
+    }
+    
+    // === 辅助方法 ===
+    
+    public function getDriverName() string {
+        throw new DatabaseException("子类必须实现 getDriverName 方法")
+    }
+    
+    public function getConfig() any {
+        return this._config
+    }
+    
+    public function getLastInsertId() int {
+        return this._lastInsertId
+    }
+    
+    /**
+     * 创建查询构建器
+     */
+    public function table(tableName: string) any {
+        return new QueryBuilder(this, tableName)
+    }
+    
+    /**
+     * 转义字符串（防 SQL 注入）
+     */
+    public function escape(value: string) string {
+        result := ""
+        for i := 0; i < len(value); i++ {
+            ch := value.charAt(i)
+            if ch == "'" {
+                result = result + "\\'"
+            } else if ch == "\"" {
+                result = result + "\\\""
+            } else if ch == "\\" {
+                result = result + "\\\\"
+            } else if ch == "\n" {
+                result = result + "\\n"
+            } else if ch == "\r" {
+                result = result + "\\r"
+            } else if ch == "\t" {
+                result = result + "\\t"
+            } else {
+                result = result + ch
+            }
+        }
+        return result
+    }
+    
+    /**
+     * 预处理 SQL，替换占位符
+     */
+    public function prepareBindings(sql: string, bindings: any) string {
+        if bindings == null || len(bindings) == 0 {
+            return sql
+        }
+        
+        result := ""
+        bindingIndex := 0
+        i := 0
+        
+        for i < len(sql) {
+            ch := sql.charAt(i)
+            if ch == "?" && bindingIndex < len(bindings) {
+                value := bindings[bindingIndex]
+                result = result + this._formatValue(value)
+                bindingIndex = bindingIndex + 1
+            } else {
+                result = result + ch
+            }
+            i = i + 1
+        }
+        
+        return result
+    }
+    
+    /**
+     * 格式化值为 SQL 字符串
+     */
+    public function _formatValue(value: any) string {
+        if value == null {
+            return "NULL"
+        }
+        
+        valueType := typeof(value)
+        
+        if valueType == "int" || valueType == "float" || valueType == "INTEGER" || valueType == "FLOAT" {
+            return toString(value)
+        }
+        
+        if valueType == "bool" || valueType == "BOOLEAN" {
+            if value {
+                return "1"
+            }
+            return "0"
+        }
+        
+        // 字符串类型，需要转义
+        return "'" + this.escape(toString(value)) + "'"
+    }
+}
+

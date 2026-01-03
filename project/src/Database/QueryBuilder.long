@@ -1,0 +1,824 @@
+namespace App.Database
+
+/**
+ * QueryBuilder - SQL 查询构建器
+ * 
+ * 链式调用构建 SQL 查询，类似 Laravel 的查询构建器
+ */
+public class QueryBuilder {
+    private _connection any
+    private _table string
+    private _columns any
+    private _distinct bool
+    private _wheres any
+    private _orders any
+    private _groups any
+    private _havings any
+    private _joins any
+    private _limit int
+    private _offset int
+    private _bindings any
+    
+    public function __construct(connection: any, table: string) {
+        this._connection = connection
+        this._table = this._prefixTable(table)
+        this._columns = {}
+        this._distinct = false
+        this._wheres = {}
+        this._orders = {}
+        this._groups = {}
+        this._havings = {}
+        this._joins = {}
+        this._limit = 0
+        this._offset = 0
+        this._bindings = {}
+    }
+    
+    /**
+     * 添加表前缀
+     */
+    private function _prefixTable(table: string) string {
+        prefix := this._connection.getConfig().getPrefix()
+        if prefix != "" {
+            return prefix + table
+        }
+        return table
+    }
+    
+    // ==================== SELECT ====================
+    
+    /**
+     * 设置要查询的列（单个或多个）
+     */
+    public function select(columns: any) any {
+        this._columns = {}
+        // 如果是数组，添加所有列；否则作为单个列名
+        if typeof(columns) == "ARRAY" {
+            for i := 0; i < len(columns); i++ {
+                this._columns.push(columns[i])
+            }
+        } else {
+            this._columns.push(columns)
+        }
+        return this
+    }
+    
+    /**
+     * 添加要查询的列
+     */
+    public function addSelect(column: string) any {
+        this._columns.push(column)
+        return this
+    }
+    
+    /**
+     * 去重
+     */
+    public function distinct() any {
+        this._distinct = true
+        return this
+    }
+    
+    // ==================== WHERE ====================
+    
+    /**
+     * 添加 WHERE 条件
+     * 支持三种调用方式：
+     * - where("column", "value")           -> column = value
+     * - where("column", "=", "value")      -> column = value
+     * - where("column", ">", "value")      -> column > value
+     */
+    public function where(column: string, operatorOrValue: any, value: any = null) any {
+        if value == null {
+            // 两参数形式: where("name", "John") -> name = 'John'
+            this._wheres.push(map[string]any{
+                "type": "basic",
+                "column": column,
+                "operator": "=",
+                "value": operatorOrValue,
+                "boolean": "AND"
+            })
+        } else {
+            // 三参数形式: where("age", ">", 18)
+            this._wheres.push(map[string]any{
+                "type": "basic",
+                "column": column,
+                "operator": operatorOrValue,
+                "value": value,
+                "boolean": "AND"
+            })
+        }
+        return this
+    }
+    
+    /**
+     * OR WHERE 条件
+     */
+    public function orWhere(column: string, operatorOrValue: any, value: any = null) any {
+        if value == null {
+            this._wheres.push(map[string]any{
+                "type": "basic",
+                "column": column,
+                "operator": "=",
+                "value": operatorOrValue,
+                "boolean": "OR"
+            })
+        } else {
+            this._wheres.push(map[string]any{
+                "type": "basic",
+                "column": column,
+                "operator": operatorOrValue,
+                "value": value,
+                "boolean": "OR"
+            })
+        }
+        return this
+    }
+    
+    /**
+     * WHERE IN
+     */
+    public function whereIn(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "in",
+            "column": column,
+            "values": values,
+            "boolean": "AND",
+            "not": false
+        })
+        return this
+    }
+    
+    /**
+     * WHERE NOT IN
+     */
+    public function whereNotIn(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "in",
+            "column": column,
+            "values": values,
+            "boolean": "AND",
+            "not": true
+        })
+        return this
+    }
+    
+    /**
+     * WHERE IS NULL
+     */
+    public function whereNull(column: string) any {
+        this._wheres.push(map[string]any{
+            "type": "null",
+            "column": column,
+            "boolean": "AND",
+            "not": false
+        })
+        return this
+    }
+    
+    /**
+     * WHERE IS NOT NULL
+     */
+    public function whereNotNull(column: string) any {
+        this._wheres.push(map[string]any{
+            "type": "null",
+            "column": column,
+            "boolean": "AND",
+            "not": true
+        })
+        return this
+    }
+    
+    /**
+     * WHERE BETWEEN
+     */
+    public function whereBetween(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "between",
+            "column": column,
+            "values": values,
+            "boolean": "AND",
+            "not": false
+        })
+        return this
+    }
+    
+    /**
+     * WHERE NOT BETWEEN
+     */
+    public function whereNotBetween(column: string, values: any) any {
+        this._wheres.push(map[string]any{
+            "type": "between",
+            "column": column,
+            "values": values,
+            "boolean": "AND",
+            "not": true
+        })
+        return this
+    }
+    
+    /**
+     * 原生 WHERE
+     */
+    public function whereRaw(sql: string, bindings: any = null) any {
+        this._wheres.push(map[string]any{
+            "type": "raw",
+            "sql": sql,
+            "boolean": "AND"
+        })
+        if bindings != null {
+            for i := 0; i < len(bindings); i++ {
+                this._bindings.push(bindings[i])
+            }
+        }
+        return this
+    }
+    
+    // ==================== JOIN ====================
+    
+    /**
+     * INNER JOIN
+     */
+    public function join(table: string, first: string, operator: string, second: string) any {
+        this._joins.push(map[string]any{
+            "type": "INNER",
+            "table": this._prefixTable(table),
+            "first": first,
+            "operator": operator,
+            "second": second
+        })
+        return this
+    }
+    
+    /**
+     * LEFT JOIN
+     */
+    public function leftJoin(table: string, first: string, operator: string, second: string) any {
+        this._joins.push(map[string]any{
+            "type": "LEFT",
+            "table": this._prefixTable(table),
+            "first": first,
+            "operator": operator,
+            "second": second
+        })
+        return this
+    }
+    
+    /**
+     * RIGHT JOIN
+     */
+    public function rightJoin(table: string, first: string, operator: string, second: string) any {
+        this._joins.push(map[string]any{
+            "type": "RIGHT",
+            "table": this._prefixTable(table),
+            "first": first,
+            "operator": operator,
+            "second": second
+        })
+        return this
+    }
+    
+    // ==================== ORDER BY ====================
+    
+    /**
+     * ORDER BY
+     */
+    public function orderBy(column: string, direction: string = "asc") any {
+        dir := direction.upper()
+        if dir != "ASC" && dir != "DESC" {
+            dir = "ASC"
+        }
+        this._orders.push(map[string]any{
+            "column": column,
+            "direction": dir
+        })
+        return this
+    }
+    
+    /**
+     * ORDER BY DESC
+     */
+    public function orderByDesc(column: string) any {
+        return this.orderBy(column, "desc")
+    }
+    
+    /**
+     * 按创建时间倒序
+     */
+    public function latest(column: string = "created_at") any {
+        return this.orderBy(column, "desc")
+    }
+    
+    /**
+     * 按创建时间正序
+     */
+    public function oldest(column: string = "created_at") any {
+        return this.orderBy(column, "asc")
+    }
+    
+    // ==================== GROUP BY / HAVING ====================
+    
+    /**
+     * GROUP BY
+     */
+    public function groupBy(columns: any) any {
+        if typeof(columns) == "ARRAY" {
+            for i := 0; i < len(columns); i++ {
+                this._groups.push(columns[i])
+            }
+        } else {
+            this._groups.push(columns)
+        }
+        return this
+    }
+    
+    /**
+     * HAVING
+     */
+    public function having(column: string, operator: string, value: any) any {
+        this._havings.push(map[string]any{
+            "column": column,
+            "operator": operator,
+            "value": value,
+            "boolean": "AND"
+        })
+        return this
+    }
+    
+    // ==================== LIMIT / OFFSET ====================
+    
+    /**
+     * LIMIT
+     */
+    public function limit(limit: int) any {
+        this._limit = limit
+        return this
+    }
+    
+    /**
+     * OFFSET
+     */
+    public function offset(offset: int) any {
+        this._offset = offset
+        return this
+    }
+    
+    /**
+     * LIMIT 的别名
+     */
+    public function take(limit: int) any {
+        return this.limit(limit)
+    }
+    
+    /**
+     * OFFSET 的别名
+     */
+    public function skip(offset: int) any {
+        return this.offset(offset)
+    }
+    
+    // ==================== 执行查询 ====================
+    
+    /**
+     * 获取所有结果
+     */
+    public function get() any {
+        sql := this._compileSelect()
+        return this._connection.select(sql, this._bindings)
+    }
+    
+    /**
+     * 获取第一条结果
+     */
+    public function first() any {
+        this._limit = 1
+        results := this.get()
+        if len(results) > 0 {
+            return results[0]
+        }
+        return null
+    }
+    
+    /**
+     * 根据主键查找
+     */
+    public function find(id: any, column: string = "id") any {
+        return this.where(column, id).first()
+    }
+    
+    /**
+     * 获取单列的值
+     */
+    public function value(column: string) any {
+        this._columns = {column}
+        row := this.first()
+        if row != null && isset(row, column) {
+            return row[column]
+        }
+        return null
+    }
+    
+    /**
+     * 获取某列的所有值
+     */
+    public function pluck(column: string) any {
+        this._columns = {column}
+        rows := this.get()
+        result := {}
+        for i := 0; i < len(rows); i++ {
+            row := rows[i]
+            if isset(row, column) {
+                result.push(row[column])
+            }
+        }
+        return result
+    }
+    
+    /**
+     * 检查是否存在
+     */
+    public function exists() bool {
+        this._columns = {"1"}
+        this._limit = 1
+        results := this.get()
+        return len(results) > 0
+    }
+    
+    /**
+     * 检查是否不存在
+     */
+    public function doesntExist() bool {
+        return !this.exists()
+    }
+    
+    // ==================== 聚合 ====================
+    
+    /**
+     * COUNT
+     */
+    public function count(column: string = "*") int {
+        return this._aggregate("COUNT", column)
+    }
+    
+    /**
+     * MAX
+     */
+    public function max(column: string) any {
+        return this._aggregateValue("MAX", column)
+    }
+    
+    /**
+     * MIN
+     */
+    public function min(column: string) any {
+        return this._aggregateValue("MIN", column)
+    }
+    
+    /**
+     * AVG
+     */
+    public function avg(column: string) any {
+        return this._aggregateValue("AVG", column)
+    }
+    
+    /**
+     * SUM
+     */
+    public function sum(column: string) any {
+        return this._aggregateValue("SUM", column)
+    }
+    
+    private function _aggregate(func: string, column: string) int {
+        this._columns = {func + "(" + column + ") as aggregate"}
+        row := this.first()
+        if row != null && isset(row, "aggregate") {
+            return parseInt(toString(row["aggregate"]))
+        }
+        return 0
+    }
+    
+    private function _aggregateValue(func: string, column: string) any {
+        this._columns = {func + "(" + column + ") as aggregate"}
+        row := this.first()
+        if row != null && isset(row, "aggregate") {
+            return row["aggregate"]
+        }
+        return null
+    }
+    
+    // ==================== INSERT ====================
+    
+    /**
+     * 插入单条或多条数据
+     */
+    public function insert(data: any) bool {
+        sql := this._compileInsert(data)
+        affected := this._connection.insert(sql, {})
+        return affected > 0
+    }
+    
+    /**
+     * 插入并返回自增ID
+     */
+    public function insertGetId(data: any) int {
+        sql := this._compileInsert(data)
+        return this._connection.insertGetId(sql, {})
+    }
+    
+    // ==================== UPDATE ====================
+    
+    /**
+     * 更新数据
+     */
+    public function update(data: any) int {
+        sql := this._compileUpdate(data)
+        return this._connection.update(sql, this._bindings)
+    }
+    
+    /**
+     * 自增
+     */
+    public function increment(column: string, amount: int = 1, extra: any = null) int {
+        data := map[string]any{}
+        data[column] = "__RAW__" + column + " + " + toString(amount)
+        
+        if extra != null {
+            for key, value := range extra {
+                data[key] = value
+            }
+        }
+        
+        return this.update(data)
+    }
+    
+    /**
+     * 自减
+     */
+    public function decrement(column: string, amount: int = 1, extra: any = null) int {
+        data := map[string]any{}
+        data[column] = "__RAW__" + column + " - " + toString(amount)
+        
+        if extra != null {
+            for key, value := range extra {
+                data[key] = value
+            }
+        }
+        
+        return this.update(data)
+    }
+    
+    // ==================== DELETE ====================
+    
+    /**
+     * 删除数据
+     */
+    public function delete() int {
+        sql := this._compileDelete()
+        return this._connection.delete(sql, this._bindings)
+    }
+    
+    /**
+     * 清空表
+     */
+    public function truncate() {
+        sql := "TRUNCATE TABLE " + this._table
+        this._connection.statement(sql, {})
+    }
+    
+    // ==================== SQL 生成 ====================
+    
+    /**
+     * 获取生成的 SQL（调试用）
+     */
+    public function toSql() string {
+        return this._compileSelect()
+    }
+    
+    /**
+     * 获取绑定值
+     */
+    public function getBindings() any {
+        return this._bindings
+    }
+    
+    // ==================== 内部编译方法 ====================
+    
+    private function _compileSelect() string {
+        sql := "SELECT "
+        
+        if this._distinct {
+            sql = sql + "DISTINCT "
+        }
+        
+        // 列
+        if len(this._columns) == 0 {
+            sql = sql + "*"
+        } else {
+            sql = sql + this._implode(this._columns, ", ")
+        }
+        
+        // FROM
+        sql = sql + " FROM " + this._table
+        
+        // JOIN
+        sql = sql + this._compileJoins()
+        
+        // WHERE
+        sql = sql + this._compileWheres()
+        
+        // GROUP BY
+        sql = sql + this._compileGroups()
+        
+        // HAVING
+        sql = sql + this._compileHavings()
+        
+        // ORDER BY
+        sql = sql + this._compileOrders()
+        
+        // LIMIT / OFFSET
+        sql = sql + this._compileLimit()
+        
+        return sql
+    }
+    
+    private function _compileInsert(data: any) string {
+        columns := {}
+        values := {}
+        
+        for key, value := range data {
+            columns.push(key)
+            values.push(this._connection._formatValue(value))
+        }
+        
+        sql := "INSERT INTO " + this._table
+        sql = sql + " (" + this._implode(columns, ", ") + ")"
+        sql = sql + " VALUES (" + this._implode(values, ", ") + ")"
+        
+        return sql
+    }
+    
+    private function _compileUpdate(data: any) string {
+        sets := {}
+        
+        for key, value := range data {
+            valueStr := toString(value)
+            if valueStr.startsWith("__RAW__") {
+                // 原生表达式
+                sets.push(key + " = " + valueStr.substring(7, len(valueStr)))
+            } else {
+                sets.push(key + " = " + this._connection._formatValue(value))
+            }
+        }
+        
+        sql := "UPDATE " + this._table
+        sql = sql + " SET " + this._implode(sets, ", ")
+        sql = sql + this._compileWheres()
+        
+        return sql
+    }
+    
+    private function _compileDelete() string {
+        sql := "DELETE FROM " + this._table
+        sql = sql + this._compileWheres()
+        return sql
+    }
+    
+    private function _compileWheres() string {
+        if len(this._wheres) == 0 {
+            return ""
+        }
+        
+        sql := " WHERE "
+        
+        for i := 0; i < len(this._wheres); i++ {
+            w := this._wheres[i]
+            
+            if i > 0 {
+                boolOp := w["boolean"]
+                if boolOp != null {
+                    sql = sql + " " + toString(boolOp) + " "
+                } else {
+                    sql = sql + " AND "
+                }
+            }
+            
+            wType := toString(w["type"])
+            
+            if wType == "basic" {
+                sql = sql + toString(w["column"]) + " " + toString(w["operator"]) + " " + this._connection._formatValue(w["value"])
+            } else if wType == "in" {
+                values := w["values"]
+                valueStrs := {}
+                for j := 0; j < len(values); j++ {
+                    valueStrs.push(this._connection._formatValue(values[j]))
+                }
+                inStr := this._implode(valueStrs, ", ")
+                if w["not"] {
+                    sql = sql + w["column"] + " NOT IN (" + inStr + ")"
+                } else {
+                    sql = sql + w["column"] + " IN (" + inStr + ")"
+                }
+            } else if wType == "null" {
+                if w["not"] {
+                    sql = sql + w["column"] + " IS NOT NULL"
+                } else {
+                    sql = sql + w["column"] + " IS NULL"
+                }
+            } else if wType == "between" {
+                values := w["values"]
+                if w["not"] {
+                    sql = sql + w["column"] + " NOT BETWEEN " + this._connection._formatValue(values[0]) + " AND " + this._connection._formatValue(values[1])
+                } else {
+                    sql = sql + w["column"] + " BETWEEN " + this._connection._formatValue(values[0]) + " AND " + this._connection._formatValue(values[1])
+                }
+            } else if wType == "raw" {
+                sql = sql + w["sql"]
+            }
+        }
+        
+        return sql
+    }
+    
+    private function _compileJoins() string {
+        if len(this._joins) == 0 {
+            return ""
+        }
+        
+        sql := ""
+        for i := 0; i < len(this._joins); i++ {
+            j := this._joins[i]
+            sql = sql + " " + j["type"] + " JOIN " + j["table"]
+            sql = sql + " ON " + j["first"] + " " + j["operator"] + " " + j["second"]
+        }
+        
+        return sql
+    }
+    
+    private function _compileOrders() string {
+        if len(this._orders) == 0 {
+            return ""
+        }
+        
+        parts := {}
+        for i := 0; i < len(this._orders); i++ {
+            o := this._orders[i]
+            parts.push(o["column"] + " " + o["direction"])
+        }
+        
+        return " ORDER BY " + this._implode(parts, ", ")
+    }
+    
+    private function _compileGroups() string {
+        if len(this._groups) == 0 {
+            return ""
+        }
+        return " GROUP BY " + this._implode(this._groups, ", ")
+    }
+    
+    private function _compileHavings() string {
+        if len(this._havings) == 0 {
+            return ""
+        }
+        
+        sql := " HAVING "
+        first := true
+        
+        for i := 0; i < len(this._havings); i++ {
+            h := this._havings[i]
+            if !first {
+                sql = sql + " " + h["boolean"] + " "
+            }
+            first = false
+            sql = sql + h["column"] + " " + h["operator"] + " " + this._connection._formatValue(h["value"])
+        }
+        
+        return sql
+    }
+    
+    private function _compileLimit() string {
+        sql := ""
+        if this._limit > 0 {
+            sql = sql + " LIMIT " + toString(this._limit)
+        }
+        if this._offset > 0 {
+            sql = sql + " OFFSET " + toString(this._offset)
+        }
+        return sql
+    }
+    
+    /**
+     * 数组转字符串
+     */
+    private function _implode(arr: any, separator: string) string {
+        result := ""
+        for i := 0; i < len(arr); i++ {
+            if i > 0 {
+                result = result + separator
+            }
+            result = result + toString(arr[i])
+        }
+        return result
+    }
+}
+
+

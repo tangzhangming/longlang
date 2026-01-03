@@ -1,0 +1,19 @@
+namespace App.Database
+
+use System.Exception
+
+/**
+ * DatabaseException - 数据库异常
+ */
+public class DatabaseException extends Exception {
+    
+    public function __construct(message: string) {
+        super::__construct(message)
+    }
+    
+    public function toString() string {
+        return "DatabaseException: " + this.getMessage()
+    }
+}
+
+

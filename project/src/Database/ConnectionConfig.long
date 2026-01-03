@@ -1,0 +1,111 @@
+namespace App.Database
+
+/**
+ * ConnectionConfig - 单个数据库连接配置
+ */
+public class ConnectionConfig {
+    private _driver string
+    private _host string
+    private _port int
+    private _username string
+    private _password string
+    private _database string
+    private _charset string
+    private _prefix string
+    private _poolConfig any
+    
+    public function __construct() {
+        this._driver = "mysql"
+        this._host = "127.0.0.1"
+        this._port = 3306
+        this._username = "root"
+        this._password = ""
+        this._database = ""
+        this._charset = "utf8mb4"
+        this._prefix = ""
+        this._poolConfig = new PoolConfig()
+    }
+    
+    public function setDriver(driver: string) any {
+        this._driver = driver
+        return this
+    }
+    
+    public function setHost(host: string) any {
+        this._host = host
+        return this
+    }
+    
+    public function setPort(port: int) any {
+        this._port = port
+        return this
+    }
+    
+    public function setUsername(username: string) any {
+        this._username = username
+        return this
+    }
+    
+    public function setPassword(password: string) any {
+        this._password = password
+        return this
+    }
+    
+    public function setDatabase(database: string) any {
+        this._database = database
+        return this
+    }
+    
+    public function setCharset(charset: string) any {
+        this._charset = charset
+        return this
+    }
+    
+    public function setPrefix(prefix: string) any {
+        this._prefix = prefix
+        return this
+    }
+    
+    public function setPoolConfig(config: any) any {
+        this._poolConfig = config
+        return this
+    }
+    
+    public function getDriver() string {
+        return this._driver
+    }
+    
+    public function getHost() string {
+        return this._host
+    }
+    
+    public function getPort() int {
+        return this._port
+    }
+    
+    public function getUsername() string {
+        return this._username
+    }
+    
+    public function getPassword() string {
+        return this._password
+    }
+    
+    public function getDatabase() string {
+        return this._database
+    }
+    
+    public function getCharset() string {
+        return this._charset
+    }
+    
+    public function getPrefix() string {
+        return this._prefix
+    }
+    
+    public function getPoolConfig() any {
+        return this._poolConfig
+    }
+}
+
+

@@ -222,6 +222,15 @@ func registerBuiltins(env *Environment) {
 		return &Null{}
 	}})
 
+	// 注册全局 typeof 函数
+	// typeof(value) - 获取值的类型名称
+	env.Set("typeof", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 1 {
+			return newError("typeof 函数需要1个参数，得到 %d 个", len(args))
+		}
+		return &String{Value: string(args[0].Type())}
+	}})
+
 }
 
 // BuiltinObject 内置对象（用于命名空间，如 fmt）

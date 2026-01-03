@@ -1,0 +1,220 @@
+namespace App.Database
+
+use App.Database.ConnectionPool
+use App.Database.ConnectionConfig
+use App.Database.DatabaseException
+
+/**
+ * DatabaseManager - 数据库管理器
+ * 
+ * 管理多个数据库连接和连接池
+ */
+public class DatabaseManager {
+    private _config any
+    private _pools any
+    
+    public function __construct(config: any) {
+        this._config = config
+        this._pools = map[string]any{}
+    }
+    
+    /**
+     * 获取连接
+     * @param name 连接名称，空字符串表示使用默认连接
+     */
+    public function connection(name: string = "") any {
+        if name == "" {
+            name = this._config.getDefault()
+        }
+        
+        // 获取或创建连接池
+        pool := this._getPool(name)
+        
+        // 从池中获取连接
+        return pool.acquire()
+    }
+    
+    /**
+     * 获取连接池
+     */
+    private function _getPool(name: string) any {
+        if isset(this._pools, name) {
+            return this._pools[name]
+        }
+        
+        // 获取连接配置
+        connConfig := this._config.getConnection(name)
+        if connConfig == null {
+            throw new DatabaseException("数据库连接配置不存在: " + name)
+        }
+        
+        // 创建连接池
+        pool := new ConnectionPool(connConfig)
+        this._pools[name] = pool
+        
+        return pool
+    }
+    
+    /**
+     * 归还连接到池
+     */
+    public function release(name: string, conn: any) {
+        if name == "" {
+            name = this._config.getDefault()
+        }
+        
+        if isset(this._pools, name) {
+            pool := this._pools[name]
+            pool.release(conn)
+        }
+    }
+    
+    /**
+     * 使用回调执行数据库操作（自动获取和归还连接）
+     */
+    public function using(name: string, callback: any) any {
+        conn := this.connection(name)
+        try {
+            result := callback(conn)
+            this.release(name, conn)
+            return result
+        } catch (Exception e) {
+            this.release(name, conn)
+            throw e
+        }
+    }
+    
+    /**
+     * 执行事务（自动提交/回滚）
+     */
+    public function transaction(name: string, callback: any) any {
+        conn := this.connection(name)
+        conn.beginTransaction()
+        
+        try {
+            result := callback(conn)
+            conn.commit()
+            this.release(name, conn)
+            return result
+        } catch (Exception e) {
+            conn.rollback()
+            this.release(name, conn)
+            throw e
+        }
+    }
+    
+    /**
+     * 创建查询构建器（快捷方法）
+     */
+    public function table(tableName: string, connectionName: string = "") any {
+        conn := this.connection(connectionName)
+        return conn.table(tableName)
+    }
+    
+    /**
+     * 执行原生 SELECT
+     */
+    public function select(sql: string, bindings: any = null, connectionName: string = "") any {
+        conn := this.connection(connectionName)
+        result := conn.select(sql, bindings)
+        this.release(connectionName, conn)
+        return result
+    }
+    
+    /**
+     * 执行原生 INSERT
+     */
+    public function insert(sql: string, bindings: any = null, connectionName: string = "") int {
+        conn := this.connection(connectionName)
+        result := conn.insert(sql, bindings)
+        this.release(connectionName, conn)
+        return result
+    }
+    
+    /**
+     * 执行原生 UPDATE
+     */
+    public function update(sql: string, bindings: any = null, connectionName: string = "") int {
+        conn := this.connection(connectionName)
+        result := conn.update(sql, bindings)
+        this.release(connectionName, conn)
+        return result
+    }
+    
+    /**
+     * 执行原生 DELETE
+     */
+    public function delete(sql: string, bindings: any = null, connectionName: string = "") int {
+        conn := this.connection(connectionName)
+        result := conn.delete(sql, bindings)
+        this.release(connectionName, conn)
+        return result
+    }
+    
+    /**
+     * 执行原生 SQL 语句
+     */
+    public function statement(sql: string, bindings: any = null, connectionName: string = "") bool {
+        conn := this.connection(connectionName)
+        result := conn.statement(sql, bindings)
+        this.release(connectionName, conn)
+        return result
+    }
+    
+    /**
+     * 关闭指定连接池
+     */
+    public function disconnect(name: string = "") {
+        if name == "" {
+            name = this._config.getDefault()
+        }
+        
+        if isset(this._pools, name) {
+            pool := this._pools[name]
+            pool.close()
+            // 从 map 中移除需要重新赋值
+            newPools := map[string]any{}
+            for key, value := range this._pools {
+                if key != name {
+                    newPools[key] = value
+                }
+            }
+            this._pools = newPools
+        }
+    }
+    
+    /**
+     * 关闭所有连接池
+     */
+    public function disconnectAll() {
+        for name, pool := range this._pools {
+            pool.close()
+        }
+        this._pools = map[string]any{}
+    }
+    
+    /**
+     * 获取连接池状态
+     */
+    public function getPoolStats(name: string = "") any {
+        if name == "" {
+            name = this._config.getDefault()
+        }
+        
+        if isset(this._pools, name) {
+            pool := this._pools[name]
+            return pool.getStats()
+        }
+        
+        return null
+    }
+    
+    /**
+     * 获取配置
+     */
+    public function getConfig() any {
+        return this._config
+    }
+}
+
+

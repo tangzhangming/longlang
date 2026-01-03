@@ -1,0 +1,163 @@
+namespace App.Database
+
+use App.Database.Connection
+use Database.Mysql.Client
+use Database.Mysql.Config
+use Database.Mysql.Result
+use Database.Mysql.Row
+
+/**
+ * MysqlConnection - MySQL 数据库连接实现
+ */
+public class MysqlConnection extends Connection {
+    private _client any
+    
+    public function __construct(config: any) {
+        super::__construct(config)
+        this._client = null
+        this._connect()
+    }
+    
+    /**
+     * 建立连接
+     */
+    private function _connect() {
+        mysqlConfig := new Config()
+        mysqlConfig.setHost(this._config.getHost())
+                   .setPort(this._config.getPort())
+                   .setUsername(this._config.getUsername())
+                   .setPassword(this._config.getPassword())
+                   .setDatabase(this._config.getDatabase())
+                   .setCharset(this._config.getCharset())
+        
+        this._client = Client::connect(mysqlConfig)
+    }
+    
+    // === 查询执行 ===
+    
+    public function select(sql: string, bindings: any) any {
+        preparedSql := this.prepareBindings(sql, bindings)
+        result := this._client.query(preparedSql)
+        
+        // 转换为数组
+        rows := {}
+        for true {
+            row := result.fetch()
+            if row == null {
+                break
+            }
+            rows.push(row.toMap())
+        }
+        return rows
+    }
+    
+    public function insert(sql: string, bindings: any) int {
+        preparedSql := this.prepareBindings(sql, bindings)
+        result := this._client.execute(preparedSql)
+        this._lastInsertId = result.lastInsertId()
+        return result.affectedRows()
+    }
+    
+    public function insertGetId(sql: string, bindings: any) int {
+        this.insert(sql, bindings)
+        return this._lastInsertId
+    }
+    
+    public function update(sql: string, bindings: any) int {
+        preparedSql := this.prepareBindings(sql, bindings)
+        result := this._client.execute(preparedSql)
+        return result.affectedRows()
+    }
+    
+    public function delete(sql: string, bindings: any) int {
+        preparedSql := this.prepareBindings(sql, bindings)
+        result := this._client.execute(preparedSql)
+        return result.affectedRows()
+    }
+    
+    public function statement(sql: string, bindings: any) bool {
+        preparedSql := this.prepareBindings(sql, bindings)
+        try {
+            this._client.execute(preparedSql)
+            return true
+        } catch (Exception e) {
+            return false
+        }
+    }
+    
+    // === 事务 ===
+    
+    public function beginTransaction() bool {
+        if this._inTransaction {
+            return false
+        }
+        result := this._client.beginTransaction()
+        if result {
+            this._inTransaction = true
+        }
+        return result
+    }
+    
+    public function commit() bool {
+        if !this._inTransaction {
+            return false
+        }
+        result := this._client.commit()
+        this._inTransaction = false
+        return result
+    }
+    
+    public function rollback() bool {
+        if !this._inTransaction {
+            return false
+        }
+        result := this._client.rollback()
+        this._inTransaction = false
+        return result
+    }
+    
+    // === 连接状态 ===
+    
+    public function isConnected() bool {
+        if this._client == null {
+            return false
+        }
+        return this._client.isConnected()
+    }
+    
+    public function ping() bool {
+        if this._client == null {
+            return false
+        }
+        try {
+            return this._client.ping()
+        } catch (Exception e) {
+            return false
+        }
+    }
+    
+    public function reconnect() {
+        this.close()
+        this._connect()
+    }
+    
+    public function close() {
+        if this._client != null {
+            this._client.close()
+            this._client = null
+        }
+    }
+    
+    public function getDriverName() string {
+        return "mysql"
+    }
+    
+    /**
+     * 获取底层 MySQL 客户端（高级用法）
+     */
+    public function getClient() any {
+        return this._client
+    }
+}
+
+
