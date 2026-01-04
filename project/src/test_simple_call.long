@@ -5,3 +5,4 @@ use App.Database.Config.PoolConfig
 var poolConfig = new PoolConfig()
 poolConfig.setMinSize(1)
 println("Created PoolConfig")
+

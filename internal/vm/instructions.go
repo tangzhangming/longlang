@@ -362,8 +362,9 @@ func (vm *VM) callClosure(closure *Closure, argCount int) error {
 
 // callMethod 调用方法（方法调用没有函数对象在栈上）
 func (vm *VM) callMethod(closure *Closure, argCount int) error {
-	if argCount != closure.Fn.NumParams && !closure.Fn.IsVariadic {
-		return fmt.Errorf("方法 %s 需要 %d 个参数，但传入了 %d 个",
+	// 允许参数数量小于等于 NumParams（支持默认参数）
+	if argCount > closure.Fn.NumParams && !closure.Fn.IsVariadic {
+		return fmt.Errorf("方法 %s 最多需要 %d 个参数，但传入了 %d 个",
 			closure.Fn.Name, closure.Fn.NumParams, argCount)
 	}
 
@@ -376,8 +377,9 @@ func (vm *VM) callMethod(closure *Closure, argCount int) error {
 
 // callConstructor 调用构造函数
 func (vm *VM) callConstructor(closure *Closure, argCount int) error {
-	if argCount != closure.Fn.NumParams && !closure.Fn.IsVariadic {
-		return fmt.Errorf("构造函数 %s 需要 %d 个参数，但传入了 %d 个",
+	// 允许参数数量小于等于 NumParams（支持默认参数）
+	if argCount > closure.Fn.NumParams && !closure.Fn.IsVariadic {
+		return fmt.Errorf("构造函数 %s 最多需要 %d 个参数，但传入了 %d 个",
 			closure.Fn.Name, closure.Fn.NumParams, argCount)
 	}
 
@@ -455,7 +457,6 @@ func (vm *VM) callBuiltin(builtinID, argCount int) error {
 func (vm *VM) invoke(name string, argCount int) error {
 	receiver := vm.peek(argCount)
 
-
 	switch obj := receiver.(type) {
 	case *interpreter.Instance:
 		// 先查找字段（可能是一个闭包）
@@ -476,16 +477,16 @@ func (vm *VM) invoke(name string, argCount int) error {
 			}
 		}
 		return fmt.Errorf("实例没有方法: %s", name)
-		
+
 	case *interpreter.String:
 		return vm.invokeStringMethod(obj, name, argCount)
-		
+
 	case *interpreter.Array:
 		return vm.invokeArrayMethod(obj, name, argCount)
-		
+
 	case *interpreter.Map:
 		return vm.invokeMapMethod(obj, name, argCount)
-		
+
 	case *interpreter.BuiltinObject:
 		// 命名空间方法调用
 		if field, ok := obj.GetField(name); ok {
@@ -494,7 +495,7 @@ func (vm *VM) invoke(name string, argCount int) error {
 			}
 		}
 		return fmt.Errorf("命名空间没有方法: %s", name)
-		
+
 	case *interpreter.Class:
 		// 尝试调用静态方法
 		if method, ok := obj.GetStaticMethod(name); ok {
@@ -535,7 +536,7 @@ func (vm *VM) invokeStatic(name string, argCount int) error {
 			}
 		}
 		return fmt.Errorf("类 %s 没有静态方法: %s", obj.Name, name)
-	
+
 	case *interpreter.BuiltinObject:
 		// 内置对象的"静态"方法调用（如 Console::writeLine）
 		if field, ok := obj.GetField(name); ok {
@@ -642,7 +643,12 @@ func (vm *VM) invokeStringMethod(str *interpreter.String, name string, argCount 
 			}
 		}
 	default:
-		return fmt.Errorf("字符串没有方法: %s", name)
+		// 尝试使用 interpreter 包中的字符串方法
+		if method, ok := interpreter.GetStringMethod(name); ok {
+			result = method(str, args...)
+		} else {
+			return fmt.Errorf("字符串没有方法: %s", name)
+		}
 	}
 
 	if result == nil {
@@ -906,7 +912,7 @@ func (vm *VM) sliceGet(obj, startIdx, endIdx interpreter.Object) (interpreter.Ob
 	case *interpreter.Array:
 		start := 0
 		end := len(o.Elements)
-		
+
 		// 处理起始索引
 		if _, ok := startIdx.(*interpreter.Null); !ok {
 			if idx, ok := startIdx.(*interpreter.Integer); ok {
@@ -918,7 +924,7 @@ func (vm *VM) sliceGet(obj, startIdx, endIdx interpreter.Object) (interpreter.Ob
 				return nil, fmt.Errorf("切片起始索引必须是整数或null")
 			}
 		}
-		
+
 		// 处理结束索引
 		if _, ok := endIdx.(*interpreter.Null); !ok {
 			if idx, ok := endIdx.(*interpreter.Integer); ok {
@@ -930,7 +936,7 @@ func (vm *VM) sliceGet(obj, startIdx, endIdx interpreter.Object) (interpreter.Ob
 				return nil, fmt.Errorf("切片结束索引必须是整数或null")
 			}
 		}
-		
+
 		// 边界检查
 		if start < 0 {
 			start = 0
@@ -941,7 +947,7 @@ func (vm *VM) sliceGet(obj, startIdx, endIdx interpreter.Object) (interpreter.Ob
 		if start > end {
 			start = end
 		}
-		
+
 		// 创建新数组
 		newElements := make([]interpreter.Object, end-start)
 		copy(newElements, o.Elements[start:end])
@@ -951,7 +957,7 @@ func (vm *VM) sliceGet(obj, startIdx, endIdx interpreter.Object) (interpreter.Ob
 		runes := []rune(o.Value)
 		start := 0
 		end := len(runes)
-		
+
 		// 处理起始索引
 		if _, ok := startIdx.(*interpreter.Null); !ok {
 			if idx, ok := startIdx.(*interpreter.Integer); ok {
@@ -963,7 +969,7 @@ func (vm *VM) sliceGet(obj, startIdx, endIdx interpreter.Object) (interpreter.Ob
 				return nil, fmt.Errorf("切片起始索引必须是整数或null")
 			}
 		}
-		
+
 		// 处理结束索引
 		if _, ok := endIdx.(*interpreter.Null); !ok {
 			if idx, ok := endIdx.(*interpreter.Integer); ok {
@@ -975,7 +981,7 @@ func (vm *VM) sliceGet(obj, startIdx, endIdx interpreter.Object) (interpreter.Ob
 				return nil, fmt.Errorf("切片结束索引必须是整数或null")
 			}
 		}
-		
+
 		// 边界检查
 		if start < 0 {
 			start = 0
@@ -986,7 +992,7 @@ func (vm *VM) sliceGet(obj, startIdx, endIdx interpreter.Object) (interpreter.Ob
 		if start > end {
 			start = end
 		}
-		
+
 		return &interpreter.String{Value: string(runes[start:end])}, nil
 	}
 
@@ -1030,7 +1036,7 @@ func (vm *VM) indexSet(obj, index, value interpreter.Object) error {
 func (vm *VM) runGoroutine(closure *Closure, argCount int) {
 	// 创建新的虚拟机实例
 	newVM := NewVM()
-	
+
 	// 复制参数
 	args := make([]interpreter.Object, argCount)
 	for i := 0; i < argCount; i++ {
@@ -1070,4 +1076,3 @@ func (vm *VM) objectToString(obj interpreter.Object) string {
 		return obj.Inspect()
 	}
 }
-

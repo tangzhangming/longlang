@@ -150,7 +150,9 @@ func cmdVMRun(filename string, debug bool) {
 	}
 
 	// 创建虚拟机
+	fmt.Fprintf(os.Stderr, "[DEBUG] 创建虚拟机...\n")
 	virtualMachine := vm.NewVM()
+	fmt.Fprintf(os.Stderr, "[DEBUG] 虚拟机创建完成\n")
 	virtualMachine.SetDebug(debug)
 	virtualMachine.SetProjectConfig(projectRoot, projectConfig)
 
@@ -168,11 +170,13 @@ func cmdVMRun(filename string, debug bool) {
 	comp.SetVM(virtualMachine)
 
 	// 编译为字节码
+	fmt.Fprintf(os.Stderr, "[DEBUG] 开始编译...\n")
 	bytecode, err := comp.Compile(program)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "编译错误: %s\n", err)
 		os.Exit(1)
 	}
+	fmt.Fprintf(os.Stderr, "[DEBUG] 编译完成\n")
 
 	// 调试模式下输出字节码
 	if debug {
@@ -182,11 +186,13 @@ func cmdVMRun(filename string, debug bool) {
 	}
 
 	// 运行
+	fmt.Fprintf(os.Stderr, "[DEBUG] 开始运行虚拟机...\n")
 	result, err := virtualMachine.Run(bytecode)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "运行时错误: %s\n", err)
 		os.Exit(1)
 	}
+	fmt.Fprintf(os.Stderr, "[DEBUG] 虚拟机运行完成\n")
 
 	// 调试模式下输出结果
 	if debug && result != nil {

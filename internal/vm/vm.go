@@ -13,14 +13,13 @@ import (
 	"github.com/tangzhangming/longlang/internal/parser"
 )
 
-
 // ========== 虚拟机常量 ==========
 
 const (
-	StackSize     = 2048  // 操作数栈大小
-	FrameSize     = 1024  // 调用栈大小
-	GlobalsSize   = 65536 // 全局变量数量上限
-	MaxTryDepth   = 64    // try 块嵌套深度上限
+	StackSize   = 2048  // 操作数栈大小
+	FrameSize   = 1024  // 调用栈大小
+	GlobalsSize = 65536 // 全局变量数量上限
+	MaxTryDepth = 64    // try 块嵌套深度上限
 )
 
 // ========== 虚拟机 ==========
@@ -28,12 +27,12 @@ const (
 // VM 虚拟机
 type VM struct {
 	// 栈相关
-	stack    []interpreter.Object // 操作数栈
-	sp       int                  // 栈指针（指向下一个空闲位置）
+	stack []interpreter.Object // 操作数栈
+	sp    int                  // 栈指针（指向下一个空闲位置）
 
 	// 调用栈
-	frames      []*Frame // 调用栈帧
-	frameCount  int      // 当前帧数量
+	frames     []*Frame // 调用栈帧
+	frameCount int      // 当前帧数量
 
 	// 全局变量
 	globals map[string]interpreter.Object
@@ -45,9 +44,9 @@ type VM struct {
 	bytecode *Bytecode
 
 	// 异常处理
-	tryStack   []*TryState // try 块栈
-	tryCount   int         // 当前 try 块数量
-	exception  interpreter.Object // 当前异常
+	tryStack  []*TryState        // try 块栈
+	tryCount  int                // 当前 try 块数量
+	exception interpreter.Object // 当前异常
 
 	// 开放的 upvalue 链表
 	openUpvalues *Upvalue
@@ -100,7 +99,7 @@ func NewVM() *VM {
 func (vm *VM) initBuiltins() {
 	// 使用解释器的内置函数注册系统
 	builtins := interpreter.GetAllBuiltins()
-	
+
 	// 将所有内置函数复制到 VM 的全局变量表
 	for name, value := range builtins {
 		vm.globals[name] = value
@@ -141,7 +140,7 @@ func (vm *VM) registerVMReflectionBuiltins() {
 		if !ok {
 			return &interpreter.Map{Pairs: make(map[string]interpreter.Object), Keys: []string{}}
 		}
-		
+
 		fields := make(map[string]interpreter.Object)
 		keys := make([]string, 0)
 		for name, variable := range class.Variables {
@@ -169,17 +168,17 @@ func (vm *VM) registerVMReflectionBuiltins() {
 		if !ok1 || !ok2 || !ok3 {
 			return &interpreter.Error{Message: "__get_field_annotation 参数必须是字符串"}
 		}
-		
+
 		class, ok := vm.getClassByName(className.Value)
 		if !ok {
 			return &interpreter.Null{}
 		}
-		
+
 		variable, ok := class.Variables[fieldName.Value]
 		if !ok {
 			return &interpreter.Null{}
 		}
-		
+
 		for _, ann := range variable.Annotations {
 			if ann.Name == annName.Value {
 				return vm.annotationToMap(ann)
@@ -199,17 +198,17 @@ func (vm *VM) registerVMReflectionBuiltins() {
 		if !ok1 || !ok2 || !ok3 {
 			return &interpreter.Error{Message: "__has_field_annotation 参数必须是字符串"}
 		}
-		
+
 		class, ok := vm.getClassByName(className.Value)
 		if !ok {
 			return &interpreter.Boolean{Value: false}
 		}
-		
+
 		variable, ok := class.Variables[fieldName.Value]
 		if !ok {
 			return &interpreter.Boolean{Value: false}
 		}
-		
+
 		for _, ann := range variable.Annotations {
 			if ann.Name == annName.Value {
 				return &interpreter.Boolean{Value: true}
@@ -231,7 +230,7 @@ func (vm *VM) registerVMReflectionBuiltins() {
 		if !ok {
 			return &interpreter.Error{Message: "__get_field_value 第二个参数必须是字符串"}
 		}
-		
+
 		if val, ok := instance.Fields[fieldName.Value]; ok {
 			return val
 		}
@@ -251,7 +250,7 @@ func (vm *VM) registerVMReflectionBuiltins() {
 		if !ok {
 			return &interpreter.Error{Message: "__set_field_value 第二个参数必须是字符串"}
 		}
-		
+
 		instance.Fields[fieldName.Value] = args[2]
 		return &interpreter.Null{}
 	}}
@@ -261,7 +260,7 @@ func (vm *VM) registerVMReflectionBuiltins() {
 		if len(args) != 1 {
 			return &interpreter.Error{Message: "__get_class_name 需要1个参数"}
 		}
-		
+
 		switch obj := args[0].(type) {
 		case *interpreter.Instance:
 			name := obj.Class.Name
@@ -288,12 +287,12 @@ func (vm *VM) registerVMReflectionBuiltins() {
 		if !ok {
 			return &interpreter.Error{Message: "__create_instance 第一个参数必须是字符串"}
 		}
-		
+
 		class, ok := vm.getClassByName(className.Value)
 		if !ok {
 			return &interpreter.Error{Message: "未找到类: " + className.Value}
 		}
-		
+
 		// 创建实例
 		instance := &interpreter.Instance{
 			Class:  class,
@@ -306,18 +305,18 @@ func (vm *VM) registerVMReflectionBuiltins() {
 				instance.Fields[name] = &interpreter.Null{}
 			}
 		}
-		
+
 		// 如果有构造函数，调用它
 		// 注意：这里的调用是同步的，对于 VM 来说有点复杂，因为构造函数可能是字节码
 		// 但 __create_instance 通常在反射中使用
 		// 这里我们简化处理，如果构造函数是字节码，目前不支持在 builtin 中直接调用并等待返回
 		// 除非我们手动执行一个子虚拟机
-		
+
 		if constructor, ok := class.GetMethod("__construct"); ok {
 			// TODO: 支持在内置函数中调用字节码构造函数
 			_ = constructor
 		}
-		
+
 		return instance
 	}}
 }
@@ -329,12 +328,12 @@ func (vm *VM) getClassByName(name string) (*interpreter.Class, bool) {
 	if err != nil {
 		return nil, false
 	}
-	
+
 	ns := vm.namespaceMgr.GetNamespace(namespace)
 	if ns == nil {
 		return nil, false
 	}
-	
+
 	return ns.GetClass(className)
 }
 
@@ -351,10 +350,10 @@ func (vm *VM) annotationsToArray(annotations []*interpreter.AnnotationInstance) 
 func (vm *VM) annotationToMap(ann *interpreter.AnnotationInstance) *interpreter.Map {
 	pairs := make(map[string]interpreter.Object)
 	keys := make([]string, 0)
-	
+
 	pairs["name"] = &interpreter.String{Value: ann.Name}
 	keys = append(keys, "name")
-	
+
 	args := make(map[string]interpreter.Object)
 	argKeys := make([]string, 0)
 	for k, v := range ann.Arguments {
@@ -363,7 +362,7 @@ func (vm *VM) annotationToMap(ann *interpreter.AnnotationInstance) *interpreter.
 	}
 	pairs["arguments"] = &interpreter.Map{Pairs: args, Keys: argKeys}
 	keys = append(keys, "arguments")
-	
+
 	return &interpreter.Map{Pairs: pairs, Keys: keys}
 }
 
@@ -698,7 +697,7 @@ func (vm *VM) callEntryPoint() (interpreter.Object, error) {
 				if vm.debug {
 					fmt.Printf("=== 调用入口点 %s::main() ===\n", name)
 				}
-				
+
 				// 获取方法闭包
 				if closure, ok := method.Body.(*Closure); ok {
 					// 压入闭包作为函数
@@ -713,7 +712,7 @@ func (vm *VM) callEntryPoint() (interpreter.Object, error) {
 			}
 		}
 	}
-	
+
 	// 没有找到入口点，这是正常的（可能是库文件）
 	return nil, nil
 }
@@ -722,7 +721,7 @@ func (vm *VM) callEntryPoint() (interpreter.Object, error) {
 func (vm *VM) execute() (interpreter.Object, error) {
 	for vm.frameCount > 0 {
 		frame := vm.currentFrame()
-		
+
 		// 检查是否到达指令末尾
 		if frame.ip >= len(frame.Instructions()) {
 			// 如果是主函数，返回栈顶值
@@ -789,7 +788,7 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		slot := frame.ReadByte()
 		value := vm.stack[frame.basePointer+int(slot)]
 		if vm.debug {
-			fmt.Fprintf(os.Stderr, "GET_LOCAL slot %d (idx %d) = %v (Type: %s)\n", 
+			fmt.Fprintf(os.Stderr, "GET_LOCAL slot %d (idx %d) = %v (Type: %s)\n",
 				slot, frame.basePointer+int(slot), value, value.Type())
 		}
 		vm.push(value)
@@ -798,7 +797,7 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		slot := frame.ReadByte()
 		value := vm.peek(0)
 		if vm.debug {
-			fmt.Fprintf(os.Stderr, "SET_LOCAL slot %d (idx %d) = %v (Type: %s)\n", 
+			fmt.Fprintf(os.Stderr, "SET_LOCAL slot %d (idx %d) = %v (Type: %s)\n",
 				slot, frame.basePointer+int(slot), value, value.Type())
 		}
 		vm.stack[frame.basePointer+int(slot)] = value
@@ -978,31 +977,31 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 
 	case OP_RETURN:
 		result := vm.pop()
-		
+
 		// 检查是否是构造函数返回
 		isConstructor := frame.isConstructor
 		isMethodCall := frame.isMethodCall
 		basePointer := frame.basePointer
 		constructorInstance := frame.constructorInstance
-		
+
 		// 关闭 upvalues
 		vm.closeUpvalues(basePointer)
-		
+
 		// 弹出帧
 		vm.popFrame()
-		
+
 		// 弹出函数对象和参数
 		if isMethodCall {
 			vm.sp = basePointer
 		} else {
 			vm.sp = basePointer - 1
 		}
-		
+
 		// 如果是构造函数，返回实例而不是 null
 		if isConstructor && constructorInstance != nil {
 			result = constructorInstance
 		}
-		
+
 		// 压入返回值
 		vm.push(result)
 
@@ -1107,7 +1106,7 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 	case OP_GET_PROPERTY:
 		name := frame.ReadConstant().(*interpreter.String).Value
 		obj := vm.pop()
-		
+
 		if instance, ok := obj.(*interpreter.Instance); ok {
 			// 先查找字段
 			if value, ok := instance.Fields[name]; ok {
@@ -1126,29 +1125,29 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 			}
 			return fmt.Errorf("实例没有属性: %s", name)
 		}
-		
+
 		return fmt.Errorf("只能访问实例的属性")
 
 	case OP_SET_PROPERTY:
 		name := frame.ReadConstant().(*interpreter.String).Value
-		
+
 		// Stack has [..., value, object] with object on top
 		// Pop in correct order: object first, then value
 		obj := vm.pop()
 		value := vm.pop()
-		
+
 		if instance, ok := obj.(*interpreter.Instance); ok {
 			instance.Fields[name] = value
 			vm.push(value)
 			return nil
 		}
-		
+
 		return fmt.Errorf("只能设置实例的属性，当前对象类型: %T", obj)
 
 	case OP_GET_STATIC_FIELD:
 		name := frame.ReadConstant().(*interpreter.String).Value
 		obj := vm.pop()
-		
+
 		if class, ok := obj.(*interpreter.Class); ok {
 			if value, ok := class.StaticFields[name]; ok {
 				vm.push(value)
@@ -1156,20 +1155,20 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 			}
 			return fmt.Errorf("类 %s 没有静态字段: %s", class.Name, name)
 		}
-		
+
 		return fmt.Errorf("只能访问类的静态字段")
 
 	case OP_SET_STATIC_FIELD:
 		name := frame.ReadConstant().(*interpreter.String).Value
 		obj := vm.pop()
 		value := vm.pop()
-		
+
 		if class, ok := obj.(*interpreter.Class); ok {
 			class.StaticFields[name] = value
 			vm.push(value)
 			return nil
 		}
-		
+
 		return fmt.Errorf("只能设置类的静态字段")
 
 	case OP_INVOKE:
@@ -1197,29 +1196,36 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		if !ok {
 			return fmt.Errorf("OP_NEW: 期望 CLASS 类型，但得到 %s", classObj.Type())
 		}
-		
+
 		// 创建实例
 		instance := &interpreter.Instance{
 			Class:  class,
 			Fields: make(map[string]interpreter.Object),
 		}
-		
-		// 初始化字段
-		for name, variable := range class.Variables {
-			if variable.DefaultValue != nil {
-				instance.Fields[name] = variable.DefaultValue
-			} else {
-				instance.Fields[name] = &interpreter.Null{}
+
+		// 初始化字段（包括继承链上所有父类的字段）
+		currentClass := class
+		for currentClass != nil {
+			for name, variable := range currentClass.Variables {
+				// 只有当字段尚未初始化时才初始化（子类字段优先）
+				if _, exists := instance.Fields[name]; !exists {
+					if variable.DefaultValue != nil {
+						instance.Fields[name] = variable.DefaultValue
+					} else {
+						instance.Fields[name] = &interpreter.Null{}
+					}
+				}
 			}
+			currentClass = currentClass.Parent
 		}
-		
+
 		// 替换栈上的类为实例
 		replaceIdx := vm.sp - argCount - 1
 		if replaceIdx < 0 || replaceIdx >= len(vm.stack) {
 			return fmt.Errorf("OP_NEW: 无效的栈索引 %d (sp=%d, argCount=%d)", replaceIdx, vm.sp, argCount)
 		}
 		vm.stack[replaceIdx] = instance
-		
+
 		// 调用构造函数（如果存在）
 		if constructor, ok := class.GetMethod("__construct"); ok {
 			if closure, ok := constructor.Body.(*Closure); ok {
@@ -1267,7 +1273,7 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 	case OP_INHERIT:
 		superclass := vm.peek(1)
 		subclass := vm.peek(0).(*interpreter.Class)
-		
+
 		if parent, ok := superclass.(*interpreter.Class); ok {
 			subclass.Parent = parent
 			vm.pop() // 弹出子类
@@ -1278,19 +1284,19 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 	case OP_INSTANCE_OF:
 		class := vm.pop()
 		obj := vm.pop()
-		
+
 		targetClass, ok := class.(*interpreter.Class)
 		if !ok {
 			vm.push(&interpreter.Boolean{Value: false})
 			return nil
 		}
-		
+
 		instance, ok := obj.(*interpreter.Instance)
 		if !ok {
 			vm.push(&interpreter.Boolean{Value: false})
 			return nil
 		}
-		
+
 		// 检查继承链
 		curr := instance.Class
 		found := false
@@ -1307,7 +1313,7 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 	case OP_GET_SUPER:
 		name := frame.ReadConstant().(*interpreter.String).Value
 		superclass := vm.pop().(*interpreter.Class)
-		
+
 		if method, ok := superclass.GetMethod(name); ok {
 			if closure, ok := method.Body.(*Closure); ok {
 				instance := vm.pop().(*interpreter.Instance)
@@ -1321,12 +1327,12 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		method := frame.ReadConstant().(*interpreter.String).Value
 		argCount := int(frame.ReadByte())
 		superclassObj := vm.pop()
-		
+
 		superclass, ok := superclassObj.(*interpreter.Class)
 		if !ok {
 			return fmt.Errorf("super 只能在类方法内部使用")
 		}
-		
+
 		if m, ok := superclass.GetMethod(method); ok {
 			if closure, ok := m.Body.(*Closure); ok {
 				return vm.callMethod(closure, argCount+1)
@@ -1493,9 +1499,9 @@ func (vm *VM) pushFrame(closure *Closure, basePointer int) *Frame {
 	frame := NewFrame(closure, basePointer)
 	vm.frames[vm.frameCount] = frame
 	vm.frameCount++
-	
+
 	if vm.debug {
-		fmt.Fprintf(os.Stderr, "PUSH FRAME %s, basePointer: %d, NumLocals: %d, current SP: %d\n", 
+		fmt.Fprintf(os.Stderr, "PUSH FRAME %s, basePointer: %d, NumLocals: %d, current SP: %d\n",
 			closure.Fn.Name, basePointer, closure.Fn.NumLocals, vm.sp)
 	}
 
@@ -1503,7 +1509,7 @@ func (vm *VM) pushFrame(closure *Closure, basePointer int) *Frame {
 	if basePointer+closure.Fn.NumLocals > vm.sp {
 		vm.sp = basePointer + closure.Fn.NumLocals
 	}
-	
+
 	return frame
 }
 
@@ -1629,7 +1635,7 @@ func (vm *VM) createRuntimeException(message string) interpreter.Object {
 				ok = true
 			}
 		}
-		
+
 		if !ok {
 			// 如果都找不到，返回错误对象
 			return &interpreter.Error{Message: message}
@@ -1642,13 +1648,13 @@ func (vm *VM) createRuntimeException(message string) interpreter.Object {
 		Class:  runtimeExceptionClass,
 		Fields: make(map[string]interpreter.Object),
 	}
-	
+
 	// 设置 message 字段
 	instance.Fields["message"] = &interpreter.String{Value: message}
-	
+
 	// 设置 code 字段（默认为0）
 	instance.Fields["code"] = &interpreter.Integer{Value: 0}
-	
+
 	return instance
 }
 
@@ -1664,4 +1670,3 @@ type VMError struct {
 func (e *VMError) Error() string {
 	return e.Message
 }
-
