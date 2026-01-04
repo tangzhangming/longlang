@@ -423,6 +423,13 @@ public class ModelBuilder {
     }
     
     /**
+     * 获取所有结果（get的别名）
+     */
+    public function all() any {
+        return this.get()
+    }
+    
+    /**
      * 获取第一条
      */
     public function first() any {
@@ -609,6 +616,16 @@ public class ModelBuilder {
      */
     public function delete() int {
         return this._queryBuilder.delete()
+    }
+    
+    /**
+     * 创建新记录
+     * @param attributes 属性数据
+     * @return 创建的模型实例
+     */
+    public function create(attributes: any) any {
+        // 调用模型的静态 create 方法
+        return Model::createForClass(this._modelClass, attributes)
     }
     
     // ========== 内部方法 ==========

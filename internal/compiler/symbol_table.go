@@ -172,3 +172,4 @@ func (st *SymbolTable) GetAllFunctions() map[string]*Symbol {
 	return st.functions
 }
 
+

@@ -8,6 +8,28 @@ import (
 	"time"
 )
 
+// RegisterAllBuiltins 导出函数：注册所有内置函数到环境中
+// 供解释器和虚拟机使用
+func RegisterAllBuiltins(env *Environment) {
+	registerBuiltins(env)
+	registerIOBuiltins(env)
+	registerNetBuiltins(env)
+	registerBytesBuiltins(env)
+	registerCryptoBuiltins(env)
+	registerRegexBuiltins(env)
+	registerDateTimeBuiltins(env)
+	registerConsoleBuiltins(env)
+	registerAnnotationBuiltins(env)
+}
+
+// GetAllBuiltins 返回一个包含所有内置函数的 map
+// 用于 VM 或其他需要访问内置函数的地方
+func GetAllBuiltins() map[string]Object {
+	env := NewEnvironment()
+	RegisterAllBuiltins(env)
+	return env.store
+}
+
 // registerBuiltins 注册内置函数
 // 在解释器初始化时调用，将内置函数注册到全局环境中
 // 参数:
@@ -19,6 +41,29 @@ import (
 //   - sleep: 延时
 //   - exit: 退出程序
 func registerBuiltins(env *Environment) {
+	// 注册全局 print 函数 - 输出不换行
+	env.Set("print", &Builtin{Fn: func(args ...Object) Object {
+		for i, arg := range args {
+			if i > 0 {
+				fmt.Print(" ")
+			}
+			fmt.Print(objectToString(arg))
+		}
+		return &Null{}
+	}})
+
+	// 注册全局 println 函数 - 输出并换行
+	env.Set("println", &Builtin{Fn: func(args ...Object) Object {
+		for i, arg := range args {
+			if i > 0 {
+				fmt.Print(" ")
+			}
+			fmt.Print(objectToString(arg))
+		}
+		fmt.Println()
+		return &Null{}
+	}})
+
 	// 注册全局 len 函数
 	env.Set("len", &Builtin{Fn: func(args ...Object) Object {
 		if len(args) != 1 {
@@ -363,3 +408,4 @@ func exitError(code int, msg string) {
 	fmt.Fprintf(os.Stderr, "错误: %s\n", msg)
 	os.Exit(code)
 }
+

@@ -96,3 +96,4 @@ func (nm *NamespaceMapper) IsMainPackage(namespace string) bool {
 	return namespace == "" || namespace == "main"
 }
 
+

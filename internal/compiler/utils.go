@@ -32,3 +32,4 @@ func toCamelCase(s string) string {
 	return pascal
 }
 
+

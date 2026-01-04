@@ -12,6 +12,7 @@ import (
 	"github.com/tangzhangming/longlang/internal/interpreter"
 	"github.com/tangzhangming/longlang/internal/lexer"
 	"github.com/tangzhangming/longlang/internal/parser"
+	"github.com/tangzhangming/longlang/internal/vm"
 )
 
 // 版本信息
@@ -38,6 +39,14 @@ func main() {
 			os.Exit(1)
 		}
 		cmdRun(os.Args[2])
+	case "vm":
+		// 使用虚拟机运行
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "用法: %s vm <文件路径> [--debug]\n", os.Args[0])
+			os.Exit(1)
+		}
+		debug := len(os.Args) >= 4 && os.Args[3] == "--debug"
+		cmdVMRun(os.Args[2], debug)
 	case "build":
 		if len(os.Args) < 3 {
 			fmt.Fprintf(os.Stderr, "用法: %s build <文件路径> [-o <输出目录>]\n", os.Args[0])
@@ -72,7 +81,8 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("命令:")
 	fmt.Println("  version     显示版本信息")
-	fmt.Println("  run <file>  运行指定的 .long 文件")
+	fmt.Println("  run <file>  运行指定的 .long 文件（使用解释器）")
+	fmt.Println("  vm <file>   运行指定的 .long 文件（使用字节码虚拟机）")
 	fmt.Println("  build <file> [-o <dir>]  编译 .long 文件为 Go 程序")
 	fmt.Println("  new <name>  创建一个新项目")
 	fmt.Println("  help        显示帮助信息")
@@ -80,6 +90,8 @@ func printUsage() {
 	fmt.Println("示例:")
 	fmt.Println("  longlang version")
 	fmt.Println("  longlang run main.long")
+	fmt.Println("  longlang vm main.long")
+	fmt.Println("  longlang vm main.long --debug")
 	fmt.Println("  longlang new myproject")
 }
 
@@ -93,6 +105,93 @@ func cmdVersion() {
 	fmt.Println("  • 命名空间系统")
 	fmt.Println("  • 静态类型")
 	fmt.Println("  • 模块化设计")
+	fmt.Println("  • 字节码虚拟机执行")
+}
+
+// cmdVMRun 使用虚拟机运行指定的文件
+func cmdVMRun(filename string, debug bool) {
+	// 检查文件扩展名
+	if !strings.HasSuffix(filename, ".long") {
+		fmt.Fprintf(os.Stderr, "警告: 文件 %s 不是 .long 文件\n", filename)
+	}
+
+	// 读取源文件
+	input, err := ioutil.ReadFile(filename)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "读取文件错误: %s\n", err)
+		os.Exit(1)
+	}
+
+	// 获取项目根目录
+	absFilename, _ := filepath.Abs(filename)
+	projectRoot := findProjectRoot(filepath.Dir(absFilename))
+
+	// 加载项目配置
+	projectConfig, err := config.LoadProjectConfig(projectRoot)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "加载项目配置错误: %s\n", err)
+		os.Exit(1)
+	}
+
+	// 词法分析
+	l := lexer.New(string(input))
+
+	// 语法分析
+	p := parser.New(l)
+	program := p.ParseProgram()
+
+	// 检查语法错误
+	if len(p.Errors()) != 0 {
+		fmt.Fprintf(os.Stderr, "语法错误:\n")
+		for _, msg := range p.Errors() {
+			fmt.Fprintf(os.Stderr, "\t%s\n", msg)
+		}
+		os.Exit(1)
+	}
+
+	// 创建虚拟机
+	virtualMachine := vm.NewVM()
+	virtualMachine.SetDebug(debug)
+	virtualMachine.SetProjectConfig(projectRoot, projectConfig)
+
+	// 设置标准库路径（相对于可执行文件）
+	exePath, _ := os.Executable()
+	stdlibPath := filepath.Join(filepath.Dir(exePath), "stdlib")
+	// 如果不存在，尝试当前目录
+	if _, statErr := os.Stat(stdlibPath); os.IsNotExist(statErr) {
+		stdlibPath = "stdlib"
+	}
+	virtualMachine.SetStdlibPath(stdlibPath)
+
+	// 创建编译器并关联虚拟机
+	comp := vm.NewCompiler()
+	comp.SetVM(virtualMachine)
+
+	// 编译为字节码
+	bytecode, err := comp.Compile(program)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "编译错误: %s\n", err)
+		os.Exit(1)
+	}
+
+	// 调试模式下输出字节码
+	if debug {
+		fmt.Println("=== 字节码 ===")
+		fmt.Println(bytecode.Disassemble("main"))
+		fmt.Println("=== 执行 ===")
+	}
+
+	// 运行
+	result, err := virtualMachine.Run(bytecode)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "运行时错误: %s\n", err)
+		os.Exit(1)
+	}
+
+	// 调试模式下输出结果
+	if debug && result != nil {
+		fmt.Printf("=== 结果 ===\n%s\n", result.Inspect())
+	}
 }
 
 // cmdRun 运行指定的文件
