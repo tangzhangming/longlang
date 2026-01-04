@@ -2,6 +2,7 @@ package vm
 
 import (
 	"github.com/tangzhangming/longlang/internal/interpreter"
+	"github.com/tangzhangming/longlang/internal/parser"
 )
 
 // ========== 作用域管理 ==========
@@ -192,6 +193,14 @@ func (c *Compiler) emitWithOperand(op Opcode, operand byte, line int) int {
 	return c.bytecode.EmitWithOperand(op, operand, line)
 }
 
+// emitWithOperand16 发出带16位操作数的指令
+func (c *Compiler) emitWithOperand16(op Opcode, operand uint16, line int) int {
+	offset := c.emit(op, line)
+	c.bytecode.Instructions = append(c.bytecode.Instructions, byte(operand>>8), byte(operand&0xFF))
+	c.bytecode.Lines = append(c.bytecode.Lines, line, line)
+	return offset
+}
+
 // emitJump 发出跳转指令
 func (c *Compiler) emitJump(op Opcode, line int) int {
 	c.emit(op, line)
@@ -229,5 +238,33 @@ func (c *Compiler) currentOffset() int {
 // addConstant 添加常量
 func (c *Compiler) addConstant(obj interpreter.Object) int {
 	return c.bytecode.AddConstant(obj)
+}
+
+// evalConstantExpression 计算常量表达式（用于默认参数值）
+func evalConstantExpression(expr parser.Expression) interpreter.Object {
+	switch e := expr.(type) {
+	case *parser.IntegerLiteral:
+		return &interpreter.Integer{Value: e.Value}
+	case *parser.FloatLiteral:
+		return &interpreter.Float{Value: e.Value}
+	case *parser.StringLiteral:
+		return &interpreter.String{Value: e.Value}
+	case *parser.BooleanLiteral:
+		return &interpreter.Boolean{Value: e.Value}
+	case *parser.NullLiteral:
+		return &interpreter.Null{}
+	case *parser.PrefixExpression:
+		if e.Operator == "-" {
+			right := evalConstantExpression(e.Right)
+			switch r := right.(type) {
+			case *interpreter.Integer:
+				return &interpreter.Integer{Value: -r.Value}
+			case *interpreter.Float:
+				return &interpreter.Float{Value: -r.Value}
+			}
+		}
+	}
+	// 对于非常量表达式，返回 nil（运行时处理）
+	return nil
 }
 

@@ -342,7 +342,13 @@ func (c *Compiler) compileFunctionLiteral(fn *parser.FunctionLiteral) error {
 
 	// 添加到常量池
 	fnIndex := c.addConstant(compiledFn)
-	c.emitWithOperand(OP_CLOSURE, byte(fnIndex), fn.Token.Line)
+	
+	// 发出闭包指令（支持大索引）
+	if fnIndex > 255 {
+		c.emitWithOperand16(OP_CLOSURE_WIDE, uint16(fnIndex), fn.Token.Line)
+	} else {
+		c.emitWithOperand(OP_CLOSURE, byte(fnIndex), fn.Token.Line)
+	}
 
 	// 发出 upvalue 信息 - 使用编译函数返回的upvalues
 	for _, upvalue := range upvalues {

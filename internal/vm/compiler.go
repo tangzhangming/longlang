@@ -143,13 +143,26 @@ func (c *Compiler) CompileFunctionWithContext(fn *parser.FunctionLiteral, isInst
 	// 结束函数作用域 - 获取upvalues信息
 	upvalues := c.endFunctionScope()
 
+	// 处理默认参数值
+	var defaultValues []interpreter.Object
+	for _, param := range fn.Parameters {
+		if param.DefaultValue != nil {
+			// 计算默认值（必须是常量表达式）
+			defaultVal := evalConstantExpression(param.DefaultValue)
+			defaultValues = append(defaultValues, defaultVal)
+		} else {
+			defaultValues = append(defaultValues, nil)
+		}
+	}
+
 	// 创建编译后的函数
 	compiledFn := &CompiledFunction{
-		Bytecode:     c.bytecode,
-		NumLocals:    numLocals,
-		NumParams:    numParams,
-		UpvalueCount: len(upvalues),
-		Name:         "",
+		Bytecode:      c.bytecode,
+		NumLocals:     numLocals,
+		NumParams:     numParams,
+		UpvalueCount:  len(upvalues),
+		Name:          "",
+		DefaultValues: defaultValues,
 	}
 
 	if fn.Name != nil {
@@ -847,7 +860,7 @@ func (c *Compiler) compileClassMethod(method *parser.ClassMethod) error {
 
 	// 实例方法需要 this 参数，静态方法不需要
 	isInstanceMethod := !method.IsStatic
-	compiledFn, _, err := c.CompileFunctionWithContext(fn, isInstanceMethod)
+	compiledFn, upvalues, err := c.CompileFunctionWithContext(fn, isInstanceMethod)
 	if err != nil {
 		return err
 	}
@@ -863,16 +876,41 @@ func (c *Compiler) compileClassMethod(method *parser.ClassMethod) error {
 
 	// 添加到常量池
 	fnIndex := c.addConstant(compiledFn)
-	c.emitWithOperand(OP_CLOSURE, byte(fnIndex), method.Token.Line)
+	
+	// 发出闭包指令（支持大索引）
+	if fnIndex > 255 {
+		c.emitWithOperand16(OP_CLOSURE_WIDE, uint16(fnIndex), method.Token.Line)
+	} else {
+		c.emitWithOperand(OP_CLOSURE, byte(fnIndex), method.Token.Line)
+	}
+	
+	// 发出 upvalue 信息
+	for _, upvalue := range upvalues {
+		if upvalue.IsLocal {
+			c.bytecode.Instructions = append(c.bytecode.Instructions, 1)
+		} else {
+			c.bytecode.Instructions = append(c.bytecode.Instructions, 0)
+		}
+		c.bytecode.Instructions = append(c.bytecode.Instructions, byte(upvalue.Index))
+		c.bytecode.Lines = append(c.bytecode.Lines, method.Token.Line, method.Token.Line)
+	}
 
 	// 方法名常量
 	nameIndex := c.addConstant(&interpreter.String{Value: method.Name.Value})
 
-	// 发出方法定义指令
+	// 发出方法定义指令（支持大索引）
 	if method.IsStatic {
-		c.emitWithOperand(OP_STATIC_METHOD, byte(nameIndex), method.Token.Line)
+		if nameIndex > 255 {
+			c.emitWithOperand16(OP_STATIC_METHOD_WIDE, uint16(nameIndex), method.Token.Line)
+		} else {
+			c.emitWithOperand(OP_STATIC_METHOD, byte(nameIndex), method.Token.Line)
+		}
 	} else {
-		c.emitWithOperand(OP_METHOD, byte(nameIndex), method.Token.Line)
+		if nameIndex > 255 {
+			c.emitWithOperand16(OP_METHOD_WIDE, uint16(nameIndex), method.Token.Line)
+		} else {
+			c.emitWithOperand(OP_METHOD, byte(nameIndex), method.Token.Line)
+		}
 	}
 
 	return nil

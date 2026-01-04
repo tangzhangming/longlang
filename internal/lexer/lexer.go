@@ -473,9 +473,26 @@ func (l *Lexer) readIdentifier() string {
 
 	// 检查是否是内部函数（以 __ 开头）
 	// 只有标准库文件才允许使用内部函数
+	// 但允许特殊的魔术方法名（如 __construct, __destruct 等）
 	if strings.HasPrefix(identifier, "__") && !l.isStdlib {
-		// 返回特殊标记，表示非法使用内部函数
-		return "__ILLEGAL_INTERNAL_FUNC__:" + identifier
+		// 允许的魔术方法名列表
+		allowedMagicMethods := map[string]bool{
+			"__construct": true,
+			"__destruct":  true,
+			"__toString":  true,
+			"__invoke":    true,
+			"__clone":     true,
+			"__get":       true,
+			"__set":       true,
+			"__isset":     true,
+			"__unset":     true,
+			"__call":      true,
+			"__callStatic": true,
+		}
+		if !allowedMagicMethods[identifier] {
+			// 返回特殊标记，表示非法使用内部函数
+			return "__ILLEGAL_INTERNAL_FUNC__:" + identifier
+		}
 	}
 
 	return identifier

@@ -138,8 +138,8 @@ func (p *Parser) parseInterpolatedStringLiteral() Expression {
 			exprText := literal[exprStart:i]
 			i++ // 跳过 }
 			
-			// 解析表达式（继承当前 Lexer 的 isStdlib 状态）
-			exprLexer := lexer.NewWithOptions(exprText, p.l.IsStdlib())
+			// 解析表达式
+			exprLexer := lexer.New(exprText)
 			exprParser := New(exprLexer)
 			expr := exprParser.ParseExpression()
 			

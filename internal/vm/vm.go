@@ -771,6 +771,10 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		constant := frame.ReadConstant()
 		vm.push(constant)
 
+	case OP_CONST_WIDE:
+		constant := frame.ReadConstant16()
+		vm.push(constant)
+
 	case OP_NULL:
 		vm.push(&interpreter.Null{})
 
@@ -822,6 +826,35 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 
 	case OP_DEFINE_GLOBAL:
 		name := frame.ReadConstant().(*interpreter.String).Value
+		value := vm.pop()
+		vm.globals[name] = value
+
+	case OP_GET_GLOBAL_WIDE:
+		name := frame.ReadConstant16().(*interpreter.String).Value
+		if name == "__called_class_name" {
+			vm.push(&interpreter.String{Value: frame.calledClassName})
+			return nil
+		}
+		if name == "super" {
+			className := frame.closure.Fn.ClassName
+			if className != "" {
+				class, ok := vm.getClassByName(className)
+				if ok && class.Parent != nil {
+					vm.push(class.Parent)
+					return nil
+				}
+			}
+			vm.push(&interpreter.Null{})
+			return nil
+		}
+		value, ok := vm.globals[name]
+		if !ok {
+			return fmt.Errorf("未定义的变量: %s", name)
+		}
+		vm.push(value)
+
+	case OP_DEFINE_GLOBAL_WIDE:
+		name := frame.ReadConstant16().(*interpreter.String).Value
 		value := vm.pop()
 		vm.globals[name] = value
 
@@ -994,8 +1027,13 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		// 压入返回值
 		vm.push(result)
 
-	case OP_CLOSURE:
-		fnIndex := frame.ReadByte()
+	case OP_CLOSURE, OP_CLOSURE_WIDE:
+		var fnIndex int
+		if op == OP_CLOSURE_WIDE {
+			fnIndex = int(frame.ReadUint16())
+		} else {
+			fnIndex = int(frame.ReadByte())
+		}
 		fn := frame.closure.Fn.Bytecode.Constants[fnIndex].(*CompiledFunction)
 		closure := NewClosure(fn)
 
@@ -1038,8 +1076,13 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		}
 		vm.push(class)
 
-	case OP_METHOD:
-		name := frame.ReadConstant().(*interpreter.String).Value
+	case OP_METHOD, OP_METHOD_WIDE:
+		var name string
+		if op == OP_METHOD_WIDE {
+			name = frame.ReadConstant16().(*interpreter.String).Value
+		} else {
+			name = frame.ReadConstant().(*interpreter.String).Value
+		}
 		method := vm.pop().(*Closure)
 		class := vm.peek(0).(*interpreter.Class)
 		class.Methods[name] = &interpreter.ClassMethod{
@@ -1047,8 +1090,13 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 			Body: method, // 存储闭包
 		}
 
-	case OP_STATIC_METHOD:
-		name := frame.ReadConstant().(*interpreter.String).Value
+	case OP_STATIC_METHOD, OP_STATIC_METHOD_WIDE:
+		var name string
+		if op == OP_STATIC_METHOD_WIDE {
+			name = frame.ReadConstant16().(*interpreter.String).Value
+		} else {
+			name = frame.ReadConstant().(*interpreter.String).Value
+		}
 		method := vm.pop().(*Closure)
 		class := vm.peek(0).(*interpreter.Class)
 		class.StaticMethods[name] = &interpreter.ClassMethod{

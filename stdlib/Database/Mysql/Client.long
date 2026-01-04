@@ -1,6 +1,8 @@
 namespace Database.Mysql
 
 use System.Net.TcpClient
+use Database.Mysql.Result
+use Database.Mysql.Row
 
 /**
  * Client - MySQL 数据库客户端
@@ -601,7 +603,7 @@ public class Client {
     public function escape(str: string) string {
         result := ""
         for i := 0; i < len(str); i++ {
-            ch := charAt(str, i)
+            ch := str.charAt(i)
             if ch == "'" {
                 result = result + "\\'"
             } else if ch == "\"" {

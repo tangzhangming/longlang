@@ -347,9 +347,22 @@ func (vm *VM) callValue(callee interpreter.Object, argCount int) error {
 
 // callClosure 调用闭包
 func (vm *VM) callClosure(closure *Closure, argCount int) error {
-	if argCount != closure.Fn.NumParams && !closure.Fn.IsVariadic {
-		return fmt.Errorf("函数 %s 需要 %d 个参数，但传入了 %d 个",
+	// 检查参数数量
+	if argCount > closure.Fn.NumParams && !closure.Fn.IsVariadic {
+		return fmt.Errorf("函数 %s 最多需要 %d 个参数，但传入了 %d 个",
 			closure.Fn.Name, closure.Fn.NumParams, argCount)
+	}
+
+	// 如果参数不足，用默认值填充
+	if argCount < closure.Fn.NumParams {
+		for i := argCount; i < closure.Fn.NumParams; i++ {
+			var defaultVal interpreter.Object = &interpreter.Null{}
+			if i < len(closure.Fn.DefaultValues) && closure.Fn.DefaultValues[i] != nil {
+				defaultVal = closure.Fn.DefaultValues[i]
+			}
+			vm.push(defaultVal)
+		}
+		argCount = closure.Fn.NumParams
 	}
 
 	// 创建新帧
@@ -368,6 +381,22 @@ func (vm *VM) callMethod(closure *Closure, argCount int) error {
 			closure.Fn.Name, closure.Fn.NumParams, argCount)
 	}
 
+	// 如果参数不足，用默认值填充
+	// 注意：对于实例方法，NumParams 包含 this，但 DefaultValues 不包含
+	// 所以默认值的索引需要减 1
+	if argCount < closure.Fn.NumParams {
+		for i := argCount; i < closure.Fn.NumParams; i++ {
+			var defaultVal interpreter.Object = &interpreter.Null{}
+			// 对于实例方法，默认值索引需要减 1 跳过 this
+			defaultIdx := i - 1
+			if defaultIdx >= 0 && defaultIdx < len(closure.Fn.DefaultValues) && closure.Fn.DefaultValues[defaultIdx] != nil {
+				defaultVal = closure.Fn.DefaultValues[defaultIdx]
+			}
+			vm.push(defaultVal)
+		}
+		argCount = closure.Fn.NumParams
+	}
+
 	// 创建新帧
 	// 对于方法调用，basePointer 指向 receiver（this），不需要弹出额外的函数对象
 	frame := vm.pushFrame(closure, vm.sp-argCount)
@@ -381,6 +410,22 @@ func (vm *VM) callConstructor(closure *Closure, argCount int) error {
 	if argCount > closure.Fn.NumParams && !closure.Fn.IsVariadic {
 		return fmt.Errorf("构造函数 %s 最多需要 %d 个参数，但传入了 %d 个",
 			closure.Fn.Name, closure.Fn.NumParams, argCount)
+	}
+
+	// 如果参数不足，用默认值填充
+	// 注意：对于实例方法/构造函数，NumParams 包含 this，但 DefaultValues 不包含
+	// 所以默认值的索引需要减 1
+	if argCount < closure.Fn.NumParams {
+		for i := argCount; i < closure.Fn.NumParams; i++ {
+			var defaultVal interpreter.Object = &interpreter.Null{}
+			// 对于构造函数（实例方法），默认值索引需要减 1 跳过 this
+			defaultIdx := i - 1
+			if defaultIdx >= 0 && defaultIdx < len(closure.Fn.DefaultValues) && closure.Fn.DefaultValues[defaultIdx] != nil {
+				defaultVal = closure.Fn.DefaultValues[defaultIdx]
+			}
+			vm.push(defaultVal)
+		}
+		argCount = closure.Fn.NumParams
 	}
 
 	// 创建新帧

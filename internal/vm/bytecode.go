@@ -116,6 +116,14 @@ const (
 	// 增量操作
 	OP_INCREMENT // 自增
 	OP_DECREMENT // 自减
+
+	// 宽操作码（16位操作数）- 用于支持大常量池
+	OP_CONST_WIDE         // 加载常量（16位索引）
+	OP_GET_GLOBAL_WIDE    // 获取全局变量（16位索引）
+	OP_DEFINE_GLOBAL_WIDE // 定义全局变量（16位索引）
+	OP_CLOSURE_WIDE       // 创建闭包（16位函数索引）
+	OP_METHOD_WIDE        // 定义方法（16位索引）
+	OP_STATIC_METHOD_WIDE // 定义静态方法（16位索引）
 )
 
 // opcodeNames 操作码名称映射
@@ -191,9 +199,15 @@ var opcodeNames = map[Opcode]string{
 	OP_SWAP:           "OP_SWAP",
 	OP_PRINT:          "OP_PRINT",
 	OP_HALT:           "OP_HALT",
-	OP_BUILTIN:        "OP_BUILTIN",
-	OP_INCREMENT:      "OP_INCREMENT",
-	OP_DECREMENT:      "OP_DECREMENT",
+	OP_BUILTIN:           "OP_BUILTIN",
+	OP_INCREMENT:         "OP_INCREMENT",
+	OP_DECREMENT:         "OP_DECREMENT",
+	OP_CONST_WIDE:        "OP_CONST_WIDE",
+	OP_GET_GLOBAL_WIDE:   "OP_GET_GLOBAL_WIDE",
+	OP_DEFINE_GLOBAL_WIDE: "OP_DEFINE_GLOBAL_WIDE",
+	OP_CLOSURE_WIDE:      "OP_CLOSURE_WIDE",
+	OP_METHOD_WIDE:       "OP_METHOD_WIDE",
+	OP_STATIC_METHOD_WIDE: "OP_STATIC_METHOD_WIDE",
 }
 
 // String 返回操作码的字符串表示
@@ -431,14 +445,15 @@ func (b *Bytecode) invokeInstruction(sb *strings.Builder, name string, offset in
 
 // CompiledFunction 编译后的函数
 type CompiledFunction struct {
-	Bytecode      *Bytecode // 函数的字节码
-	NumLocals     int       // 局部变量数量
-	NumParams     int       // 参数数量
-	UpvalueCount  int       // upvalue 数量
-	Name          string    // 函数名
-	ClassName     string    // 所属类名（如果是方法）
-	IsVariadic    bool      // 是否是可变参数函数
-	IsConstructor bool      // 是否是构造函数
+	Bytecode      *Bytecode            // 函数的字节码
+	NumLocals     int                  // 局部变量数量
+	NumParams     int                  // 参数数量
+	UpvalueCount  int                  // upvalue 数量
+	Name          string               // 函数名
+	ClassName     string               // 所属类名（如果是方法）
+	IsVariadic    bool                 // 是否是可变参数函数
+	IsConstructor bool                 // 是否是构造函数
+	DefaultValues []interpreter.Object // 参数默认值（从右到左）
 }
 
 func (cf *CompiledFunction) Type() interpreter.ObjectType {
