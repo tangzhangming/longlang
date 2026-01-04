@@ -3,7 +3,6 @@ package vm
 import (
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -690,13 +689,10 @@ func (vm *VM) Run(bytecode *Bytecode) (interpreter.Object, error) {
 // callEntryPoint 查找并调用入口点
 func (vm *VM) callEntryPoint() (interpreter.Object, error) {
 	// 遍历全局变量，查找包含 main 静态方法的类
-	for name, obj := range vm.globals {
+	for _, obj := range vm.globals {
 		if class, ok := obj.(*interpreter.Class); ok {
 			if method, ok := class.GetStaticMethod("main"); ok {
 				// 找到入口点，调用它
-				if vm.debug {
-					fmt.Printf("=== 调用入口点 %s::main() ===\n", name)
-				}
 
 				// 获取方法闭包
 				if closure, ok := method.Body.(*Closure); ok {
@@ -740,11 +736,6 @@ func (vm *VM) execute() (interpreter.Object, error) {
 		// 读取操作码
 		op := Opcode(frame.ReadByte())
 
-		// 调试输出
-		if vm.debug {
-			fmt.Printf("IP: %d, OP: %s, SP: %d\n", frame.ip-1, op.String(), vm.sp)
-		}
-
 		// 执行指令
 		err := vm.executeInstruction(op, frame)
 		if err != nil {
@@ -787,19 +778,11 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 	case OP_GET_LOCAL:
 		slot := frame.ReadByte()
 		value := vm.stack[frame.basePointer+int(slot)]
-		if vm.debug {
-			fmt.Fprintf(os.Stderr, "GET_LOCAL slot %d (idx %d) = %v (Type: %s)\n",
-				slot, frame.basePointer+int(slot), value, value.Type())
-		}
 		vm.push(value)
 
 	case OP_SET_LOCAL:
 		slot := frame.ReadByte()
 		value := vm.peek(0)
-		if vm.debug {
-			fmt.Fprintf(os.Stderr, "SET_LOCAL slot %d (idx %d) = %v (Type: %s)\n",
-				slot, frame.basePointer+int(slot), value, value.Type())
-		}
 		vm.stack[frame.basePointer+int(slot)] = value
 
 	case OP_GET_GLOBAL:
@@ -1174,10 +1157,6 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 	case OP_INVOKE:
 		method := frame.ReadConstant().(*interpreter.String).Value
 		argCount := int(frame.ReadByte())
-		if vm.debug {
-			receiver := vm.peek(argCount)
-			fmt.Fprintf(os.Stderr, "INVOKE %s on %v (Type: %s)\n", method, receiver, receiver.Type())
-		}
 		if err := vm.invoke(method, argCount); err != nil {
 			return err
 		}
@@ -1499,11 +1478,6 @@ func (vm *VM) pushFrame(closure *Closure, basePointer int) *Frame {
 	frame := NewFrame(closure, basePointer)
 	vm.frames[vm.frameCount] = frame
 	vm.frameCount++
-
-	if vm.debug {
-		fmt.Fprintf(os.Stderr, "PUSH FRAME %s, basePointer: %d, NumLocals: %d, current SP: %d\n",
-			closure.Fn.Name, basePointer, closure.Fn.NumLocals, vm.sp)
-	}
 
 	// 确保 SP 在局部变量之上，防止操作数覆盖局部变量
 	if basePointer+closure.Fn.NumLocals > vm.sp {
