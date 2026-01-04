@@ -402,43 +402,48 @@ func (c *Compiler) compileForStatement(stmt *parser.ForStatement) error {
 func (c *Compiler) compileForRangeStatement(stmt *parser.ForRangeStatement) error {
 	c.beginScope()
 
-	// 编译可迭代对象并存储到局部变量（slot 0）
+	// 编译可迭代对象并存储到局部变量
 	if err := c.compileExpression(stmt.Iterable); err != nil {
 		return err
 	}
 	c.declareVariable("__iterable__")
-	c.defineVariable("__iterable__")
 	iterableSlot, _ := c.resolveLocal("__iterable__")
+	c.emitWithOperand(OP_SET_LOCAL, byte(iterableSlot), stmt.Token.Line)
+	c.defineVariable("__iterable__")
 
-	// 创建迭代索引变量并初始化为 0（slot 1）
+	// 创建迭代索引变量并初始化为 0
 	indexConst := c.addConstant(&interpreter.Integer{Value: 0})
 	c.emitWithOperand(OP_CONST, byte(indexConst), stmt.Token.Line)
 	c.declareVariable("__index__")
-	c.defineVariable("__index__")
 	indexSlot, _ := c.resolveLocal("__index__")
+	c.emitWithOperand(OP_SET_LOCAL, byte(indexSlot), stmt.Token.Line)
+	c.defineVariable("__index__")
 
 	// 预先声明循环变量（在循环外部），初始化为 null
 	var valueSlot int
 	var keySlot int
 	
 	if stmt.Value != nil {
-		// 双变量形式：value 变量（slot 2）
+		// 双变量形式：value 变量
 		c.emit(OP_NULL, stmt.Token.Line)
 		c.declareVariable(stmt.Value.Value)
-		c.defineVariable(stmt.Value.Value)
 		valueSlot, _ = c.resolveLocal(stmt.Value.Value)
+		c.emitWithOperand(OP_SET_LOCAL, byte(valueSlot), stmt.Token.Line)
+		c.defineVariable(stmt.Value.Value)
 		
-		// key 变量（slot 3）
+		// key 变量
 		c.emit(OP_NULL, stmt.Token.Line)
 		c.declareVariable(stmt.Key.Value)
-		c.defineVariable(stmt.Key.Value)
 		keySlot, _ = c.resolveLocal(stmt.Key.Value)
+		c.emitWithOperand(OP_SET_LOCAL, byte(keySlot), stmt.Token.Line)
+		c.defineVariable(stmt.Key.Value)
 	} else {
-		// 单变量形式：Key 存储的是值变量名（slot 2）
+		// 单变量形式：Key 存储的是值变量名
 		c.emit(OP_NULL, stmt.Token.Line)
 		c.declareVariable(stmt.Key.Value)
-		c.defineVariable(stmt.Key.Value)
 		valueSlot, _ = c.resolveLocal(stmt.Key.Value)
+		c.emitWithOperand(OP_SET_LOCAL, byte(valueSlot), stmt.Token.Line)
+		c.defineVariable(stmt.Key.Value)
 	}
 
 	// 记录循环开始位置

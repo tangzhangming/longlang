@@ -69,6 +69,9 @@ func registerBuiltins(env *Environment) {
 		if len(args) != 1 {
 			return newError("len 函数需要1个参数，得到 %d 个", len(args))
 		}
+		if args[0] == nil {
+			return newError("len 函数参数不能为 nil (arg count: %d)", len(args))
+		}
 		switch arg := args[0].(type) {
 		case *Array:
 			return &Integer{Value: int64(len(arg.Elements))}
@@ -76,8 +79,10 @@ func registerBuiltins(env *Environment) {
 			return &Integer{Value: int64(len([]rune(arg.Value)))}
 		case *Map:
 			return &Integer{Value: int64(arg.Size())}
+		case *Null:
+			return newError("len 函数参数不能为 null")
 		default:
-			return newError("len 函数不支持类型 %s", args[0].Type())
+			return newError("len 函数不支持类型 %s (type: %T)", args[0].Type(), args[0])
 		}
 	}})
 

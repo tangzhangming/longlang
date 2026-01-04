@@ -1,0 +1,226 @@
+namespace App
+
+use System.Regex
+use System.Console
+
+/**
+ * VM 测试：Regex 正则表达式
+ * 
+ * 测试虚拟机对 Regex 标准库的支持
+ */
+class TestVmRegex {
+    private static testsPassed int = 0
+    private static testsFailed int = 0
+    
+    public static function main() {
+        Console::writeLine("=== VM Regex 正则表达式测试 ===")
+        Console::writeLine("")
+        
+        // 测试静态方法
+        self::testStaticMethods()
+        
+        // 测试实例方法
+        self::testInstanceMethods()
+        
+        // 测试模式匹配
+        self::testPatternMatching()
+        
+        // 测试替换功能
+        self::testReplacement()
+        
+        // 测试分割功能
+        self::testSplit()
+        
+        // 测试查找功能
+        self::testFind()
+        
+        // 测试转义功能
+        self::testEscape()
+        
+        // 输出测试结果
+        Console::writeLine("")
+        Console::writeLine("=== 测试结果 ===")
+        Console::writeLine("通过: " + toString(self::testsPassed))
+        Console::writeLine("失败: " + toString(self::testsFailed))
+    }
+    
+    /**
+     * 测试静态方法
+     */
+    private static function testStaticMethods() {
+        Console::writeLine(">>> 测试静态方法")
+        
+        // 测试 isMatch
+        result1 := Regex::isMatch("hello world", "world")
+        self::assert("Regex::isMatch() 匹配", result1)
+        
+        result2 := Regex::isMatch("hello world", "xyz")
+        self::assert("Regex::isMatch() 不匹配", !result2)
+        
+        // 测试 replace
+        replaced := Regex::replace("hello world", "world", "LongLang")
+        self::assert("Regex::replace()", replaced == "hello LongLang")
+        
+        // 测试 split
+        parts := Regex::split("a,b,c", ",")
+        self::assert("Regex::split() 长度", len(parts) == 3)
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试实例方法
+     */
+    private static function testInstanceMethods() {
+        Console::writeLine(">>> 测试实例方法")
+        
+        regex := new Regex("[0-9]+")
+        
+        self::assert("Regex 创建成功", regex != null)
+        self::assert("getPattern() 正确", regex.getPattern() == "[0-9]+")
+        self::assert("getOptions() 默认值", regex.getOptions() == 0)
+        self::assert("toString() 正确", regex.toString() == "/[0-9]+/")
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试模式匹配
+     */
+    private static function testPatternMatching() {
+        Console::writeLine(">>> 测试模式匹配")
+        
+        // 数字匹配
+        digitRegex := new Regex("[0-9]+")
+        self::assert("test() 匹配数字", digitRegex.test("abc123def"))
+        self::assert("test() 无数字", !digitRegex.test("abcdef"))
+        
+        // 邮箱匹配
+        emailRegex := new Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+        self::assert("test() 匹配邮箱", emailRegex.test("user@example.com"))
+        self::assert("test() 无效邮箱", !emailRegex.test("invalid-email"))
+        
+        // 单词边界
+        wordRegex := new Regex("\\bword\\b")
+        self::assert("test() 单词边界匹配", wordRegex.test("a word here"))
+        self::assert("test() 单词边界不匹配", !wordRegex.test("awordhere"))
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试替换功能
+     */
+    private static function testReplacement() {
+        Console::writeLine(">>> 测试替换功能")
+        
+        // 简单替换
+        regex1 := new Regex("cat")
+        result1 := regex1.replaceAll("cat and cat", "dog")
+        self::assert("replaceAll() 全部替换", result1 == "dog and dog")
+        
+        // 数字替换
+        regex2 := new Regex("[0-9]+")
+        result2 := regex2.replaceAll("abc123def456", "X")
+        self::assert("replaceAll() 替换数字", result2 == "abcXdefX")
+        
+        // 空格替换
+        regex3 := new Regex("\\s+")
+        result3 := regex3.replaceAll("hello   world", " ")
+        self::assert("replaceAll() 替换空格", result3 == "hello world")
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试分割功能
+     */
+    private static function testSplit() {
+        Console::writeLine(">>> 测试分割功能")
+        
+        // 简单分割
+        regex1 := new Regex(",")
+        parts1 := regex1.splitString("a,b,c,d")
+        self::assert("splitString() 逗号分割", len(parts1) == 4)
+        self::assert("splitString() 第一个元素", parts1[0] == "a")
+        self::assert("splitString() 最后一个元素", parts1[3] == "d")
+        
+        // 多字符分割
+        regex2 := new Regex("[,;]+")
+        parts2 := regex2.splitString("a,b;c,,d")
+        self::assert("splitString() 多字符分割", len(parts2) == 4)
+        
+        // 限制分割
+        regex3 := new Regex("-")
+        parts3 := regex3.splitString("a-b-c-d", 2)
+        self::assert("splitString() 限制分割", len(parts3) == 2)
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试查找功能
+     */
+    private static function testFind() {
+        Console::writeLine(">>> 测试查找功能")
+        
+        // 查找第一个匹配
+        regex := new Regex("[0-9]+")
+        matchResult := regex.find("abc123def456")
+        
+        self::assert("find() 返回 Match", matchResult != null)
+        self::assert("find() 匹配成功", matchResult.isSuccess())
+        self::assert("find() 匹配值", matchResult.getValue() == "123")
+        self::assert("find() 起始位置", matchResult.getIndex() == 3)
+        self::assert("find() 匹配长度", matchResult.getLength() == 3)
+        
+        // 查找所有匹配
+        matchList := regex.findAll("abc123def456ghi789")
+        self::assert("findAll() 数量正确", len(matchList) == 3)
+        
+        // 查找索引
+        foundIdx := regex.findIndex("abc123")
+        self::assert("findIndex() 返回正确位置", foundIdx == 3)
+        
+        notFoundIdx := regex.findIndex("abcdef")
+        self::assert("findIndex() 未找到返回 -1", notFoundIdx == -1)
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试转义功能
+     */
+    private static function testEscape() {
+        Console::writeLine(">>> 测试转义功能")
+        
+        // 转义特殊字符
+        escaped := Regex::escape("a.b*c?d+e")
+        self::assert("escape() 转义点号", escaped.contains("\\."))
+        self::assert("escape() 转义星号", escaped.contains("\\*"))
+        self::assert("escape() 转义问号", escaped.contains("\\?"))
+        self::assert("escape() 转义加号", escaped.contains("\\+"))
+        
+        // 使用转义后的字符串作为字面量匹配
+        escapedPattern := Regex::escape("1+1")
+        regex := new Regex(escapedPattern)
+        self::assert("转义后匹配字面量", regex.test("1+1=2"))
+        self::assert("转义后不匹配表达式", !regex.test("11"))
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 断言辅助函数
+     */
+    private static function assert(name: string, condition: bool) {
+        if condition {
+            Console::writeLine("  [通过] " + name)
+            self::testsPassed = self::testsPassed + 1
+        } else {
+            Console::writeLine("  [失败] " + name)
+            self::testsFailed = self::testsFailed + 1
+        }
+    }
+}
+

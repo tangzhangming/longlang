@@ -122,6 +122,13 @@ func (c *Compiler) compileIdentifier(ident *parser.Identifier) error {
 		return nil
 	}
 
+	// 处理 self 和 static：获取 __called_class_name 并解析为类
+	if ident.Value == "self" || ident.Value == "static" {
+		nameIndex := c.addConstant(&interpreter.String{Value: "__called_class_name"})
+		c.emitWithOperand(OP_GET_GLOBAL, byte(nameIndex), ident.Token.Line)
+		return nil
+	}
+
 	// 作为全局变量
 	nameIndex := c.addConstant(&interpreter.String{Value: ident.Value})
 	c.emitWithOperand(OP_GET_GLOBAL, byte(nameIndex), ident.Token.Line)
@@ -642,9 +649,16 @@ func (c *Compiler) compileStaticCallExpression(expr *parser.StaticCallExpression
 		return nil
 	}
 
-	// 编译类名
-	if err := c.compileExpression(expr.ClassName); err != nil {
-		return err
+	// 检查是否是 self 或 static 调用
+	if expr.ClassName.Value == "self" || expr.ClassName.Value == "static" {
+		// 加载 __called_class_name 来获取当前类
+		nameIndex := c.addConstant(&interpreter.String{Value: "__called_class_name"})
+		c.emitWithOperand(OP_GET_GLOBAL, byte(nameIndex), expr.Token.Line)
+	} else {
+		// 编译类名
+		if err := c.compileExpression(expr.ClassName); err != nil {
+			return err
+		}
 	}
 
 	// 编译参数
@@ -667,9 +681,16 @@ func (c *Compiler) compileStaticCallExpression(expr *parser.StaticCallExpression
 
 // compileStaticAccessExpression 编译静态成员访问
 func (c *Compiler) compileStaticAccessExpression(expr *parser.StaticAccessExpression) error {
-	// 编译类名
-	if err := c.compileExpression(expr.ClassName); err != nil {
-		return err
+	// 检查是否是 self 或 static 访问
+	if expr.ClassName.Value == "self" || expr.ClassName.Value == "static" {
+		// 加载 __called_class_name 来获取当前类
+		nameIndex := c.addConstant(&interpreter.String{Value: "__called_class_name"})
+		c.emitWithOperand(OP_GET_GLOBAL, byte(nameIndex), expr.Token.Line)
+	} else {
+		// 编译类名
+		if err := c.compileExpression(expr.ClassName); err != nil {
+			return err
+		}
 	}
 
 	// 成员名常量

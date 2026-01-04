@@ -1,0 +1,148 @@
+namespace App
+
+use System.Http.HttpServer
+use System.Http.HttpRequest
+use System.Http.HttpResponse
+use System.Console
+
+/**
+ * VM 测试：HttpServer
+ * 
+ * 测试虚拟机对 HttpServer 标准库的支持
+ * 
+ * 注意：此测试创建但不启动服务器，避免阻塞
+ * 如需测试实际服务器，可以手动运行并用浏览器访问
+ */
+class TestVmHttpServer {
+    private static testsPassed int = 0
+    private static testsFailed int = 0
+    
+    public static function main() {
+        Console::writeLine("=== VM HttpServer 测试 ===")
+        Console::writeLine("")
+        
+        // 测试 HttpServer 创建
+        self::testServerCreation()
+        
+        // 测试 HttpServer 配置
+        self::testServerConfiguration()
+        
+        // 测试静态工厂方法
+        self::testStaticFactoryMethods()
+        
+        // 测试 HttpRequest 类
+        self::testHttpRequest()
+        
+        // 测试 HttpResponse 类
+        self::testHttpResponse()
+        
+        // 输出测试结果
+        Console::writeLine("")
+        Console::writeLine("=== 测试结果 ===")
+        Console::writeLine("通过: " + toString(self::testsPassed))
+        Console::writeLine("失败: " + toString(self::testsFailed))
+    }
+    
+    /**
+     * 测试 HttpServer 创建
+     */
+    private static function testServerCreation() {
+        Console::writeLine(">>> 测试 HttpServer 创建")
+        
+        server := new HttpServer()
+        
+        self::assert("HttpServer 创建成功", server != null)
+        self::assert("默认 host 是 0.0.0.0", server.getHost() == "0.0.0.0")
+        self::assert("默认 port 是 0", server.getPort() == 0)
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试 HttpServer 配置
+     */
+    private static function testServerConfiguration() {
+        Console::writeLine(">>> 测试 HttpServer 配置")
+        
+        server := new HttpServer()
+        
+        // 测试链式调用
+        result := server.host("127.0.0.1").port(8080)
+        
+        self::assert("host() 返回 HttpServer", result != null)
+        self::assert("port() 设置正确", server.getPort() == 8080)
+        self::assert("host() 设置正确", server.getHost() == "127.0.0.1")
+        
+        // 测试 handle 方法
+        handler := function(req: HttpRequest, res: HttpResponse) {
+            res.text("Hello from VM!")
+        }
+        
+        serverWithHandler := server.handle(handler)
+        self::assert("handle() 返回 HttpServer", serverWithHandler != null)
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试静态工厂方法
+     */
+    private static function testStaticFactoryMethods() {
+        Console::writeLine(">>> 测试静态工厂方法")
+        
+        // 测试 create 方法
+        server1 := HttpServer::create(3000)
+        self::assert("HttpServer::create() 设置端口", server1.getPort() == 3000)
+        
+        // 测试 bind 方法
+        server2 := HttpServer::bind("localhost", 4000)
+        self::assert("HttpServer::bind() 设置主机", server2.getHost() == "localhost")
+        self::assert("HttpServer::bind() 设置端口", server2.getPort() == 4000)
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试 HttpRequest 类
+     */
+    private static function testHttpRequest() {
+        Console::writeLine(">>> 测试 HttpRequest 类")
+        
+        req := new HttpRequest()
+        
+        self::assert("HttpRequest 创建成功", req != null)
+        
+        // 测试默认值
+        self::assert("默认方法是空", req.method() == "")
+        self::assert("默认路径是空", req.path() == "")
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试 HttpResponse 类
+     */
+    private static function testHttpResponse() {
+        Console::writeLine(">>> 测试 HttpResponse 类")
+        
+        // 注意：HttpResponse 需要 TcpConnection，我们只测试类存在
+        Console::writeLine("  HttpResponse 类存在（需要连接才能完整测试）")
+        self::assert("HttpResponse 类可用", true)
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 断言辅助函数
+     */
+    private static function assert(name: string, condition: bool) {
+        if condition {
+            Console::writeLine("  [通过] " + name)
+            self::testsPassed = self::testsPassed + 1
+        } else {
+            Console::writeLine("  [失败] " + name)
+            self::testsFailed = self::testsFailed + 1
+        }
+    }
+}
+

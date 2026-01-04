@@ -1,0 +1,143 @@
+namespace App
+
+use Database.Mysql.Client
+use Database.Mysql.Config
+use System.Console
+
+/**
+ * VM 测试：MySQL 客户端
+ * 
+ * 测试虚拟机对 MySQL 客户端标准库的支持
+ * 注意：需要本地运行 MySQL 服务器才能通过测试
+ */
+class TestVmMysql {
+    private static testsPassed int = 0
+    private static testsFailed int = 0
+    
+    public static function main() {
+        Console::writeLine("=== VM MySQL 客户端测试 ===")
+        Console::writeLine("")
+        
+        // 测试 Config 类
+        self::testConfig()
+        
+        // 测试连接（需要 MySQL 服务器）
+        self::testConnection()
+        
+        // 输出测试结果
+        Console::writeLine("")
+        Console::writeLine("=== 测试结果 ===")
+        Console::writeLine("通过: " + toString(self::testsPassed))
+        Console::writeLine("失败: " + toString(self::testsFailed))
+        
+        if self::testsFailed > 0 {
+            Console::writeLine("警告: 某些测试失败（可能是因为 MySQL 服务器未运行）")
+        }
+    }
+    
+    /**
+     * 测试 Config 类
+     */
+    private static function testConfig() {
+        Console::writeLine(">>> 测试 Config 类")
+        
+        config := new Config()
+        
+        // 测试链式调用
+        config.setHost("127.0.0.1")
+              .setPort(3306)
+              .setUsername("root")
+              .setPassword("root")
+              .setDatabase("longlang")
+              .setCharset("utf8mb4")
+        
+        // 验证配置值
+        self::assert("Config.getHost()", config.getHost() == "127.0.0.1")
+        self::assert("Config.getPort()", config.getPort() == 3306)
+        self::assert("Config.getUsername()", config.getUsername() == "root")
+        self::assert("Config.getPassword()", config.getPassword() == "root")
+        self::assert("Config.getDatabase()", config.getDatabase() == "longlang")
+        self::assert("Config.getCharset()", config.getCharset() == "utf8mb4")
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试数据库连接
+     */
+    private static function testConnection() {
+        Console::writeLine(">>> 测试 MySQL 连接")
+        
+        config := new Config()
+        config.setHost("127.0.0.1")
+              .setPort(3306)
+              .setUsername("root")
+              .setPassword("root")
+              .setDatabase("longlang")
+        
+        try {
+            // 连接数据库
+            client := Client::connect(config)
+            
+            self::assert("Client.isConnected()", client.isConnected())
+            
+            serverVersion := client.getServerVersion()
+            Console::writeLine("  服务器版本: " + serverVersion)
+            self::assert("Client.getServerVersion()", len(serverVersion) > 0)
+            
+            connectionId := client.getConnectionId()
+            Console::writeLine("  连接 ID: " + toString(connectionId))
+            self::assert("Client.getConnectionId()", connectionId > 0)
+            
+            // 测试 ping
+            pingOk := client.ping()
+            self::assert("Client.ping()", pingOk)
+            
+            // 测试基本查询
+            result := client.query("SELECT 1 + 1 AS result")
+            self::assert("Client.query() 返回结果", result != null)
+            
+            // 测试执行语句
+            client.execute("SET @test_var = 'hello'")
+            result2 := client.fetchScalar("SELECT @test_var")
+            self::assert("Client.fetchScalar()", result2 == "hello")
+            
+            // 测试事务
+            txStarted := client.beginTransaction()
+            self::assert("Client.beginTransaction()", txStarted)
+            
+            txCommitted := client.commit()
+            self::assert("Client.commit()", txCommitted)
+            
+            // 测试 escape
+            escaped := client.escape("O'Reilly")
+            self::assert("Client.escape()", escaped == "O\\'Reilly")
+            
+            // 关闭连接
+            client.close()
+            self::assert("Client.close()", !client.isConnected())
+            
+            Console::writeLine("  MySQL 连接测试通过")
+            
+        } catch (e) {
+            Console::writeLine("  跳过 MySQL 测试（服务器未运行或连接失败）: " + e.getMessage())
+            self::testsFailed = self::testsFailed + 1
+        }
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 断言辅助函数
+     */
+    private static function assert(name: string, condition: bool) {
+        if condition {
+            Console::writeLine("  [通过] " + name)
+            self::testsPassed = self::testsPassed + 1
+        } else {
+            Console::writeLine("  [失败] " + name)
+            self::testsFailed = self::testsFailed + 1
+        }
+    }
+}
+

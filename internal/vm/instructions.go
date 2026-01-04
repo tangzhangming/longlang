@@ -545,6 +545,18 @@ func (vm *VM) invokeStatic(name string, argCount int) error {
 			}
 		}
 		return fmt.Errorf("内置对象 %s 没有方法: %s", obj.Name, name)
+
+	case *interpreter.String:
+		// 通过类名字符串调用静态方法（用于 self:: 和 static::）
+		className := obj.Value
+		class, ok := vm.getClassByName(className)
+		if !ok {
+			return fmt.Errorf("未找到类: %s", className)
+		}
+		// 替换栈上的字符串为类对象
+		vm.stack[vm.sp-argCount-1] = class
+		// 递归调用
+		return vm.invokeStatic(name, argCount)
 	}
 
 	return fmt.Errorf("只能在类或内置对象上调用静态方法，得到: %s", receiver.Type())

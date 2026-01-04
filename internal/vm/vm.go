@@ -702,6 +702,12 @@ func (vm *VM) callEntryPoint() (interpreter.Object, error) {
 					if err := vm.callClosure(closure, 0); err != nil {
 						return nil, err
 					}
+					// 设置 calledClassName 支持 self:: 调用
+					newFrame := vm.frames[vm.frameCount-1]
+					newFrame.calledClassName = class.Name
+					if class.Namespace != "" {
+						newFrame.calledClassName = class.Namespace + "." + class.Name
+					}
 					// 执行
 					return vm.execute()
 				}
@@ -1131,6 +1137,16 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		name := frame.ReadConstant().(*interpreter.String).Value
 		obj := vm.pop()
 
+		// 处理字符串类名（用于 self:: 和 static::）
+		if str, ok := obj.(*interpreter.String); ok {
+			className := str.Value
+			class, found := vm.getClassByName(className)
+			if !found {
+				return fmt.Errorf("未找到类: %s", className)
+			}
+			obj = class
+		}
+
 		if class, ok := obj.(*interpreter.Class); ok {
 			if value, ok := class.StaticFields[name]; ok {
 				vm.push(value)
@@ -1145,6 +1161,16 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		name := frame.ReadConstant().(*interpreter.String).Value
 		obj := vm.pop()
 		value := vm.pop()
+
+		// 处理字符串类名（用于 self:: 和 static::）
+		if str, ok := obj.(*interpreter.String); ok {
+			className := str.Value
+			class, found := vm.getClassByName(className)
+			if !found {
+				return fmt.Errorf("未找到类: %s", className)
+			}
+			obj = class
+		}
 
 		if class, ok := obj.(*interpreter.Class); ok {
 			class.StaticFields[name] = value

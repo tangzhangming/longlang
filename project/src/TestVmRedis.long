@@ -1,0 +1,349 @@
+namespace App
+
+use Database.Redis.Client
+use Database.Redis.Config
+use System.Console
+
+/**
+ * VM 测试：Redis 客户端
+ * 
+ * 测试虚拟机对 Redis 客户端标准库的支持
+ * 注意：需要本地运行 Redis 服务器才能通过测试
+ */
+class TestVmRedis {
+    private static testsPassed int = 0
+    private static testsFailed int = 0
+    
+    public static function main() {
+        Console::writeLine("=== VM Redis 客户端测试 ===")
+        Console::writeLine("")
+        
+        // 测试 Config 类
+        self::testConfig()
+        
+        // 测试基础连接
+        self::testConnection()
+        
+        // 测试字符串操作
+        self::testStringOperations()
+        
+        // 测试哈希操作
+        self::testHashOperations()
+        
+        // 测试列表操作
+        self::testListOperations()
+        
+        // 测试集合操作
+        self::testSetOperations()
+        
+        // 输出测试结果
+        Console::writeLine("")
+        Console::writeLine("=== 测试结果 ===")
+        Console::writeLine("通过: " + toString(self::testsPassed))
+        Console::writeLine("失败: " + toString(self::testsFailed))
+        
+        if self::testsFailed > 0 {
+            Console::writeLine("警告: 某些测试失败（可能是因为 Redis 服务器未运行）")
+        }
+    }
+    
+    /**
+     * 测试 Config 类
+     */
+    private static function testConfig() {
+        Console::writeLine(">>> 测试 Config 类")
+        
+        config := new Config()
+        
+        // 测试链式调用
+        config.setHost("127.0.0.1")
+              .setPort(6379)
+              .setPassword("")
+              .setDatabase(0)
+              .setPrefix("test:")
+        
+        // 验证配置值
+        self::assert("Config.getHost()", config.getHost() == "127.0.0.1")
+        self::assert("Config.getPort()", config.getPort() == 6379)
+        self::assert("Config.getDatabase()", config.getDatabase() == 0)
+        self::assert("Config.getPrefix()", config.getPrefix() == "test:")
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试 Redis 连接
+     */
+    private static function testConnection() {
+        Console::writeLine(">>> 测试 Redis 连接")
+        
+        try {
+            client := Client::connect("127.0.0.1", 6379)
+            
+            self::assert("Client.isConnected()", client.isConnected())
+            
+            // 测试 ping
+            pong := client.ping()
+            self::assert("Client.ping() == PONG", pong == "PONG")
+            
+            // 测试 echo
+            echoResult := client.echo("Hello VM")
+            self::assert("Client.echo()", echoResult == "Hello VM")
+            
+            // 测试选择数据库
+            selectOk := client.selectDb(0)
+            self::assert("Client.selectDb()", selectOk)
+            
+            // 关闭连接
+            client.close()
+            self::assert("Client.close()", !client.isConnected())
+            
+            Console::writeLine("  Redis 连接测试通过")
+            
+        } catch (e) {
+            Console::writeLine("  跳过 Redis 测试（服务器未运行或连接失败）: " + e.getMessage())
+            self::testsFailed = self::testsFailed + 1
+        }
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试字符串操作
+     */
+    private static function testStringOperations() {
+        Console::writeLine(">>> 测试字符串操作")
+        
+        try {
+            client := Client::connect("127.0.0.1", 6379)
+            
+            // 清理测试键
+            client.del("vm_test_key")
+            
+            // 测试 set/get
+            setOk := client.set("vm_test_key", "vm_test_value")
+            self::assert("Client.set()", setOk)
+            
+            getValue := client.get("vm_test_key")
+            self::assert("Client.get()", getValue == "vm_test_value")
+            
+            // 测试 incr/decr
+            client.set("vm_test_counter", "10")
+            incrResult := client.incr("vm_test_counter")
+            self::assert("Client.incr()", incrResult == 11)
+            
+            decrResult := client.decr("vm_test_counter")
+            self::assert("Client.decr()", decrResult == 10)
+            
+            incrByResult := client.incrBy("vm_test_counter", 5)
+            self::assert("Client.incrBy()", incrByResult == 15)
+            
+            // 测试 append
+            client.set("vm_test_append", "Hello")
+            appendLen := client.append("vm_test_append", " World")
+            self::assert("Client.append()", appendLen == 11)
+            
+            appendValue := client.get("vm_test_append")
+            self::assert("Client.append() 结果", appendValue == "Hello World")
+            
+            // 测试 strlen
+            strLen := client.strlen("vm_test_append")
+            self::assert("Client.strlen()", strLen == 11)
+            
+            // 测试 exists
+            existsResult := client.exists("vm_test_key")
+            self::assert("Client.exists()", existsResult)
+            
+            notExistsResult := client.exists("vm_nonexistent_key")
+            self::assert("Client.exists() 不存在", !notExistsResult)
+            
+            // 测试 del
+            delResult := client.del("vm_test_key")
+            self::assert("Client.del()", delResult == 1)
+            
+            // 清理
+            client.del("vm_test_counter")
+            client.del("vm_test_append")
+            
+            client.close()
+            Console::writeLine("  字符串操作测试通过")
+            
+        } catch (e) {
+            Console::writeLine("  跳过字符串操作测试: " + e.getMessage())
+            self::testsFailed = self::testsFailed + 1
+        }
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试哈希操作
+     */
+    private static function testHashOperations() {
+        Console::writeLine(">>> 测试哈希操作")
+        
+        try {
+            client := Client::connect("127.0.0.1", 6379)
+            
+            // 清理测试键
+            client.del("vm_test_hash")
+            
+            // 测试 hset/hget
+            hsetResult := client.hset("vm_test_hash", "name", "LongLang")
+            self::assert("Client.hset()", hsetResult >= 0)
+            
+            hgetResult := client.hget("vm_test_hash", "name")
+            self::assert("Client.hget()", hgetResult == "LongLang")
+            
+            // 测试 hexists
+            hexistsResult := client.hexists("vm_test_hash", "name")
+            self::assert("Client.hexists()", hexistsResult)
+            
+            // 测试 hlen
+            client.hset("vm_test_hash", "version", "1.0")
+            hlenResult := client.hlen("vm_test_hash")
+            self::assert("Client.hlen()", hlenResult == 2)
+            
+            // 测试 hincrby
+            client.hset("vm_test_hash", "count", "10")
+            hincrResult := client.hincrby("vm_test_hash", "count", 5)
+            self::assert("Client.hincrby()", hincrResult == 15)
+            
+            // 测试 hdel
+            hdelResult := client.hdel("vm_test_hash", "count")
+            self::assert("Client.hdel()", hdelResult == 1)
+            
+            // 清理
+            client.del("vm_test_hash")
+            
+            client.close()
+            Console::writeLine("  哈希操作测试通过")
+            
+        } catch (e) {
+            Console::writeLine("  跳过哈希操作测试: " + e.getMessage())
+            self::testsFailed = self::testsFailed + 1
+        }
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试列表操作
+     */
+    private static function testListOperations() {
+        Console::writeLine(">>> 测试列表操作")
+        
+        try {
+            client := Client::connect("127.0.0.1", 6379)
+            
+            // 清理测试键
+            client.del("vm_test_list")
+            
+            // 测试 lpush
+            lpushResult := client.lpush("vm_test_list", "first")
+            self::assert("Client.lpush()", lpushResult == 1)
+            
+            // 测试 rpush
+            rpushResult := client.rpush("vm_test_list", "second")
+            self::assert("Client.rpush()", rpushResult == 2)
+            
+            // 测试 llen
+            llenResult := client.llen("vm_test_list")
+            self::assert("Client.llen()", llenResult == 2)
+            
+            // 测试 lindex
+            lindexResult := client.lindex("vm_test_list", 0)
+            self::assert("Client.lindex()", lindexResult == "first")
+            
+            // 测试 lrange
+            lrangeResult := client.lrange("vm_test_list", 0, -1)
+            self::assert("Client.lrange() 长度", len(lrangeResult) == 2)
+            
+            // 测试 lpop
+            lpopResult := client.lpop("vm_test_list")
+            self::assert("Client.lpop()", lpopResult == "first")
+            
+            // 测试 rpop
+            rpopResult := client.rpop("vm_test_list")
+            self::assert("Client.rpop()", rpopResult == "second")
+            
+            // 清理
+            client.del("vm_test_list")
+            
+            client.close()
+            Console::writeLine("  列表操作测试通过")
+            
+        } catch (e) {
+            Console::writeLine("  跳过列表操作测试: " + e.getMessage())
+            self::testsFailed = self::testsFailed + 1
+        }
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 测试集合操作
+     */
+    private static function testSetOperations() {
+        Console::writeLine(">>> 测试集合操作")
+        
+        try {
+            client := Client::connect("127.0.0.1", 6379)
+            
+            // 清理测试键
+            client.del("vm_test_set")
+            
+            // 测试 sadd
+            saddResult := client.sadd("vm_test_set", "member1")
+            self::assert("Client.sadd()", saddResult == 1)
+            
+            client.sadd("vm_test_set", "member2")
+            client.sadd("vm_test_set", "member3")
+            
+            // 测试 scard
+            scardResult := client.scard("vm_test_set")
+            self::assert("Client.scard()", scardResult == 3)
+            
+            // 测试 sismember
+            sismemberResult := client.sismember("vm_test_set", "member1")
+            self::assert("Client.sismember()", sismemberResult)
+            
+            notMemberResult := client.sismember("vm_test_set", "notexist")
+            self::assert("Client.sismember() 不存在", !notMemberResult)
+            
+            // 测试 srem
+            sremResult := client.srem("vm_test_set", "member1")
+            self::assert("Client.srem()", sremResult == 1)
+            
+            // 测试 smembers
+            smembersResult := client.smembers("vm_test_set")
+            self::assert("Client.smembers() 长度", len(smembersResult) == 2)
+            
+            // 清理
+            client.del("vm_test_set")
+            
+            client.close()
+            Console::writeLine("  集合操作测试通过")
+            
+        } catch (e) {
+            Console::writeLine("  跳过集合操作测试: " + e.getMessage())
+            self::testsFailed = self::testsFailed + 1
+        }
+        
+        Console::writeLine("")
+    }
+    
+    /**
+     * 断言辅助函数
+     */
+    private static function assert(name: string, condition: bool) {
+        if condition {
+            Console::writeLine("  [通过] " + name)
+            self::testsPassed = self::testsPassed + 1
+        } else {
+            Console::writeLine("  [失败] " + name)
+            self::testsFailed = self::testsFailed + 1
+        }
+    }
+}
+

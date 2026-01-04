@@ -34,13 +34,22 @@ func main() {
 	case "version", "-v", "--version":
 		cmdVersion()
 	case "run":
+		// 使用虚拟机运行（默认）
 		if len(os.Args) < 3 {
-			fmt.Fprintf(os.Stderr, "用法: %s run <文件路径>\n", os.Args[0])
+			fmt.Fprintf(os.Stderr, "用法: %s run <文件路径> [--debug]\n", os.Args[0])
 			os.Exit(1)
 		}
-		cmdRun(os.Args[2])
+		debug := len(os.Args) >= 4 && os.Args[3] == "--debug"
+		cmdVMRun(os.Args[2], debug)
+	case "interpret":
+		// 使用解释器运行（保留的旧方式）
+		if len(os.Args) < 3 {
+			fmt.Fprintf(os.Stderr, "用法: %s interpret <文件路径>\n", os.Args[0])
+			os.Exit(1)
+		}
+		cmdInterpret(os.Args[2])
 	case "vm":
-		// 使用虚拟机运行
+		// 使用虚拟机运行（别名，与 run 相同）
 		if len(os.Args) < 3 {
 			fmt.Fprintf(os.Stderr, "用法: %s vm <文件路径> [--debug]\n", os.Args[0])
 			os.Exit(1)
@@ -80,18 +89,19 @@ func printUsage() {
 	fmt.Println("  longlang <命令> [参数]")
 	fmt.Println()
 	fmt.Println("命令:")
-	fmt.Println("  version     显示版本信息")
-	fmt.Println("  run <file>  运行指定的 .long 文件（使用解释器）")
-	fmt.Println("  vm <file>   运行指定的 .long 文件（使用字节码虚拟机）")
+	fmt.Println("  version       显示版本信息")
+	fmt.Println("  run <file>    运行指定的 .long 文件（使用字节码虚拟机）")
+	fmt.Println("  interpret <file>  运行指定的 .long 文件（使用 AST 解释器）")
+	fmt.Println("  vm <file>     运行指定的 .long 文件（与 run 相同）")
 	fmt.Println("  build <file> [-o <dir>]  编译 .long 文件为 Go 程序")
-	fmt.Println("  new <name>  创建一个新项目")
-	fmt.Println("  help        显示帮助信息")
+	fmt.Println("  new <name>    创建一个新项目")
+	fmt.Println("  help          显示帮助信息")
 	fmt.Println()
 	fmt.Println("示例:")
 	fmt.Println("  longlang version")
 	fmt.Println("  longlang run main.long")
-	fmt.Println("  longlang vm main.long")
-	fmt.Println("  longlang vm main.long --debug")
+	fmt.Println("  longlang run main.long --debug")
+	fmt.Println("  longlang interpret main.long")
 	fmt.Println("  longlang new myproject")
 }
 
@@ -194,8 +204,8 @@ func cmdVMRun(filename string, debug bool) {
 	}
 }
 
-// cmdRun 运行指定的文件
-func cmdRun(filename string) {
+// cmdInterpret 使用解释器运行指定的文件（保留的旧方式）
+func cmdInterpret(filename string) {
 	// 检查文件扩展名
 	if !strings.HasSuffix(filename, ".long") {
 		fmt.Fprintf(os.Stderr, "警告: 文件 %s 不是 .long 文件\n", filename)

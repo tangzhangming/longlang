@@ -1,5 +1,7 @@
 namespace System.Regex
 
+use System.Regex.Group
+
 /**
  * Match 匹配结果
  * 表示正则表达式的一次匹配结果
