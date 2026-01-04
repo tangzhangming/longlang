@@ -487,8 +487,8 @@ func (vm *VM) loadNamespaceFile(namespace string, className string) error {
 	// 标记为已加载
 	vm.loadedNamespaces[fullKey] = true
 
-	// 解析文件
-	l := lexer.New(content)
+	// 解析文件（使用文件路径判断是否为标准库）
+	l := lexer.NewFromFile(content, loadedPath)
 	p := parser.New(l)
 	program := p.ParseProgram()
 
@@ -1289,6 +1289,30 @@ func (vm *VM) executeInstruction(op Opcode, frame *Frame) error {
 		vm.push(&interpreter.Boolean{Value: found})
 		return nil
 
+	case OP_TYPE_ASSERT:
+		// 读取目标类型名和安全断言标志
+		targetTypeName := frame.ReadConstant().(*interpreter.String).Value
+		isSafe := frame.ReadByte() == 1
+
+		// 弹出要断言的值
+		value := vm.pop()
+
+		// 执行类型断言
+		result, ok := vm.assertType(value, targetTypeName)
+
+		if !ok {
+			if isSafe {
+				// 安全断言：返回 null
+				vm.push(&interpreter.Null{})
+			} else {
+				// 强制断言：抛出异常
+				actualType := vm.getActualTypeName(value)
+				return fmt.Errorf("类型断言失败: 无法将 %s 转换为 %s", actualType, targetTypeName)
+			}
+		} else {
+			vm.push(result)
+		}
+
 	case OP_GET_SUPER:
 		name := frame.ReadConstant().(*interpreter.String).Value
 		superclass := vm.pop().(*interpreter.Class)
@@ -1642,5 +1666,204 @@ type VMError struct {
 }
 
 func (e *VMError) Error() string {
+	// 如果有异常对象，尝试获取异常消息
+	if e.Exception != nil {
+		if instance, ok := e.Exception.(*interpreter.Instance); ok {
+			if msg, ok := instance.Fields["message"]; ok {
+				if strMsg, ok := msg.(*interpreter.String); ok {
+					return strMsg.Value
+				}
+			}
+		}
+		// 返回异常对象的 Inspect
+		return e.Exception.Inspect()
+	}
 	return e.Message
+}
+
+// ========== 类型断言辅助函数 ==========
+
+// assertType 执行类型断言
+// 返回转换后的值和是否成功
+func (vm *VM) assertType(value interpreter.Object, targetTypeName string) (interpreter.Object, bool) {
+	// 处理 null 值
+	if _, isNull := value.(*interpreter.Null); isNull {
+		return nil, false
+	}
+
+	// 处理 any 类型（始终成功）
+	if targetTypeName == "any" {
+		return value, true
+	}
+
+	switch targetTypeName {
+	// 基本类型
+	case "int", "i8", "i16", "i32", "i64":
+		if intVal, ok := value.(*interpreter.Integer); ok {
+			return intVal, true
+		}
+		return nil, false
+
+	case "uint", "u8", "u16", "u32", "u64", "byte":
+		if intVal, ok := value.(*interpreter.Integer); ok {
+			// 无符号类型检查值是否为非负数
+			if intVal.Value >= 0 {
+				return intVal, true
+			}
+		}
+		return nil, false
+
+	case "float", "f32", "f64":
+		if floatVal, ok := value.(*interpreter.Float); ok {
+			return floatVal, true
+		}
+		// int 可以转为 float
+		if intVal, ok := value.(*interpreter.Integer); ok {
+			return &interpreter.Float{Value: float64(intVal.Value)}, true
+		}
+		return nil, false
+
+	case "string":
+		if strVal, ok := value.(*interpreter.String); ok {
+			return strVal, true
+		}
+		return nil, false
+
+	case "bool":
+		if boolVal, ok := value.(*interpreter.Boolean); ok {
+			return boolVal, true
+		}
+		return nil, false
+
+	default:
+		// 检查是否是数组类型
+		if len(targetTypeName) > 2 && targetTypeName[:2] == "[]" {
+			return vm.assertArrayType(value, targetTypeName)
+		}
+
+		// 检查是否是 Map 类型
+		if len(targetTypeName) > 4 && targetTypeName[:4] == "map[" {
+			return vm.assertMapType(value, targetTypeName)
+		}
+
+		// 检查是否是类/接口类型
+		return vm.assertClassType(value, targetTypeName)
+	}
+}
+
+// assertArrayType 断言数组类型
+func (vm *VM) assertArrayType(value interpreter.Object, targetTypeName string) (interpreter.Object, bool) {
+	arr, ok := value.(*interpreter.Array)
+	if !ok {
+		return nil, false
+	}
+
+	// 获取目标元素类型
+	targetElemType := targetTypeName[2:] // 去掉 "[]"
+
+	// 如果目标是 []any，总是成功
+	if targetElemType == "any" {
+		return arr, true
+	}
+
+	// 检查数组元素类型是否兼容
+	if arr.ElementType == targetElemType || arr.ElementType == "" {
+		// 空数组或类型匹配
+		return arr, true
+	}
+
+	// 检查每个元素是否可以转换
+	for _, elem := range arr.Elements {
+		_, elemOk := vm.assertType(elem, targetElemType)
+		if !elemOk {
+			return nil, false
+		}
+	}
+
+	return arr, true
+}
+
+// assertMapType 断言 Map 类型
+func (vm *VM) assertMapType(value interpreter.Object, targetTypeName string) (interpreter.Object, bool) {
+	m, ok := value.(*interpreter.Map)
+	if !ok {
+		return nil, false
+	}
+
+	// 简单检查：只要是 Map 就可以
+	return m, true
+}
+
+// assertClassType 断言类/接口类型
+func (vm *VM) assertClassType(value interpreter.Object, targetTypeName string) (interpreter.Object, bool) {
+	instance, ok := value.(*interpreter.Instance)
+	if !ok {
+		return nil, false
+	}
+
+	// 检查是否是目标类型
+	if instance.Class.Name == targetTypeName {
+		return instance, true
+	}
+
+	// 检查继承链
+	class := instance.Class
+	for class.Parent != nil {
+		if class.Parent.Name == targetTypeName {
+			return instance, true
+		}
+		class = class.Parent
+	}
+
+	// 检查实现的接口
+	for _, iface := range instance.Class.Interfaces {
+		if iface.Name == targetTypeName {
+			return instance, true
+		}
+	}
+
+	return nil, false
+}
+
+// getActualTypeName 获取对象的实际类型名称
+func (vm *VM) getActualTypeName(obj interpreter.Object) string {
+	switch o := obj.(type) {
+	case *interpreter.Integer:
+		return "int"
+	case *interpreter.Float:
+		return "float"
+	case *interpreter.String:
+		return "string"
+	case *interpreter.Boolean:
+		return "bool"
+	case *interpreter.Null:
+		return "null"
+	case *interpreter.Array:
+		if o.ElementType != "" {
+			return "[]" + o.ElementType
+		}
+		return "[]any"
+	case *interpreter.Map:
+		keyType := o.KeyType
+		if keyType == "" {
+			keyType = "string"
+		}
+		valueType := o.ValueType
+		if valueType == "" {
+			valueType = "any"
+		}
+		return "map[" + keyType + "]" + valueType
+	case *interpreter.Instance:
+		return o.Class.Name
+	case *interpreter.Function:
+		return "function"
+	case *BoundMethod:
+		return "method"
+	case *interpreter.Enum:
+		return "enum"
+	case *interpreter.EnumValue:
+		return o.Enum.Name
+	default:
+		return fmt.Sprintf("%T", obj)
+	}
 }

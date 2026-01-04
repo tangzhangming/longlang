@@ -11,6 +11,8 @@ public class Config {
     private _database string
     private _charset string
     private _timeout int
+    private _useSSL bool
+    private _sslSkipVerify bool
     
     public function __construct() {
         this._host = "127.0.0.1"
@@ -20,6 +22,8 @@ public class Config {
         this._database = ""
         this._charset = "utf8mb4"
         this._timeout = 10000  // 10秒超时
+        this._useSSL = false
+        this._sslSkipVerify = false
     }
     
     public function setHost(host: string) Config {
@@ -83,6 +87,26 @@ public class Config {
     
     public function getTimeout() int {
         return this._timeout
+    }
+    
+    // SSL 配置方法
+    
+    public function useSSL(enable: bool = true) Config {
+        this._useSSL = enable
+        return this
+    }
+    
+    public function sslSkipVerify(skip: bool = true) Config {
+        this._sslSkipVerify = skip
+        return this
+    }
+    
+    public function isSSLEnabled() bool {
+        return this._useSSL
+    }
+    
+    public function isSSLSkipVerify() bool {
+        return this._sslSkipVerify
     }
 }
 

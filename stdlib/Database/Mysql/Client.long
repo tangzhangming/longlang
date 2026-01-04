@@ -76,6 +76,14 @@ public class Client {
         // 读取握手包
         this._readHandshake()
         
+        // 如果启用了 SSL，在发送认证前升级连接
+        if this._config.isSSLEnabled() {
+            // 先发送 SSL 请求包
+            this._sendSSLRequest()
+            // 升级连接为 TLS
+            this._tcp.upgradeToTLS(this._config.getHost(), this._config.isSSLSkipVerify())
+        }
+        
         // 发送认证包
         this._sendAuth()
         
@@ -91,6 +99,38 @@ public class Client {
         
         // 设置字符集
         this.execute("SET NAMES " + this._config.getCharset())
+    }
+    
+    /**
+     * 发送 SSL 请求包（在 TLS 升级前发送）
+     */
+    private function _sendSSLRequest() {
+        // 客户端能力标志（包含 CLIENT_SSL = 0x800）
+        // CLIENT_LONG_PASSWORD(1) | CLIENT_FOUND_ROWS(2) | CLIENT_LONG_FLAG(4) | 
+        // CLIENT_PROTOCOL_41(512) | CLIENT_SSL(2048) | CLIENT_SECURE_CONNECTION(32768) | CLIENT_PLUGIN_AUTH(524288)
+        clientFlags := 1 | 2 | 4 | 512 | 2048 | 32768 | 524288
+        
+        if this._config.getDatabase() != "" {
+            clientFlags = clientFlags | 8  // CLIENT_CONNECT_WITH_DB
+        }
+        
+        packet := {}
+        
+        // 能力标志 (4 bytes)
+        packet = this._concatBytes(packet, this._writeInt32LE(clientFlags))
+        
+        // 最大包大小 (4 bytes)
+        packet = this._concatBytes(packet, this._writeInt32LE(16777215))
+        
+        // 字符集 (1 byte)
+        packet.push(this._charset)
+        
+        // 保留字节 (23 bytes)
+        for i := 0; i < 23; i++ {
+            packet.push(0)
+        }
+        
+        this._writePacket(packet)
     }
     
     /**
@@ -182,6 +222,11 @@ public class Client {
         // CLIENT_LONG_PASSWORD(1) | CLIENT_FOUND_ROWS(2) | CLIENT_LONG_FLAG(4) | 
         // CLIENT_PROTOCOL_41(512) | CLIENT_SECURE_CONNECTION(32768) | CLIENT_PLUGIN_AUTH(524288)
         clientFlags := 1 | 2 | 4 | 512 | 32768 | 524288
+        
+        // 如果启用了 SSL，添加 CLIENT_SSL 标志
+        if this._config.isSSLEnabled() {
+            clientFlags = clientFlags | 2048  // CLIENT_SSL = 0x800
+        }
         
         if this._config.getDatabase() != "" {
             // CLIENT_CONNECT_WITH_DB = 8
@@ -383,11 +428,42 @@ public class Client {
                 }
                 return
             } else if packet[1] == 0x04 {
-                // 需要发送密码（对于非 SSL 连接，MySQL 8 默认不允许）
-                throw new MysqlException("MySQL 服务器要求加密连接。请在 MySQL 配置中将用户认证方式改为 mysql_native_password，或使用 SSL 连接")
+                // 需要完整认证
+                if this._config.isSSLEnabled() {
+                    // SSL 连接：可以安全地发送明文密码
+                    this._sendCleartextPassword()
+                    
+                    // 读取认证响应
+                    response := this._readPacket()
+                    if response[0] == 0xff {
+                        this._handleError(response)
+                    } else if response[0] != 0x00 {
+                        throw new MysqlException("明文密码认证失败")
+                    }
+                    return
+                } else {
+                    // 非 SSL 连接，MySQL 8 默认不允许
+                    throw new MysqlException("MySQL 服务器要求加密连接。请在 MySQL 配置中将用户认证方式改为 mysql_native_password，或使用 SSL 连接")
+                }
             }
         }
         throw new MysqlException("未知的 Fast Auth 结果")
+    }
+    
+    /**
+     * 发送明文密码（仅在 SSL 连接中使用）
+     */
+    private function _sendCleartextPassword() {
+        password := this._config.getPassword()
+        packet := {}
+        
+        // 密码 + null 终止符
+        for i := 0; i < len(password); i++ {
+            packet.push(ord(password.charAt(i)))
+        }
+        packet.push(0)
+        
+        this._writePacket(packet)
     }
     
     /**

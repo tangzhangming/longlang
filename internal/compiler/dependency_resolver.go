@@ -104,7 +104,8 @@ func (dr *DependencyResolver) loadFile(filePath string) (*parser.Program, error)
 		return nil, err
 	}
 
-	l := lexer.New(string(content))
+	// 使用文件路径判断是否为标准库
+	l := lexer.NewFromFile(string(content), filePath)
 	p := parser.New(l)
 	program := p.ParseProgram()
 

@@ -64,6 +64,8 @@ func (c *Compiler) compileExpression(expr parser.Expression) error {
 		return c.compileInterpolatedString(e)
 	case *parser.SliceExpression:
 		return c.compileSliceExpression(e)
+	case *parser.TypeAssertionExpression:
+		return c.compileTypeAssertionExpression(e)
 	default:
 		return fmt.Errorf("不支持的表达式类型: %T", expr)
 	}
@@ -755,6 +757,62 @@ func (c *Compiler) compileSliceExpression(expr *parser.SliceExpression) error {
 	c.emit(OP_SLICE, expr.Token.Line)
 
 	return nil
+}
+
+// compileTypeAssertionExpression 编译类型断言表达式
+// 对应语法：value as Type（强制断言）或 value as? Type（安全断言）
+func (c *Compiler) compileTypeAssertionExpression(expr *parser.TypeAssertionExpression) error {
+	// 1. 编译左侧表达式（被断言的值）
+	if err := c.compileExpression(expr.Left); err != nil {
+		return err
+	}
+
+	// 2. 获取目标类型名称字符串
+	targetTypeName := c.getTypeNameFromExpr(expr.TargetType)
+	if targetTypeName == "" {
+		return fmt.Errorf("无效的类型断言目标类型")
+	}
+
+	// 3. 将类型名称添加到常量池
+	typeNameIndex := c.addConstant(&interpreter.String{Value: targetTypeName})
+
+	// 4. 发出 OP_TYPE_ASSERT 指令
+	// 操作数：类型名索引 + 是否安全断言标志
+	c.emitWithOperand(OP_TYPE_ASSERT, byte(typeNameIndex), expr.Token.Line)
+	if expr.IsSafe {
+		c.bytecode.Instructions = append(c.bytecode.Instructions, 1)
+	} else {
+		c.bytecode.Instructions = append(c.bytecode.Instructions, 0)
+	}
+	c.bytecode.Lines = append(c.bytecode.Lines, expr.Token.Line)
+
+	return nil
+}
+
+// getTypeNameFromExpr 从类型表达式中获取类型名称
+func (c *Compiler) getTypeNameFromExpr(typeExpr parser.Expression) string {
+	switch t := typeExpr.(type) {
+	case *parser.Identifier:
+		return t.Value
+	case *parser.ArrayType:
+		elemType := c.getTypeNameFromExpr(t.ElementType)
+		if elemType == "" {
+			return ""
+		}
+		return "[]" + elemType
+	case *parser.MapType:
+		keyType := ""
+		if t.KeyType != nil {
+			keyType = t.KeyType.Value
+		}
+		valueType := c.getTypeNameFromExpr(t.ValueType)
+		if valueType == "" {
+			return ""
+		}
+		return "map[" + keyType + "]" + valueType
+	default:
+		return ""
+	}
 }
 
 // emitBinaryOp 发出二元运算指令

@@ -257,6 +257,23 @@ func cmdRun(filename string) {
 		fmt.Fprintf(os.Stderr, "%s\n", result.Inspect())
 		os.Exit(1)
 	}
+
+	// 检查未捕获的异常
+	if result != nil && result.Type() == interpreter.THROWN_EXCEPTION_OBJ {
+		thrownEx := result.(*interpreter.ThrownException)
+		if thrownEx.Exception != nil {
+			if msg, ok := thrownEx.Exception.Fields["message"]; ok {
+				fmt.Fprintf(os.Stderr, "未捕获的异常: %s\n", msg.Inspect())
+				os.Exit(1)
+			}
+			fmt.Fprintf(os.Stderr, "未捕获的异常: %s\n", thrownEx.Exception.Inspect())
+		} else if thrownEx.RuntimeError != nil {
+			fmt.Fprintf(os.Stderr, "未捕获的异常: %s\n", thrownEx.RuntimeError.Message)
+		} else {
+			fmt.Fprintf(os.Stderr, "未捕获的异常\n")
+		}
+		os.Exit(1)
+	}
 }
 
 // cmdBuild 编译指定的文件

@@ -92,6 +92,7 @@ const (
 	OP_INDEX_SET // 索引赋值
 	OP_SLICE     // 切片操作
 	OP_INSTANCE_OF // 检查实例是否属于类
+	OP_TYPE_ASSERT // 类型断言（操作数：目标类型名索引 + 是否安全断言标志）
 
 	// 异常处理指令
 	OP_THROW        // 抛出异常
@@ -179,6 +180,7 @@ var opcodeNames = map[Opcode]string{
 	OP_INDEX_SET:      "OP_INDEX_SET",
 	OP_SLICE:          "OP_SLICE",
 	OP_INSTANCE_OF:    "OP_INSTANCE_OF",
+	OP_TYPE_ASSERT:    "OP_TYPE_ASSERT",
 	OP_THROW:          "OP_THROW",
 	OP_PUSH_TRY:       "OP_PUSH_TRY",
 	OP_POP_TRY:        "OP_POP_TRY",

@@ -20,9 +20,14 @@ func readFile(path string) (string, error) {
 	return string(content), nil
 }
 
-// newLexer 创建词法分析器
+// newLexer 创建词法分析器（默认非标准库）
 func newLexer(input string) *lexer.Lexer {
 	return lexer.New(input)
+}
+
+// newLexerFromFile 根据文件路径创建词法分析器，自动判断是否为标准库
+func newLexerFromFile(input string, filePath string) *lexer.Lexer {
+	return lexer.NewFromFile(input, filePath)
 }
 
 // newParser 创建语法分析器
@@ -87,7 +92,7 @@ func New() *Interpreter {
 	globalEnv = env
 	// 注册异常类
 	registerExceptionClasses(env)
-	
+
 	// 创建解释器实例
 	interp := &Interpreter{
 		env:               env,
@@ -100,10 +105,10 @@ func New() *Interpreter {
 		loadingNamespaces: make(map[string]bool),
 		callStack:         make([]StackFrame, 0),
 	}
-	
+
 	// 设置全局解释器引用（用于 __create_instance）
 	SetGlobalInterpreter(interp)
-	
+
 	return interp
 }
 
@@ -470,22 +475,22 @@ func (i *Interpreter) evalIdentifier(node *parser.Identifier) Object {
 	// 如果在当前环境找不到，尝试在当前命名空间中查找（同命名空间自动引用）
 	if i.currentNamespace != nil {
 		name := node.Value
-		
+
 		// 1. 查找类
 		if class, found := i.currentNamespace.GetClass(name); found {
 			return class
 		}
-		
+
 		// 2. 查找枚举
 		if enum, found := i.currentNamespace.GetEnum(name); found {
 			return enum
 		}
-		
+
 		// 3. 查找接口
 		if iface, found := i.currentNamespace.GetInterface(name); found {
 			return iface
 		}
-		
+
 		// 4. 尝试自动加载同命名空间下的类文件
 		loadErr := i.loadNamespaceFile(i.currentNamespace.FullName, name)
 		if loadErr == nil {
@@ -839,12 +844,16 @@ func (i *Interpreter) evalExpressions(args []parser.CallArgument) []Object {
 
 // applyFunction 应用函数
 func (i *Interpreter) applyFunction(fn Object, args []Object, callArgs []parser.CallArgument) Object {
+	// 如果 fn 是抛出的异常，直接传播
+	if isThrownException(fn) {
+		return fn
+	}
 	switch fn := fn.(type) {
 	case *Function:
 		// 压入调用栈
 		i.pushStackFrame(fn.Name, "", fn.FileName, fn.Line, fn.Column)
 		defer i.popStackFrame()
-		
+
 		// 需要将 interface{} 转换为正确的类型
 		body, ok := fn.Body.(*parser.BlockStatement)
 		if !ok {
@@ -1337,35 +1346,35 @@ func (i *Interpreter) isExceptionClass(class *Class) bool {
 // captureStackTrace 捕获当前调用栈信息
 func (i *Interpreter) captureStackTrace() []string {
 	var traces []string
-	
+
 	// 反向遍历调用栈（最近的调用在最前面）
 	for idx := len(i.callStack) - 1; idx >= 0; idx-- {
 		frame := i.callStack[idx]
 		var trace string
-		
+
 		if frame.ClassName != "" {
 			// 方法调用
-			trace = fmt.Sprintf("    at %s.%s(%s:%d:%d)", 
-				frame.ClassName, frame.FunctionName, 
+			trace = fmt.Sprintf("    at %s.%s(%s:%d:%d)",
+				frame.ClassName, frame.FunctionName,
 				frame.FileName, frame.Line, frame.Column)
 		} else if frame.FunctionName != "" {
 			// 函数调用
-			trace = fmt.Sprintf("    at %s(%s:%d:%d)", 
-				frame.FunctionName, 
+			trace = fmt.Sprintf("    at %s(%s:%d:%d)",
+				frame.FunctionName,
 				frame.FileName, frame.Line, frame.Column)
 		} else {
 			// 顶层代码
-			trace = fmt.Sprintf("    at <main>(%s:%d:%d)", 
+			trace = fmt.Sprintf("    at <main>(%s:%d:%d)",
 				frame.FileName, frame.Line, frame.Column)
 		}
 		traces = append(traces, trace)
 	}
-	
+
 	// 如果调用栈为空，返回默认值
 	if len(traces) == 0 {
 		traces = append(traces, "    at <main>")
 	}
-	
+
 	return traces
 }
 
@@ -1504,7 +1513,7 @@ func (i *Interpreter) evalUseStatement(node *parser.UseStatement) Object {
 
 	// 尝试加载命名空间文件（如果尚未加载）
 	loadErr := i.loadNamespaceFile(namespace, symbolName)
-	
+
 	// 首先尝试在原始命名空间中查找（支持标准库）
 	targetNamespace := i.namespaceMgr.GetNamespace(namespace)
 
@@ -1699,8 +1708,8 @@ func (i *Interpreter) loadNamespaceFile(namespace string, className string) erro
 	// 标记为已加载
 	i.loadedNamespaces[fullKey] = true
 
-	// 解析并执行文件
-	l := newLexer(content)
+	// 解析并执行文件（使用文件路径判断是否为标准库）
+	l := newLexerFromFile(content, loadedPath)
 	p := newParser(l)
 	program := p.ParseProgram()
 
@@ -2049,7 +2058,7 @@ func (i *Interpreter) evalNewExpression(node *parser.NewExpression) Object {
 			classObj = class
 			ok = true
 		}
-		
+
 		// 如果在当前命名空间中没找到，尝试自动加载同命名空间下的类文件
 		if !ok {
 			loadErr := i.loadNamespaceFile(i.currentNamespace.FullName, className)
@@ -2269,7 +2278,7 @@ func (i *Interpreter) CreateInstance(className string, constructorArgs []Object)
 // evalMemberAccessExpression 执行成员访问表达式
 func (i *Interpreter) evalMemberAccessExpression(node *parser.MemberAccessExpression) Object {
 	obj := i.Eval(node.Object)
-	if isError(obj) {
+	if isError(obj) || isThrownException(obj) {
 		return obj
 	}
 
@@ -2671,7 +2680,7 @@ func (i *Interpreter) evalStaticCallExpression(node *parser.StaticCallExpression
 					ok = true
 				}
 			}
-			
+
 			// 如果在当前命名空间中没找到，尝试自动加载同命名空间下的类文件
 			if !ok {
 				loadErr := i.loadNamespaceFile(i.currentNamespace.FullName, className)
@@ -2822,12 +2831,12 @@ func (i *Interpreter) findStaticMethod(class *Class, methodName string) (*ClassM
 	if method, ok := class.StaticMethods[methodName]; ok {
 		return method, class
 	}
-	
+
 	// 如果当前类没有，递归查找父类
 	if class.Parent != nil {
 		return i.findStaticMethod(class.Parent, methodName)
 	}
-	
+
 	return nil, nil
 }
 
@@ -3279,7 +3288,7 @@ func (i *Interpreter) applyBoundMethod(bm *BoundMethod, args []Object, callArgs 
 	if method.Body == nil {
 		return i.applyBuiltinMethod(bm.Instance, method.Name, args)
 	}
-	
+
 	// 压入调用栈
 	className := ""
 	if bm.Instance != nil && bm.Instance.Class != nil {
@@ -3476,7 +3485,7 @@ func (i *Interpreter) evalForRangeMap(m *Map, keyName, valueName string, body *p
 	// 使用 Keys 保持插入顺序
 	for _, key := range m.Keys {
 		value := m.Pairs[key]
-		
+
 		// 设置 key 变量（如果不是 _）
 		if keyName != "" && keyName != "_" {
 			i.env.Set(keyName, &String{Value: key})
@@ -3581,7 +3590,7 @@ func (i *Interpreter) evalForRangeString(str *String, keyName, valueName string,
 // 将各部分拼接成最终字符串
 func (i *Interpreter) evalInterpolatedString(node *parser.InterpolatedStringLiteral) Object {
 	var result string
-	
+
 	for _, part := range node.Parts {
 		if part.IsExpr {
 			// 执行表达式
@@ -3596,7 +3605,7 @@ func (i *Interpreter) evalInterpolatedString(node *parser.InterpolatedStringLite
 			result += part.Text
 		}
 	}
-	
+
 	return &String{Value: result}
 }
 

@@ -2,6 +2,7 @@ package interpreter
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -542,6 +543,54 @@ func registerNetBuiltins(env *Environment) {
 			elements[i] = &String{Value: ip}
 		}
 		return &Array{Elements: elements}
+	}})
+
+	// ===== TLS/SSL 函数 =====
+
+	// __tls_upgrade(conn, serverName, skipVerify) - 将 TCP 连接升级为 TLS 加密连接
+	env.Set("__tls_upgrade", &Builtin{Fn: func(args ...Object) Object {
+		if len(args) != 3 {
+			return newError("__tls_upgrade 需要3个参数，得到 %d 个", len(args))
+		}
+		conn, ok := args[0].(*TcpConnection)
+		if !ok {
+			return newError("__tls_upgrade 第一个参数必须是 TcpConnection，得到 %s", args[0].Type())
+		}
+		if conn.Closed {
+			return newError("IOException: connection is closed")
+		}
+		serverNameStr, ok := args[1].(*String)
+		if !ok {
+			return newError("__tls_upgrade 第二个参数必须是字符串，得到 %s", args[1].Type())
+		}
+		skipVerifyBool, ok := args[2].(*Boolean)
+		if !ok {
+			return newError("__tls_upgrade 第三个参数必须是布尔值，得到 %s", args[2].Type())
+		}
+
+		// 配置 TLS
+		tlsConfig := &tls.Config{
+			ServerName:         serverNameStr.Value,
+			InsecureSkipVerify: skipVerifyBool.Value,
+		}
+
+		// 将普通 TCP 连接升级为 TLS 连接
+		tlsConn := tls.Client(conn.Conn, tlsConfig)
+
+		// 执行 TLS 握手
+		if err := tlsConn.Handshake(); err != nil {
+			return newError("TLS 握手失败: %s", err.Error())
+		}
+
+		// 返回新的 TLS 连接对象
+		return &TcpConnection{
+			Conn:       tlsConn,
+			Reader:     bufio.NewReader(tlsConn),
+			Writer:     bufio.NewWriter(tlsConn),
+			LocalAddr:  tlsConn.LocalAddr().String(),
+			RemoteAddr: tlsConn.RemoteAddr().String(),
+			Closed:     false,
+		}
 	}})
 }
 

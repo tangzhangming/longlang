@@ -108,6 +108,13 @@ public class TcpClient {
         __tcp_conn_set_write_timeout(this.conn, timeout)
     }
     
+    // upgradeToTLS 将连接升级为 TLS 加密连接
+    // @param serverName 服务器名称（用于证书验证）
+    // @param skipVerify 是否跳过证书验证（开发环境可设为 true）
+    public function upgradeToTLS(serverName: string, skipVerify: bool = false) {
+        this.conn = __tls_upgrade(this.conn, serverName, skipVerify)
+    }
+    
     // connect 静态方法：连接到服务器
     // @param host 服务器地址
     // @param port 服务器端口

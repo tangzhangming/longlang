@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"strings"
 	"unicode"
 	"unicode/utf8"
 )
@@ -15,6 +16,7 @@ type Lexer struct {
 	ch           byte   // 当前正在处理的字符
 	line         int    // 当前行号（用于错误报告）
 	column       int    // 当前列号（用于错误报告）
+	isStdlib     bool   // 是否是标准库文件（允许使用 __ 前缀的内部函数）
 }
 
 // New 创建新的词法分析器
@@ -24,12 +26,47 @@ type Lexer struct {
 //   初始化好的 Lexer 实例
 func New(input string) *Lexer {
 	l := &Lexer{
-		input:  input,
-		line:   1, // 行号从1开始
-		column: 1, // 列号从1开始
+		input:    input,
+		line:     1, // 行号从1开始
+		column:   1, // 列号从1开始
+		isStdlib: false,
 	}
 	l.readChar() // 读取第一个字符
 	return l
+}
+
+// NewWithOptions 创建新的词法分析器（带选项）
+// 参数:
+//   input: 要分析的源代码字符串
+//   isStdlib: 是否是标准库文件
+// 返回:
+//   初始化好的 Lexer 实例
+func NewWithOptions(input string, isStdlib bool) *Lexer {
+	l := &Lexer{
+		input:    input,
+		line:     1,
+		column:   1,
+		isStdlib: isStdlib,
+	}
+	l.readChar()
+	return l
+}
+
+// NewFromFile 根据文件路径创建词法分析器，自动判断是否为标准库
+// 参数:
+//   input: 要分析的源代码字符串
+//   filePath: 文件路径
+// 返回:
+//   初始化好的 Lexer 实例
+func NewFromFile(input string, filePath string) *Lexer {
+	// 判断是否为标准库文件：路径包含 stdlib/ 或 stdlib\
+	isStdlib := strings.Contains(filePath, "stdlib/") || strings.Contains(filePath, "stdlib\\")
+	return NewWithOptions(input, isStdlib)
+}
+
+// IsStdlib 返回当前 Lexer 是否在标准库模式
+func (l *Lexer) IsStdlib() bool {
+	return l.isStdlib
 }
 
 // readChar 读取下一个字符并更新位置信息
@@ -360,17 +397,27 @@ func (l *Lexer) NextToken() Token {
 			// 是字母或下划线，可能是标识符或关键字
 			// 支持以下划线开头的标识符（如 __construct）
 			tok.Literal = l.readIdentifier()
-			tok.Type = LookupIdent(tok.Literal)
 			tok.Line = l.line
 			tok.Column = l.column
-			
+
+			// 检查是否是非法的内部函数调用
+			if strings.HasPrefix(tok.Literal, "__ILLEGAL_INTERNAL_FUNC__:") {
+				// 提取原始函数名
+				originalName := strings.TrimPrefix(tok.Literal, "__ILLEGAL_INTERNAL_FUNC__:")
+				tok.Type = ILLEGAL
+				tok.Literal = "禁止使用内部函数 '" + originalName + "'，内部函数只能在标准库中使用"
+				return tok
+			}
+
+			tok.Type = LookupIdent(tok.Literal)
+
 			// 特殊处理 as? (安全类型断言)
 			if tok.Type == AS && l.ch == '?' {
 				l.readChar() // 跳过 ?
 				tok.Type = AS_SAFE
 				tok.Literal = "as?"
 			}
-			
+
 			return tok
 		} else if isDigit(l.ch) {
 			// 是数字，读取整数或浮点数
@@ -416,13 +463,22 @@ func newToken(tokenType TokenType, ch byte, line, column int) Token {
 // 标识符可以包含字母、数字和下划线
 // 点号不再包含在标识符中，而是作为单独的 DOT token 处理
 // 返回:
-//   标识符字符串
+//   标识符字符串，如果是非法的内部函数调用则返回空字符串
 func (l *Lexer) readIdentifier() string {
 	position := l.position
 	for isLetter(l.ch) || isDigit(l.ch) || l.ch == '_' {
 		l.readChar()
 	}
-	return l.input[position:l.position]
+	identifier := l.input[position:l.position]
+
+	// 检查是否是内部函数（以 __ 开头）
+	// 只有标准库文件才允许使用内部函数
+	if strings.HasPrefix(identifier, "__") && !l.isStdlib {
+		// 返回特殊标记，表示非法使用内部函数
+		return "__ILLEGAL_INTERNAL_FUNC__:" + identifier
+	}
+
+	return identifier
 }
 
 // readNumber 读取数字（整数或浮点数）

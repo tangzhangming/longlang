@@ -83,8 +83,8 @@ func (c *Compiler) CompileFile(filePath string) error {
 		return fmt.Errorf("读取文件失败: %w", err)
 	}
 
-	// 解析
-	lexer := newLexer(content)
+	// 解析（使用文件路径判断是否为标准库）
+	lexer := newLexerFromFile(content, filePath)
 	parser := newParser(lexer)
 	program := parser.ParseProgram()
 
@@ -155,6 +155,10 @@ func readFile(path string) (string, error) {
 
 func newLexer(input string) *lexer.Lexer {
 	return lexer.New(input)
+}
+
+func newLexerFromFile(input string, filePath string) *lexer.Lexer {
+	return lexer.NewFromFile(input, filePath)
 }
 
 func newParser(l *lexer.Lexer) *parser.Parser {
